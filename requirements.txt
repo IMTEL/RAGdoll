@@ -1,1 +1,3 @@
-pip install fastapi uvicorn
+fastapi
+uvicorn
+pytest
