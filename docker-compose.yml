@@ -1,0 +1,25 @@
+services:
+  chat-service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/code
+      - logvolume01:/var/log
+    depends_on:
+      - redis
+    environment:
+      - PYTHONUNBUFFERED=1
+  redis:
+    image: redis
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+
+volumes:
+  logvolume01: {}

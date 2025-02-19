@@ -1,12 +1,108 @@
 # chat-service
 
+# 🚀 Chat Service Backend
 
-## Health Check: /ping Endpoint
+This is the backend service for the **VR4VET Chatbot**, built with **FastAPI**.
 
+## 📦 Installation
+
+### **1️⃣ Clone the Repository**
+```sh
+git clone https://github.com/vr4vet/chat-service.git
+cd chat-service
+```
+
+### **2️⃣ Set Up a Virtual Environment (Recommended)**
+It’s best to install dependencies inside a virtual environment:
+
+```sh
+python -m venv .venv
+source .venv/bin/activate  # For Mac/Linux
+```
+# OR
+```sh
+.\.venv\Scripts\activate  # For Windows PowerShell
+```
+
+### **3️⃣ Install Dependencies**
+```sh
+pip install -r requirements.txt
+```
+
+# 🚀 Running the Service Locally
+
+### **1️⃣ Start the FastAPI Server**
+Run the following command:
+
+```sh
+uvicorn src.main:app --reload
+```
+The service will now be available at:
+
+Docs UI: http://127.0.0.1:8000/docs
+API Root: http://127.0.0.1:8000
+
+### **2️⃣ Verify the /ping Endpoint**
+Check if the service is running:
 The `/ping` endpoint is used to check if the backend is running.
 
-### **How to Test `/ping` Using cURL**
-Run:
 ```sh
-curl -v http://127.0.0.1:8000/ping
+curl http://127.0.0.1:8000/ping
+```
+✅ Expected response:
+```sh
+{"status":"I AM ALIVE!"}
+```
 
+
+
+##  Running the Service with Docker
+
+This service can be containerized using **Docker** for easy deployment.
+
+### 1️ Build the Docker Image
+Run the following command to build the Docker image:
+
+```sh
+docker build -t chat-service .
+```
+
+### 2 Run the Docker Container
+Once the image is built, start the container:
+
+```sh
+docker run -p 8000:8000 chat-service
+```
+The service should now be running at http://127.0.0.1:8000.
+
+### 3 Verify the Service
+Test if the service is running by making a request to the /ping endpoint:
+
+# Using cURL:
+```sh
+curl http://127.0.0.1:8000/ping
+```
+Expected Response:
+{"status":"I AM ALIVE!"}
+
+### 4 Stop the Running Container
+To stop the running container:
+```sh
+docker ps  # Get container ID
+docker stop <container_id>
+```
+
+### 5 Debugging (Optional)
+If the service is not running as expected:
+
+Check running containers:
+```sh
+docker ps
+```
+View logs:
+```sh
+docker logs <container_id>
+```
+# 📌 Notes
+Make sure Docker is installed and running before executing these commands.
+The Dockerfile is designed to expose port 8000, so ensure no other service is using this port.
