@@ -11,11 +11,15 @@ services:
       - logvolume01:/var/log
     depends_on:
       - redis
+    environment:
+      - PYTHONUNBUFFERED=1
   redis:
     image: redis
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+
 volumes:
   logvolume01: {}
-
-Source:docs.docker.com
-0
-simple docker-compose fi
