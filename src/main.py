@@ -4,9 +4,22 @@ import uvicorn
 app = FastAPI()
 
 @app.get("/")
-def root():
-    return {"message": "Hello World"}
+def hello_world():
+    """Hello World
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    Returns:
+        message: Hello World from FastAPI!
+    """
+    return {"message": "Hello World from FastAPI!"}
 
+@app.get("/ping")
+def ping():
+    """Ping
+
+    Returns:
+        status: I AM ALIVE!
+    """
+    return {"status": "I AM ALIVE!"}
+
+if __name__ == "__main__":  # This should always be last
+    uvicorn.run(app, host="0.0.0.0", port=8000)
