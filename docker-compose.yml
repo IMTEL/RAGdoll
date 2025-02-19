@@ -1,0 +1,21 @@
+services:
+  chat-service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/code
+      - logvolume01:/var/log
+    depends_on:
+      - redis
+  redis:
+    image: redis
+volumes:
+  logvolume01: {}
+
+Source:docs.docker.com
+0
+simple docker-compose fi
