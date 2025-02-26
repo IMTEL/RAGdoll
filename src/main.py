@@ -10,16 +10,17 @@ def hello_world():
     Returns:
         message: Hello World from FastAPI!
     """
-    return {"message": "Hello World from FastAPI!"}
+    return {"message": "Hello World!"}
+
 
 @app.get("/ping")
 def ping():
     """Ping
 
     Returns:
-        status: I AM ALIVE!
+        status: Pong
     """
-    return {"status": "I AM ALIVE!"}
+    return {"status": "PONG!"}
 
 if __name__ == "__main__":  # This should always be last
     uvicorn.run(app, host="0.0.0.0", port=8000)
