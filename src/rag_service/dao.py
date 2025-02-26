@@ -29,6 +29,22 @@ class Database(ABC):
         ) and (
             hasattr(subclass, "post_context") and callable(subclass.post_context)
         )
+        
+    @abstractmethod
+    def get_context_from_NPC( self,
+        NPC: int
+        )-> list[Context]:
+        """Fetches context solely based on what context associated with the given NPC id
+
+        Args:
+            NPC (int): NPC id
+
+        Returns:
+            list[Context]: context
+        """
+        pass
+        
+        
     
     @abstractmethod
     def get_context(self, 
@@ -89,6 +105,46 @@ class MongoDB(Database):
         self.db = self.client[MONGODB_DATABASE]
         self.collection = self.db[MONGODB_COLLECTION]
         self.similarity_threshold = 0.7
+        
+    def get_context_from_NPC(self, NPC: int) -> list[Context]:
+        if not NPC:
+            raise ValueError("NPC cannot be None")
+
+        # Example using MongoDB Atlas Search with an index named "NPC":
+        query = {
+            "$search": {
+                "index": "NPC",
+                "text": {
+                    "path": "NPC",
+                    "query": str(NPC)
+                }
+            }
+        }
+
+        # Execute the aggregate pipeline
+        documents = self.collection.aggregate([
+            query,
+            {"$limit": 50},  # optional: limit the number of documents returned
+        ])
+
+        # Convert cursor to a list
+        documents = list(documents)
+        if not documents:
+            raise ValueError(f"No documents found for NPC: {NPC}")
+
+        results = []
+        for doc in documents:
+            results.append(
+                Context(
+                    text=doc["text"],
+                    document_name=doc["documentName"],
+                    NPC=doc["NPC"],
+                )
+            )
+
+        return results
+
+        
 
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
         if not embedding:
@@ -203,6 +259,47 @@ class MockDatabase(Database):
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
+            
+            
+    def get_context_from_NPC(self, NPC: int) -> list[Context]:
+        if not NPC:
+            raise ValueError("NPC cannot be None")
+
+        # Example using MongoDB Atlas Search with an index named "NPC":
+        query = {
+            "$search": {
+                "index": "NPC",
+                "text": {
+                    "path": "NPC",
+                    "query": str(NPC)
+                }
+            }
+        }
+
+        # Execute the aggregate pipeline
+        documents = self.collection.aggregate([
+            query,
+            {"$limit": 50},  # optional: limit the number of documents returned
+        ])
+
+        # Convert cursor to a list
+        documents = list(documents)
+        if not documents:
+            raise ValueError(f"No documents found for NPC: {NPC}")
+
+        results = []
+        for doc in documents:
+            results.append(
+                Context(
+                    text=doc["text"],
+                    document_name=doc["documentName"],
+                    NPC=doc["NPC"],
+                )
+            )
+
+        return results
+
+        
 
     def get_curriculum(self, document_name: str, embedding: list[float]) -> list[Context]:
         if not embedding:
