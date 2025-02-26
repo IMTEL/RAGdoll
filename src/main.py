@@ -1,7 +1,13 @@
 from fastapi import FastAPI
 import uvicorn
 
-app = FastAPI()
+
+
+app = FastAPI(
+    title="Chat-Service Microservice API",
+    description="Generate prompts with context and passing them to LLM.",
+    version="1.0.0",
+)
 
 @app.get("/")
 def hello_world():
