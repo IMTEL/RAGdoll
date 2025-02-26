@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
-from src.models.failure import failureData
+from src.models.failure import FailureData
 
 failureLog = []
 
 router = APIRouter()
 
 @router.post("/api/failure")
-def receive_failure(failure: failureData):
+def receive_failure(failure: FailureData):
     """
     Receives failure data and stores it in memory.
     """
