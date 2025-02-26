@@ -1,7 +1,9 @@
 from fastapi import FastAPI
+from src.routes import progress
 import uvicorn
 
 app = FastAPI()
+app.include_router(progress.router)
 
 @app.get("/")
 def hello_world():
