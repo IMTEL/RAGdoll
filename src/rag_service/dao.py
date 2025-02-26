@@ -3,14 +3,11 @@ from abc import ABC, abstractmethod
 from pymongo import MongoClient
 import logging
 
-from rag_service.context import Context
-from rag_service.embeddings import similarity_search 
-from src.config import (
-    RAG_DATABASE_SYSTEM,
-    MONGODB_URI,
-    MONGODB_COLLECTION,
-    MONGODB_DATABASE,
-)
+from src.rag_service.context import Context
+from src.rag_service.embeddings import similarity_search 
+from src.config import Config
+
+config = Config()
 
 
 class Database(ABC):
@@ -101,9 +98,9 @@ class Database(ABC):
 
 class MongoDB(Database):
     def __init__(self):
-        self.client = MongoClient(MONGODB_URI)
-        self.db = self.client[MONGODB_DATABASE]
-        self.collection = self.db[MONGODB_COLLECTION]
+        self.client = MongoClient(config.MONGODB_URI)
+        self.db = self.client[config.MONGODB_DATABASE]
+        self.collection = self.db[config.MONGODB_COLLECTION]
         self.similarity_threshold = 0.7
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
@@ -357,7 +354,7 @@ def get_database() -> Database:
     Returns:
         Database: The database to use
     """
-    match RAG_DATABASE_SYSTEM.lower():
+    match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
             return MockDatabase()  # This will always return the singleton instance
         case "mongodb":
