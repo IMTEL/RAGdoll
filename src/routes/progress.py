@@ -15,9 +15,9 @@ def receive_progress(progress: ProgressData):
     Receives progress data and stores it in memory.
     """
     # Store the progress data in the in-memory list
-    progressLog.append(progress.model_dump_json())
+    progressLog.append(progress.model_dump())
     
     #print(progressLog) # Debugging
     
-    return {"message": "Progress received successfully", "data": progress.dict()}
+    return {"message": "Progress received successfully", "data": progress.model_dump()}
     
