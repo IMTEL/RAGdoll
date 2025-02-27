@@ -6,8 +6,12 @@ import os
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
+app = FastAPI(
+    title="Chat-Service Microservice API",
+    description="Generate prompts with context and passing them to LLM.",
+    version="1.0.0",
 
-app = FastAPI()
+)
 # Progress router
 app.include_router(progress.router)
 # Failure router
@@ -22,16 +26,17 @@ def hello_world():
     Returns:
         message: Hello World from FastAPI!
     """
-    return {"message": "Hello World from FastAPI!"}
+    return {"message": "Hello World!"}
+
 
 @app.get("/ping")
 def ping():
     """Ping
 
     Returns:
-        status: I AM ALIVE!
+        status: Pong
     """
-    return {"status": "I AM ALIVE!"}
+    return {"status": "PONG!"}
 
 if __name__ == "__main__":  # This should always be last
     uvicorn.run(app, host="0.0.0.0", port=8000)
