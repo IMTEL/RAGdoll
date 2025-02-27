@@ -15,7 +15,7 @@ def receive_failure(failure: FailureData):
     # Store the failure data in the in-memory list
     failureLog.append(failure.model_dump())
     
-    print(failureLog) # Debugging
+    print("Current failure log:", failureLog) # Debugging
     
     return {"message": "Failure received successfully", "data": failure.model_dump()}
 
