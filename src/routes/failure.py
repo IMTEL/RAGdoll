@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from src.models.failure import FailureData
 
-
-failureLog = []
+# In-memory log to store failure data
+from src.utils.global_logs import failureLog
 
 router = APIRouter()
 

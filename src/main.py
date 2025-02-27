@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from src.routes import progress
 from src.routes import failure
 import uvicorn
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 
 app = FastAPI()

@@ -3,8 +3,9 @@ from typing import List
 
 from src.models.progress import ProgressData
 
+
 # In-memory log to store progress data
-progressLog = []
+from src.utils.global_logs import progressLog
 
 # Define a router for progress-related endpoints
 router = APIRouter()
