@@ -25,3 +25,4 @@ def test_receive_failure():
     assert response_json["message"] == "Failure received successfully"
     assert response_json["data"]["errorCode"] == "404"
     assert response_json["data"]["description"] == "Task not found"
+    assert "receivedAt" in response_json["data"]
