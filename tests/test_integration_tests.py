@@ -1,3 +1,4 @@
+import time
 import pytest
 from uuid import uuid4
 import sys
@@ -26,7 +27,7 @@ def test_post_context_and_retrieve_by_NPC():
     db = get_database()
     test_text = "Test text for NPC"
     test_document_name = "TestDocNPC!"
-    test_NPC = 123
+    test_NPC = "123"
     test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
@@ -38,7 +39,9 @@ def test_post_context_and_retrieve_by_NPC():
         NPC=test_NPC,
         document_id=test_id,
     )
+    time.sleep(1)
     assert post_result is True, "post_context should return True"
+
 
     # Retrieve the context by NPC
     retrieved_contexts = db.get_context_from_NPC(test_NPC)
@@ -58,7 +61,7 @@ def test_post_context_and_retrieve_by_embedding():
     db = get_database()
     test_text = "Embedding-based retrieval text"
     test_document_name = "EmbeddingDoc"
-    test_NPC = 999
+    test_NPC = "999"
     test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
@@ -70,6 +73,7 @@ def test_post_context_and_retrieve_by_embedding():
         embedding=test_embedding,
         document_id=test_id,
     )
+    time.sleep(1)
     assert post_result is True, "post_context should return True"
 
     # Retrieve context by (documentId, embedding)
@@ -87,7 +91,7 @@ def test_get_context_from_NPC_no_results():
     to confirm it raises a ValueError (as per your code).
     """
     db = get_database()
-    non_existent_NPC = 999999
+    non_existent_NPC = "999999"
 
     with pytest.raises(ValueError) as exc_info:
         db.get_context_from_NPC(non_existent_NPC)

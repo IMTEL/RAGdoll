@@ -113,7 +113,7 @@ class MongoDB(Database):
                 "index": "NPC",
                 "text": {
                     "path": "NPC",
-                    "query": str(NPC)
+                    "query": NPC
                 }
             }
         }
@@ -135,7 +135,7 @@ class MongoDB(Database):
                 Context(
                     text=doc["text"],
                     document_name=doc["documentName"],
-                    NPC=int(doc["NPC"]),
+                    NPC=doc["NPC"],
                 )
             )
 
@@ -182,7 +182,7 @@ class MongoDB(Database):
                     Context(
                         text=document["text"],
                         document_name=document["documentName"],
-                        NPC=int(document["NPC"]),
+                        NPC=document["NPC"],
                     )
                 )
 
@@ -214,7 +214,7 @@ class MongoDB(Database):
                 {
                     "text": text,
                     "documentName": document_name,
-                    "NPC": str(NPC),
+                    "NPC": NPC,
                     "embedding": embedding,
                     "documentId": document_id,
                 }
@@ -268,7 +268,7 @@ class MockDatabase(Database):
             "$search": {
                 "index": "NPC",
                 "phrase": {                  # Use phrase search instead of text search
-                    "query": str(NPC),       # "123" as a string
+                    "query": NPC,       # "123" as a string
                     "path": "NPC"
                 }
             }
@@ -290,7 +290,7 @@ class MockDatabase(Database):
                 Context(
                     text=doc["text"],
                     document_name=doc["documentName"],
-                    NPC=int(doc["NPC"]),
+                    NPC=doc["NPC"],
                 )
             )
         return results
@@ -298,7 +298,7 @@ class MockDatabase(Database):
 
         
 
-    def get_curriculum(self, document_name: str, embedding: list[float]) -> list[Context]:
+    def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
         if not embedding:
             raise ValueError("Embedding cannot be None")
 
@@ -313,7 +313,7 @@ class MockDatabase(Database):
                         Context(
                             text=document["text"],
                             document_name=document["document_name"],
-                            NPC=int(document["NPC"]),
+                            NPC=document["NPC"],
                         )
                     )
         return results 
@@ -334,7 +334,7 @@ class MockDatabase(Database):
             {
                 "text": text,
                 "documentName": document_name,
-                "NPC": str(NPC),
+                "NPC": NPC,
                 "embedding": embedding,
                 "documentId": document_id,
             }
