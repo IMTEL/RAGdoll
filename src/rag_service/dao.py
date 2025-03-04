@@ -135,7 +135,7 @@ class MongoDB(Database):
                 Context(
                     text=doc["text"],
                     document_name=doc["documentName"],
-                    NPC=doc["NPC"],
+                    NPC=int(doc["NPC"]),
                 )
             )
 
@@ -182,7 +182,7 @@ class MongoDB(Database):
                     Context(
                         text=document["text"],
                         document_name=document["documentName"],
-                        NPC=document["NPC"],
+                        NPC=int(document["NPC"]),
                     )
                 )
 
@@ -214,13 +214,14 @@ class MongoDB(Database):
                 {
                     "text": text,
                     "documentName": document_name,
-                    "NPC": NPC,
+                    "NPC": str(NPC),
                     "embedding": embedding,
                     "documentId": document_id,
                 }
             )
             return True
-        except:
+        except Exception as e:
+            print("Error in post_context:", e)
             return False
 
     def is_reachable(self) -> bool:
@@ -258,17 +259,17 @@ class MockDatabase(Database):
             self.initialized = True
             
             
+        
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
             raise ValueError("NPC cannot be None")
 
-        # Example using MongoDB Atlas Search with an index named "NPC":
         query = {
             "$search": {
                 "index": "NPC",
-                "text": {
-                    "path": "NPC",
-                    "query": str(NPC)
+                "phrase": {                  # Use phrase search instead of text search
+                    "query": str(NPC),       # "123" as a string
+                    "path": "NPC"
                 }
             }
         }
@@ -276,10 +277,9 @@ class MockDatabase(Database):
         # Execute the aggregate pipeline
         documents = self.collection.aggregate([
             query,
-            {"$limit": 50},  # optional: limit the number of documents returned
+            {"$limit": 50},
         ])
 
-        # Convert cursor to a list
         documents = list(documents)
         if not documents:
             raise ValueError(f"No documents found for NPC: {NPC}")
@@ -290,11 +290,11 @@ class MockDatabase(Database):
                 Context(
                     text=doc["text"],
                     document_name=doc["documentName"],
-                    NPC=doc["NPC"],
+                    NPC=int(doc["NPC"]),
                 )
             )
-
         return results
+
 
         
 
@@ -313,32 +313,30 @@ class MockDatabase(Database):
                         Context(
                             text=document["text"],
                             document_name=document["document_name"],
-                            NPC=document["NPC"],
+                            NPC=int(document["NPC"]),
                         )
                     )
         return results 
 
-    def post_curriculum(
+    def post_context(
         self,
-        curriculum: str,
-        page_num: int,
-        predicted_page_number: int,
-        document_name: str,
+        text: str,
+        NPC: int,
         embedding: list[float],
         document_id: str,
+        document_name: str,
     ) -> bool:
-        if not curriculum or not document_name or page_num is None or not embedding:
+        if not text or not document_id or NPC is None or not embedding:
             raise ValueError("All parameters are required and must be valid")
 
         # Append a new document to the in-memory storage
         self.data.append(
             {
-                "text": curriculum,
-                "page_num": page_num,
-                "predicted_page_number": predicted_page_number,
-                "document_name": document_name,
+                "text": text,
+                "documentName": document_name,
+                "NPC": str(NPC),
                 "embedding": embedding,
-                "document_id": document_id,
+                "documentId": document_id,
             }
         )
         return True
@@ -356,7 +354,7 @@ def get_database() -> Database:
     """
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
-            return MockDatabase()  # This will always return the singleton instance
+            return MockDatabase()  
         case "mongodb":
             return MongoDB()
         case _:

@@ -25,17 +25,17 @@ def test_post_context_and_retrieve_by_NPC():
     """
     db = get_database()
     test_text = "Test text for NPC"
-    test_document_name = "TestDocNPC"
+    test_document_name = "TestDocNPC!"
     test_NPC = 123
-    test_embedding = [0.1, 0.2, 0.3]
+    test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
     # Post the context
     post_result = db.post_context(
         text=test_text,
         document_name=test_document_name,
-        NPC=test_NPC,
         embedding=test_embedding,
+        NPC=test_NPC,
         document_id=test_id,
     )
     assert post_result is True, "post_context should return True"
@@ -59,7 +59,7 @@ def test_post_context_and_retrieve_by_embedding():
     test_text = "Embedding-based retrieval text"
     test_document_name = "EmbeddingDoc"
     test_NPC = 999
-    test_embedding = [0.9, 0.8, 0.7]
+    test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
     # Post the context
