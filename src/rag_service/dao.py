@@ -263,16 +263,17 @@ class MockDatabase(Database):
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
             raise ValueError("NPC cannot be None")
-
         query = {
             "$search": {
                 "index": "NPC",
-                "phrase": {                  # Use phrase search instead of text search
-                    "query": NPC,       # "123" as a string
-                    "path": "NPC"
+                "phrase": {
+                    "path": "NPC",
+                    "query": NPC
                 }
             }
         }
+
+        
 
         # Execute the aggregate pipeline
         documents = self.collection.aggregate([
