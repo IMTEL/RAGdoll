@@ -38,5 +38,5 @@ def ping():
     """
     return {"status": "PONG!"}
 
-if __name__ == "__main__":  # This should always be last
+if __name__ == "__main__": 
     uvicorn.run(app, host="0.0.0.0", port=8000)

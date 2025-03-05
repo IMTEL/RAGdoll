@@ -24,6 +24,7 @@ class Prompt(BaseModel):
     base_prompt: str
     context: str
 
+
 def prompt_to_json(prompt: Prompt) -> str:
     """Converts a Prompt instance to a JSON string."""
     return prompt.model_dump_json()
