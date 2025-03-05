@@ -10,10 +10,19 @@ load_dotenv()  # Loads .env from the current working directory
 class Config:
     def __init__(self, path=".env", gpt_model="gpt-4o-mini"):
         self.path = path
+        self.DATABASE = os.getenv("DATABASE", "mock")
+        
         self.GPT_MODEL = os.getenv("GPT_MODEL", gpt_model)
         self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
-        self.MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-        self.MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "test_collection")
-        self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
-        self.RAG_DATABASE_SYSTEM = os.getenv("RAG_DATABASE_SYSTEM", "mongodb")
-        self.BASE_URL_FRONTEND = os.getenv("BASE_URL_FRONTEND", "http://localhost:8080")
+        
+        if self.DATABASE == 'mock':
+            self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")
+            self.MONGODB_COLLECTION = os.getenv("MOCK_MONGODB_COLLECTION", "test_collection")
+            self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
+            self.RAG_DATABASE_SYSTEM = os.getenv("MOCK_RAG_DATABASE_SYSTEM", "mongodb")
+        else:
+            self.MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+            self.MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "test_collection")
+            self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
+            self.RAG_DATABASE_SYSTEM = os.getenv("RAG_DATABASE_SYSTEM", "mongodb")
+

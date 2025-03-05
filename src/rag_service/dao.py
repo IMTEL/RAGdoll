@@ -174,7 +174,7 @@ class MongoDB(Database):
             # if str(document["documentId"]) != str(document_id):
             #     continue
 
-            if (
+            if ( # TODO: can mongodb Atlas search do this?
                 similarity_search(embedding, document["embedding"])
                 > self.similarity_threshold
             ):
@@ -307,16 +307,16 @@ class MockDatabase(Database):
 
         # Filter documents based on similarity and document_name
         for document in self.data:
-            if document["document_name"] == document_name:
-                similarity = similarity_search(embedding, document["embedding"])
-                if similarity > self.similarity_threshold:
-                    results.append(
-                        Context(
-                            text=document["text"],
-                            document_name=document["document_name"],
-                            NPC=document["NPC"],
-                        )
+            #if document["document_name"] == document_name:
+            similarity = similarity_search(embedding, document["embedding"])
+            if similarity > self.similarity_threshold:
+                results.append(
+                    Context(
+                        text=document["text"],
+                        document_name=document["document_name"],
+                        NPC=document["NPC"],
                     )
+                )
         return results 
 
     def post_context(
