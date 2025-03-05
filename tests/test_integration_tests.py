@@ -50,7 +50,7 @@ def test_post_context_and_retrieve_by_NPC():
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert context.NPC == test_NPC, "NPC should match"
+    assert str(context.NPC) == test_NPC, "NPC should match"
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_embedding():
