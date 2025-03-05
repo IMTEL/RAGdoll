@@ -2,14 +2,9 @@
 import math
 from abc import ABC, abstractmethod
 import openai
-from config import Config
 import numpy as np
 
-from config import Config # TODO: use correct path
-
-
-
-
+from src.config import Config
 
 class EmbeddingsModel(ABC):
     @abstractmethod
@@ -90,3 +85,14 @@ def similarity_search(embedding1: list[float], embedding2: list[float]) -> float
     
     # Compute cosine similarity
     return dot_product / (norm1 * norm2)
+
+
+if __name__ == "__main__":
+    embeddings_model = create_embeddings_model()
+    embedding1 = embeddings_model.get_embedding("Hello, world!")
+    embedding2 = embeddings_model.get_embedding("Goodbye, world!")
+    similarity = similarity_search(embedding1, embedding2)
+    print(f"Similarity: {similarity}")
+    
+    
+    

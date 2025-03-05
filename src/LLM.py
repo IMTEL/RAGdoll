@@ -1,6 +1,6 @@
 from typing import Protocol
 from openai import OpenAI
-from config import Config # TODO: use correct path
+from src.config import Config 
 
 class LLM(Protocol):
     def create_prompt(self, base_prompt: str, **kwargs) -> str:
@@ -21,9 +21,9 @@ class OpenAI_LLM(LLM):
         Initializes the LLM facade using the provided configuration.
         """
         self.config = Config()
-        self.model = config.GPT_MODEL
+        self.model = self.config.GPT_MODEL
         # Instantiate the client using the new OpenAI interface.
-        self.client = OpenAI(api_key=config.API_KEY)
+        self.client = OpenAI(api_key=self.config.API_KEY)
 
     def create_prompt(self, base_prompt: str, **kwargs) -> str:
         """
@@ -65,7 +65,6 @@ def create_llm(llm: str = "openai") -> LLM:
             return OpenAI_LLM()
         case _:
             raise ValueError(f"LLM {llm} not supported")
-
 
 
 # Example usage:
