@@ -15,14 +15,7 @@ cd chat-service
 ### **2️⃣ Set Up a Virtual Environment (Recommended)**
 It’s best to install dependencies inside a virtual environment:
 
-```sh
-python -m venv .venv
-source .venv/bin/activate  # For Mac/Linux
-```
-# OR
-```sh
-.\.venv\Scripts\activate  # For Windows PowerShell
-```
+follow manual for updating requirements
 
 ### **3️⃣ Install Dependencies**
 ```sh
