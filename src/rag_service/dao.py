@@ -171,8 +171,8 @@ class MongoDB(Database):
 
         # Filter out the documents with low similarity
         for document in documents:
-            if document["documentId"] != document_id:
-                continue
+            # if str(document["documentId"]) != str(document_id):
+            #     continue
 
             if (
                 similarity_search(embedding, document["embedding"])
