@@ -27,6 +27,7 @@ class Database(ABC):
             hasattr(subclass, "post_context") and callable(subclass.post_context)
         )
         
+        
     @abstractmethod
     def get_context_from_NPC( self,
         NPC: int
@@ -344,6 +345,61 @@ class MockDatabase(Database):
 
     def is_reachable(self) -> bool:
         return True
+    
+
+class LocalMockDatabase(Database):
+    def __init__(self):
+        self.data = []
+        self.similarity_threshold = 0.7
+        
+    def get_context_from_NPC(self, NPC: int) -> list[Context]:
+        pass
+
+    def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
+        if not embedding:
+            raise ValueError("Embedding cannot be None")
+
+        results = []
+
+        # Filter documents based on similarity and document_name
+        for document in self.data:
+            if document["document_name"] == document_name:
+                similarity = similarity_search(embedding, document["embedding"])
+                if similarity > self.similarity_threshold:
+                    results.append(
+                        Context(
+                            text=document["text"],
+                            document_name=document["document_name"],
+                            NPC=document["NPC"],
+                        )
+                    )
+        return results
+
+    def post_context(
+        self,
+        text: str,
+        NPC: int,
+        embedding: list[float],
+        document_id: str,
+        document_name: str,
+    ) -> bool:
+        if not text or not document_id or NPC is None or not embedding:
+            raise ValueError("All parameters are required and must be valid")
+
+        # Append a new document to the in-memory storage
+        self.data.append(
+            {
+                "text": text,
+                "documentName": document_name,
+                "NPC": NPC,
+                "embedding": embedding,
+                "documentId": document_id,
+            }
+        )
+        return True
+
+    def is_reachable(self) -> bool:
+        return True
 
 
 def get_database() -> Database:
@@ -358,5 +414,7 @@ def get_database() -> Database:
             return MockDatabase()  
         case "mongodb":
             return MongoDB()
+        case "local_mock":
+            return LocalMockDatabase()
         case _:
             raise ValueError("Invalid database type")
