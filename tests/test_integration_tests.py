@@ -23,7 +23,7 @@ def test_database_is_reachable():
     Test the is_reachable method to ensure
     we can connect to MongoDB or use the mock DB.
     """
-    if (Config().ENV != "test"):
+    if (Config().ENV != "dev"):
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     assert db.is_reachable() is True, "Database should be reachable"
@@ -34,7 +34,7 @@ def test_post_context_and_retrieve_by_NPC():
     Test post_context, then verify that get_context_from_NPC
     can retrieve the inserted document.
     """
-    if (Config().ENV != "test"):
+    if (Config().ENV != "dev"):
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     test_text = "Test text for NPC"
@@ -70,7 +70,7 @@ def test_post_context_and_retrieve_by_embedding():
     Test post_context, then verify get_context returns the document
     when the similarity is above the threshold.
     """
-    if (Config().ENV != "test"):
+    if (Config().ENV != "dev"):
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     test_text = "Embedding-based retrieval text"
@@ -104,7 +104,7 @@ def test_get_context_from_NPC_no_results():
     Test get_context_from_NPC with an NPC that doesn't exist
     to confirm it raises a ValueError (as per your code).
     """
-    if (Config().ENV != "test"):
+    if (Config().ENV != "dev"):
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     non_existent_NPC = "999999"
