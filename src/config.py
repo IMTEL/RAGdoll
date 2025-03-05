@@ -10,12 +10,13 @@ load_dotenv()  # Loads .env from the current working directory
 class Config:
     def __init__(self, path=".env", gpt_model="gpt-4o-mini"):
         self.path = path
-        self.DATABASE = os.getenv("DATABASE", "mock")
+        self.ENV = os.getenv("ENV", "test")
         
         self.GPT_MODEL = os.getenv("GPT_MODEL", gpt_model)
         self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
         
-        if self.DATABASE == 'mock':
+        
+        if self.ENV == 'testsgrsj': # TODO: change this to 'test' when ready
             self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")
             self.MONGODB_COLLECTION = os.getenv("MOCK_MONGODB_COLLECTION", "test_collection")
             self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
