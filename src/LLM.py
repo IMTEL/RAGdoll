@@ -48,28 +48,6 @@ class OpenAI_LLM(LLM):
             messages=messages
         )
         return response.choices[0].message.content.strip()
-    
-def create_llm(llm: str = "openai") -> LLM:
-    """
-    Factory for creating LLM instances.
-
-    Args:
-        llm (str, optional): Select LLM. Defaults to "openai".
-
-    Raises:
-        ValueError: If the specified LLM is not supported.
-
-    Returns:
-        LLM: The specified LLM instance.
-    """
-    match llm.lower():
-        case "openai":
-            return OpenAI_LLM()
-        case "gemini":
-            return Gemini_LLM()
-        case _:
-            raise ValueError(f"LLM {llm} not supported")
-
 
 # GOOGLE GEMINI
 
@@ -97,15 +75,25 @@ class Gemini_LLM(LLM):
         """
         response = self.client.generate_content(prompt)
         return response.text.strip()
+    
 
-# Example usage:
-if __name__ == "__main__":
-    config = Config()
-    llm = create_llm()
-    
-    base_prompt = "Explain the significance of the Python programming language."
-    full_prompt = llm.create_prompt(base_prompt, audience="beginner", detail="basic overview")
-    
-    response = llm.generate(full_prompt)
-    print("LLM Response:")
-    print(response)
+def create_llm(llm: str = "openai") -> LLM:
+    """
+    Factory for creating LLM instances.
+
+    Args:
+        llm (str, optional): Select LLM. Defaults to "openai".
+
+    Raises:
+        ValueError: If the specified LLM is not supported.
+
+    Returns:
+        LLM: The specified LLM instance.
+    """
+    match llm.lower():
+        case "openai":
+            return OpenAI_LLM()
+        case "gemini":
+            return Gemini_LLM()
+        case _:
+            raise ValueError(f"LLM {llm} not supported")
