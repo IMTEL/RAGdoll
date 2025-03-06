@@ -1,8 +1,8 @@
-
 import math
 from abc import ABC, abstractmethod
 import openai
 import numpy as np
+import google.generativeai as genai
 
 from src.config import Config
 
@@ -37,6 +37,22 @@ class OpenAIEmbedding(EmbeddingsModel):
         return response.data[0].embedding
     
 
+class GoogleEmbedding(EmbeddingsModel):
+    def __init__(self, model_name: str = "text-embedding-004"):
+        self.config = Config()
+        genai.configure(api_key=self.config.GEMINI_API_KEY)
+        self.model_name = f"models/{model_name}" if not model_name.startswith("models/") else model_name
+
+    def get_embedding(self, text: str) -> list[float]:
+        text = text.replace("\n", " ")
+        embedding = genai.embed_content(
+            model=self.model_name,
+            content=text,
+            task_type="retrieval_query"
+        )
+        return embedding["embedding"]
+    
+
 def create_embeddings_model(embeddings_model: str = "openai") -> EmbeddingsModel:
     """Factory for creating embeddings models.
 
@@ -52,6 +68,8 @@ def create_embeddings_model(embeddings_model: str = "openai") -> EmbeddingsModel
     match embeddings_model.lower():
         case "openai":
             return OpenAIEmbedding()
+        case "google":
+            return GoogleEmbedding()
         case _:
             raise ValueError(f"Embeddings model {embeddings_model} not supported")
         
