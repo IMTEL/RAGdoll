@@ -1,0 +1,20 @@
+@startuml PhysicalView
+node "VR Environment" {
+  component "Action Manager\n(Chat Service Module)" as AM
+}
+
+node "Backend Infrastructure" {
+  node "RAG Service Microservice" {
+    component "RAG Service" as RAG
+    component "DAO Component" as DAO
+    component "LLM Facade" as LLM
+  }
+  database "MongoDB Atlas" as DB
+  database "Local Mock Database" as MockDB
+}
+
+AM --> RAG : HTTPS Request
+RAG --> DB : Data access via DAO
+RAG --> MockDB : Data access via DAO
+RAG --> LLM : API call to LLM service
+@enduml
