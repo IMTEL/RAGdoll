@@ -1,0 +1,39 @@
+@startuml DevelopmentView
+package "src.rag_service" {
+  package "context" {
+    class Context
+  }
+  package "dao" {
+    abstract class Database
+    class MongoDB
+    class MockDatabase
+    class LocalMockDatabase
+  }
+  package "embeddings" {
+    abstract class EmbeddingsModel
+    class OpenAIEmbedding
+    {static} create_embeddings_model()
+  }
+  package "llm" {
+    interface LLM
+    class OpenAI_LLM
+    class Gemini_LLM
+    {static} create_llm()
+  }
+  package "command" {
+    abstract class Command
+    class GetContextCommand
+    class PostContextCommand
+  }
+}
+
+package "main_repo" {
+  class ActionManager <<Singleton>>
+  class ChatServiceModule
+}
+
+ActionManager --> ChatServiceModule
+ChatServiceModule --> Database : Uses DAO
+ChatServiceModule --> EmbeddingsModel : Uses embeddings model
+ChatServiceModule --> LLM : Uses LLM for response
+@enduml
