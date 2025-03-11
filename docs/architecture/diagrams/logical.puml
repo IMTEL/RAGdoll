@@ -1,0 +1,24 @@
+@startuml LogicalView
+package "VR Chatbot System" {
+  [Action Manager] as AM
+  [Chat Service Module] as CSM
+}
+
+package "Chat Service Microservice" {
+  [Query Processing & Embedding] as QPE
+  [Similarity Search] as SS
+  [Prompt Generation] as PG
+  [LLM Generation] as LLMGen
+  [Data Access Layer (DAO)] as DAO
+}
+
+AM --> CSM : Sends user actions
+CSM --> QPE : Sends query data
+QPE --> SS : Embedding & similarity search
+SS --> PG : Retrieves context
+PG --> LLMGen : Generates prompt
+LLMGen --> CSM : Returns generated response
+CSM --> AM : Delivers response
+
+DAO ..> QPE : Provides persistence\n(DAO Pattern)
+@enduml
