@@ -1,0 +1,16 @@
+@startuml UseCaseView
+actor "User" as User
+actor "Developer" as Dev
+
+usecase "Submit Query" as UC1
+usecase "Retrieve Context" as UC2
+usecase "Generate Response" as UC3
+usecase "Post New Context" as UC4
+
+User --> UC1
+UC1 --> UC2
+UC2 --> UC3
+User --> UC3
+
+Dev --> UC4
+@enduml
