@@ -1,0 +1,48 @@
+@startuml
+' Abstract DAO class
+abstract class Database {
+  +get_context_from_NPC(NPC: int) : List<Context>
+  +get_context(document_name: str, embedding: List<float>) : List<Context>
+  +post_context(text: str, document_name: str, NPC: int, embedding: List<float>, id: str) : bool
+  +is_reachable() : bool
+}
+
+' Concrete implementation for MongoDB
+class MongoDB {
+  -client: MongoClient
+  -db: Database
+  -collection: Collection
+  -similarity_threshold: float
+  +get_context_from_NPC(NPC: int) : List<Context>
+  +get_context(document_name: str, embedding: List<float>) : List<Context>
+  +post_context(text: str, document_name: str, NPC: int, embedding: List<float>, document_id: str) : bool
+  +is_reachable() : bool
+}
+
+' Concrete implementation for in-memory testing (MockDatabase)
+class MockDatabase {
+  -data: List
+  -similarity_threshold: float
+  -initialized: bool
+  +get_context_from_NPC(NPC: int) : List<Context>
+  +get_context(document_name: str, embedding: List<float>) : List<Context>
+  +post_context(text: str, NPC: int, embedding: List<float>, document_id: str, document_name: str) : bool
+  +is_reachable() : bool
+}
+
+' Concrete implementation for local in-memory testing
+class LocalMockDatabase {
+  -data: List
+  -similarity_threshold: float
+  +get_context_from_NPC(NPC: int) : List<Context>
+  +get_context(document_name: str, embedding: List<float>) : List<Context>
+  +post_context(text: str, NPC: int, embedding: List<float>, document_id: str, document_name: str) : bool
+  +is_reachable() : bool
+}
+
+' Inheritance relationships
+Database <|-- MongoDB
+Database <|-- MockDatabase
+Database <|-- LocalMockDatabase
+
+@enduml
