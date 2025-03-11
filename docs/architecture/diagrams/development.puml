@@ -1,30 +1,56 @@
 @startuml DevelopmentView
-package "src.rag_service" {
-  package "context" {
-    class Context
+skinparam packageStyle rectangle
+skinparam packageLayout vertical
+skinparam nodesep 50
+
+package "src.rag_service.context" {
+  class Context
+}
+
+package "src.rag_service.dao" {
+  abstract class Database {
+    +get_context_from_NPC(NPC: int) : List<Context>
+    +get_context(document_name: str, embedding: List<float>) : List<Context>
+    +post_context(text: str, document_name: str, NPC: int, embedding: List<float>, id: str) : bool
+    +is_reachable() : bool
   }
-  package "dao" {
-    abstract class Database
-    class MongoDB
-    class MockDatabase
-    class LocalMockDatabase
+  class MongoDB
+  class MockDatabase
+  class LocalMockDatabase
+}
+
+package "src.rag_service.embeddings" {
+  abstract class EmbeddingsModel {
+    +get_embedding(text: str) : List<float>
   }
-  package "embeddings" {
-    abstract class EmbeddingsModel
-    class OpenAIEmbedding
-    {static} create_embeddings_model()
+  class OpenAIEmbedding {
+    +get_embedding(text: str) : List<float>
+    {static} +create_embeddings_model() : EmbeddingsModel
   }
-  package "llm" {
-    interface LLM
-    class OpenAI_LLM
-    class Gemini_LLM
-    {static} create_llm()
+}
+
+package "src.rag_service.llm" {
+  interface LLM {
+    +create_prompt(base_prompt: str, **kwargs) : str
+    +generate(prompt: str) : str
   }
-  package "command" {
-    abstract class Command
-    class GetContextCommand
-    class PostContextCommand
+  class OpenAI_LLM {
+    +create_prompt(base_prompt: str, **kwargs) : str
+    +generate(prompt: str) : str
+    {static} +create_llm() : LLM
   }
+  class Gemini_LLM {
+    +create_prompt(base_prompt: str, **kwargs) : str
+    +generate(prompt: str) : str
+  }
+}
+
+package "src.rag_service.command" {
+  abstract class Command {
+    +execute() : void
+  }
+  class GetContextCommand
+  class PostContextCommand
 }
 
 package "main_repo" {
@@ -33,7 +59,8 @@ package "main_repo" {
 }
 
 ActionManager --> ChatServiceModule
-ChatServiceModule --> Database : Uses DAO
-ChatServiceModule --> EmbeddingsModel : Uses embeddings model
-ChatServiceModule --> LLM : Uses LLM for response
+ChatServiceModule --> "src.rag_service.dao::Database" : Uses DAO
+ChatServiceModule --> "src.rag_service.embeddings::EmbeddingsModel" : Uses embeddings model
+ChatServiceModule --> "src.rag_service.llm::LLM" : Uses LLM for response
+
 @enduml

@@ -2,8 +2,8 @@
 node "VR Environment" {
   component "Action Manager\n(Chat Service Module)" as AM
 }
-
-node "Backend Infrastructure" {
+node "Docker Host" {
+node "Chat Service Microservice Infrastructure" {
   node "RAG Service Microservice" {
     component "RAG Service" as RAG
     component "DAO Component" as DAO
@@ -11,6 +11,7 @@ node "Backend Infrastructure" {
   }
   database "MongoDB Atlas" as DB
   database "Local Mock Database" as MockDB
+}
 }
 
 AM --> RAG : HTTPS Request
