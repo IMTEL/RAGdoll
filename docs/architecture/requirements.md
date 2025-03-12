@@ -73,7 +73,6 @@ The functional requirements are listed below:
 
 
 
-
 ## Quality Attributes
 *Quality attributes are the system's non-functional requirements that specify the system's operational characteristics. They define the system's behavior, performance, and other qualities that are not directly related to the system's functionality.*
 

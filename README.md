@@ -99,3 +99,9 @@ docker logs <container_id>
 # 📌 Notes
 Make sure Docker is installed and running before executing these commands.
 The Dockerfile is designed to expose port 8000, so ensure no other service is using this port.
+
+# Testing
+without docker:
+```bash
+pytest --cov=src --cov-report=term-missing
+```

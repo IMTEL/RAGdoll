@@ -18,7 +18,7 @@ class Config:
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_gemini_api_key")
         
         
-        if self.ENV == 'devsgrsj': # TODO: change this to 'dev' when ready
+        if self.ENV == 'dev': # TODO: change this to 'dev' when ready
             self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")
             self.MONGODB_COLLECTION = os.getenv("MOCK_MONGODB_COLLECTION", "test_collection")
             self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")

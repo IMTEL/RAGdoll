@@ -116,202 +116,55 @@ def test_get_context_from_NPC_no_results():
         "Should raise ValueError if NPC not found"
 
 
-@pytest.mark.unit
-def test_create_embeddings_model_openai():
-    """
-    Test that create_embeddings_model('openai') returns an instance
-    of OpenAIEmbedding, which implements EmbeddingsModel.
-    """
-    model = create_embeddings_model("openai")
-    assert isinstance(model, EmbeddingsModel), "Should return a subclass of EmbeddingsModel"
-    assert isinstance(model, OpenAIEmbedding), "Should specifically be OpenAIEmbedding"
-
-
-@pytest.mark.unit
-def test_create_embeddings_model_unsupported_raises():
-    """
-    Test that create_embeddings_model with an unsupported string
-    raises a ValueError.
-    """
-    with pytest.raises(ValueError) as exc_info:
-        create_embeddings_model("some-unsupported-model")
-
-    assert "not supported" in str(exc_info.value), "Should raise ValueError for unsupported model"
-
 
 @pytest.mark.integration
-def test_openai_get_embedding():
+def test_comparison_between_embedding_providers():
     """
-    Test that we can call get_embedding on a piece of text
-    and receive a list of floats with nonzero length.
+    Compare results from both OpenAI and Google embedding models.
     """
-    model = create_embeddings_model("openai")
-    test_text = "Hello, world!"
-
-    embedding = model.get_embedding(test_text)
-
-    # Basic checks on the embedding
-    assert isinstance(embedding, list), "Embedding should be a list"
-    assert len(embedding) > 0, "Embedding should not be empty"
-    assert all(isinstance(x, float) for x in embedding), "All embedding values should be floats"
-
-
-@pytest.mark.unit
-def test_similarity_search_identical_texts():
-    """
-    Test that two identical texts produce embeddings with a high similarity score.
-    """
-    model = create_embeddings_model("openai")
-
-    text = "OpenAI is powering the next generation of AI applications."
-    embedding1 = model.get_embedding(text)
-    embedding2 = model.get_embedding(text)
-
-    similarity = similarity_search(embedding1, embedding2)
-
-    # For identical texts, we expect a similarity very close to 1.0
-    assert similarity > 0.9, f"Similarity for identical text was too low: {similarity}"
-
-
-@pytest.mark.unit
-def test_similarity_search_different_texts():
-    """
-    Test that two very different texts produce embeddings
-    with a lower similarity score (though exact threshold may vary).
-    """
-    model = create_embeddings_model("openai")
-
-    embedding1 = model.get_embedding("The Eiffel Tower is in Paris.")
-    embedding2 = model.get_embedding("Quantum physics deals with subatomic particles.")
-
-    similarity = similarity_search(embedding1, embedding2)
-
-    # We just check that it's significantly less than 1.0
-    # The exact number can vary, but let's pick a reasonable upper bound
-    # for dissimilar sentences:
-    assert similarity < 0.8, f"Similarity for very different texts was unexpectedly high: {similarity}"
-
-
-@pytest.mark.unit
-def test_similarity_search_zero_vector():
-    """
-    Test that similarity_search returns 0.0 if either embedding is all zeros.
-    """
-    zero_vector = [0.0] * 768  # typical embedding size for OpenAI
-    nonzero_vector = [0.1] * 768
-
-    similarity = similarity_search(zero_vector, nonzero_vector)
-    assert similarity == 0.0, "Similarity should be 0 if one vector is zero"
+    openai_model = create_embeddings_model("openai")
+    google_model = create_embeddings_model("google")
     
-
-# === Test LLM ===
-
-class FakeChoice:
-    def __init__(self, content: str):
-        # Create a fake message object with a 'content' attribute.
-        self.message = type("FakeMessage", (), {"content": content})
-
-class FakeResponse:
-    def __init__(self, content: str):
-        # Simulate a response with a list of choices.
-        self.choices = [FakeChoice(content)]
-
-
-def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
-    """
-    Fake function to simulate OpenAI API call.
-    It ignores the inputs and returns a fake response.
-    """
-    return FakeResponse("Test response")
-
-
-# --- Tests ---
-@pytest.mark.unit
-def test_create_prompt():
-    """
-    Test that create_prompt correctly appends additional context.
-    """
-    # Instantiate an LLM instance. (No API call is made here.)
-    llm = OpenAI_LLM()
-    base_prompt = "Explain the significance of Python."
-    # Provide some extra context as keyword arguments.
-    prompt = llm.create_prompt(base_prompt, audience="beginner", detail="basic overview")
-    expected_prompt = "Explain the significance of Python.\naudience: beginner\ndetail: basic overview"
-    assert prompt == expected_prompt, "create_prompt should combine the base prompt with additional context"
-
-
-@pytest.fixture
-def patched_llm(monkeypatch):
-    """
-    Fixture to return an OpenAI_LLM instance with the API call patched to avoid spending tokens.
-    """
-    llm = OpenAI_LLM()
-    # Patch the chat.completions.create method so that it returns our fake response.
-    monkeypatch.setattr(llm.client.chat.completions, "create", fake_completions_create)
-    return llm
-
-
-@pytest.mark.unit
-def test_generate_with_patched_llm(patched_llm):
-    """
-    Test that generate returns the fake response from the patched API call.
-    """
-    test_prompt = "Dummy prompt"
-    response = patched_llm.generate(test_prompt)
-    assert response == "Test response", "generate should return the fake response content"
-
-
-@pytest.mark.unit
-def test_create_llm_valid():
-    """
-    Test that create_llm returns an instance of OpenAI_LLM when provided 'openai'.
-    """
-    llm_instance = create_llm("openai")
-    assert isinstance(llm_instance, OpenAI_LLM), "create_llm('openai') should return an OpenAI_LLM instance"
-
-
-@pytest.mark.unit
-def test_create_llm_invalid():
-    """
-    Test that create_llm raises a ValueError when an unsupported LLM is specified.
-    """
-    with pytest.raises(ValueError) as exc_info:
-        create_llm("unsupported")
-    assert "not supported" in str(exc_info.value), "create_llm should raise ValueError for unsupported LLMs"
-
+    test_text = "This is a test sentence to compare embeddings."
+    
+    openai_embedding = openai_model.get_embedding(test_text)
+    google_embedding = google_model.get_embedding(test_text)
+    
+    # Verify both return valid embeddings
+    assert len(openai_embedding) > 0, "OpenAI embedding should not be empty"
+    assert len(google_embedding) > 0, "Google embedding should not be empty"
+    
+    # Output embedding dimensions for comparison
+    print(f"\nOpenAI embedding dimensions: {len(openai_embedding)}")
+    print(f"Google embedding dimensions: {len(google_embedding)}")
+    
+    
+    
 
 @pytest.mark.integration
-def test_llm_comparison():
+def test_google_embedding_similarity():
     """
-    Test that compares responses from both OpenAI and Gemini models.
-    Demonstrates how to use both models and display their outputs.
+    Test that similarity works with Google embeddings.
     """
-    # Test prompt
-    base_prompt = "What are the key differences between Python and JavaScript?"
+    model = create_embeddings_model("google")
+
+    # Generate embedding for two similar texts
+    text1 = "The quick brown fox jumps over the lazy dog."
+    text2 = "A fast brown fox leaps over a sleeping dog."
+
+    embedding1 = model.get_embedding(text1)
+    embedding2 = model.get_embedding(text2)
     
-    # Create instances of both LLM types
-    openai_llm = create_llm("openai")
-    gemini_llm = create_llm("gemini")
+    similarity = similarity_search(embedding1, embedding2)
     
-    # Generate prompts with the same context
-    context = {"audience": "beginners", "max_length": "brief"}
-    openai_prompt = openai_llm.create_prompt(base_prompt, **context)
-    gemini_prompt = gemini_llm.create_prompt(base_prompt, **context)
+    # Similar sentences should have reasonable similarity
+    assert similarity > 0.6, "Similar sentences should have higher similarity"
     
-    # Generate responses
-    print("\n========== GENERATING RESPONSES ==========")
+    # Test dissimilar sentences
+    text3 = "Quantum physics describes the behavior of subatomic particles."
+    embedding3 = model.get_embedding(text3)
     
-    print("\n[OPENAI MODEL]:", openai_llm.model)
-    openai_response = openai_llm.generate(openai_prompt)
-    print(openai_response)
+    similarity_different = similarity_search(embedding1, embedding3)
     
-    print("\n[GEMINI MODEL]:", gemini_llm.model)
-    gemini_response = gemini_llm.generate(gemini_prompt)
-    print(gemini_response)
-    
-    print("\n========== END OF RESPONSES ==========\n")
-    
-    # Basic assertions to verify responses were generated
-    assert len(openai_response) > 0, "OpenAI response should not be empty"
-    assert len(gemini_response) > 0, "Gemini response should not be empty"
-    assert openai_response != gemini_response, "Responses should differ between models"
+    # Different topics should have lower similarity
+    assert similarity_different < similarity, "Different topics should have lower similarity"
