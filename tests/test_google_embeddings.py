@@ -1,6 +1,7 @@
 import pytest
 from src.rag_service.embeddings import create_embeddings_model, GoogleEmbedding, similarity_search
 
+@pytest.mark.unit
 def test_create_embeddings_model_google():
     """
     Test that you can create and recieve a GoogleEmbedding, which implements EmbeddingsModel.

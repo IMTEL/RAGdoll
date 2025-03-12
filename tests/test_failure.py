@@ -1,8 +1,9 @@
 from fastapi.testclient import TestClient
 from src.main import app
-
+import pytest
 client = TestClient(app)
 
+@pytest.mark.integration
 def test_receive_failure():
     """
     Test if /api/failure endpoint receives data and stores it in memory.

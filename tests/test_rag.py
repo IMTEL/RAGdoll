@@ -1,9 +1,11 @@
 from fastapi.testclient import TestClient
 from src.main import app
 from src.rag_service.dao import get_database
+import pytest
 
 client = TestClient(app)
 
+@pytest.mark.integration
 def test_post_rag_item():
     body = {
         "text": "Hello from test",
