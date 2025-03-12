@@ -116,7 +116,7 @@ def test_get_context_from_NPC_no_results():
         "Should raise ValueError if NPC not found"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_create_embeddings_model_openai():
     """
     Test that create_embeddings_model('openai') returns an instance
@@ -127,7 +127,7 @@ def test_create_embeddings_model_openai():
     assert isinstance(model, OpenAIEmbedding), "Should specifically be OpenAIEmbedding"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_create_embeddings_model_unsupported_raises():
     """
     Test that create_embeddings_model with an unsupported string
@@ -156,7 +156,7 @@ def test_openai_get_embedding():
     assert all(isinstance(x, float) for x in embedding), "All embedding values should be floats"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_similarity_search_identical_texts():
     """
     Test that two identical texts produce embeddings with a high similarity score.
@@ -173,7 +173,7 @@ def test_similarity_search_identical_texts():
     assert similarity > 0.9, f"Similarity for identical text was too low: {similarity}"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_similarity_search_different_texts():
     """
     Test that two very different texts produce embeddings
@@ -192,7 +192,7 @@ def test_similarity_search_different_texts():
     assert similarity < 0.8, f"Similarity for very different texts was unexpectedly high: {similarity}"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_similarity_search_zero_vector():
     """
     Test that similarity_search returns 0.0 if either embedding is all zeros.
@@ -226,7 +226,7 @@ def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
 
 
 # --- Tests ---
-@pytest.mark.integration
+@pytest.mark.unit
 def test_create_prompt():
     """
     Test that create_prompt correctly appends additional context.
@@ -251,7 +251,7 @@ def patched_llm(monkeypatch):
     return llm
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_generate_with_patched_llm(patched_llm):
     """
     Test that generate returns the fake response from the patched API call.
@@ -261,7 +261,7 @@ def test_generate_with_patched_llm(patched_llm):
     assert response == "Test response", "generate should return the fake response content"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_create_llm_valid():
     """
     Test that create_llm returns an instance of OpenAI_LLM when provided 'openai'.
@@ -270,7 +270,7 @@ def test_create_llm_valid():
     assert isinstance(llm_instance, OpenAI_LLM), "create_llm('openai') should return an OpenAI_LLM instance"
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_create_llm_invalid():
     """
     Test that create_llm raises a ValueError when an unsupported LLM is specified.
