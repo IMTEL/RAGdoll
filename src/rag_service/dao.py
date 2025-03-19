@@ -43,7 +43,6 @@ class Database(ABC):
         pass
         
         
-    
     @abstractmethod
     def get_context(self, 
         document_name: str, 
@@ -94,9 +93,6 @@ class Database(ABC):
         pass
     
     
-    
-
-
 class MongoDB(Database):
     def __init__(self):
         self.client = MongoClient(config.MONGODB_URI)
@@ -142,7 +138,6 @@ class MongoDB(Database):
 
         return results
 
-        
 
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
         if not embedding:
@@ -235,9 +230,6 @@ class MongoDB(Database):
             print(f"Failed to ping MongoDB: {e}")
             return False
 
-
-
-
 class MockDatabase(Database):
     """
     A mock database for testing purposes, storing data in memory.
@@ -258,8 +250,6 @@ class MockDatabase(Database):
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
-            
-            
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
@@ -273,8 +263,6 @@ class MockDatabase(Database):
                 }
             }
         }
-
-        
 
         # Execute the aggregate pipeline
         documents = self.collection.aggregate([
@@ -296,10 +284,7 @@ class MockDatabase(Database):
                 )
             )
         return results
-
-
         
-
     def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
         if not embedding:
             raise ValueError("Embedding cannot be None")
