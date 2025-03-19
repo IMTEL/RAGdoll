@@ -26,7 +26,7 @@ idna==3.10
 iniconfig==2.0.0
 jiter==0.8.2
 mongomock==4.3.0
-numpy == 2.2.4
+numpy==2.2.4
 openai==1.65.3
 packaging==24.2
 pluggy==1.5.0

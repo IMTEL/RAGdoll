@@ -14,30 +14,39 @@ router = APIRouter()
 @router.post("/api/progress")
 def receive_progress(progress: ProgressData):
     """
-    Receives progress data and stores it in memory.
+    Handles task progress updates (start/complete) and stores them.
     """
-    # Starting tasks
     if progress.status == "start":
-        progress.startedAt = datetime.now(timezone.utc)
-        # Store the new progress data
-        progressLog.append(progress.model_dump())
-        return {"message": "Progress received successfully", "data": progress.model_dump()}
-
-    # Completing tasks
-    elif progress.status == "complete":
-        # Look for an existing task with the same name that hasn't been completed yet
+        # Check for existing incomplete task to update
         for entry in progressLog:
             if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
-                # Update the existing task with completedAt and status
-                entry["completedAt"] = datetime.now(timezone.utc)
-                entry["status"] = "complete"  # Update status to "complete"
-                print("Updated Progress Log: ", progressLog)  # Debugging
-                # Return the updated entry instead of progress.model_dump()
-                return {"message": "Progress received successfully", "data": entry}
-        else:
-            # Error if no task found
-            return {"message": f"No started task found for {progress.taskName}. Cannot complete."}
-    else: 
-        # Error if status is neither "start" nor "complete"
-        raise HTTPException(status_code=400, detail="Invalid status. Must be 'start' or 'complete'.")  # HTTP 400 Bad Request
+                entry.update({
+                    "subtaskProgress": progress.subtaskProgress,
+                    "startedAt": datetime.now(timezone.utc)
+                })
+                return {"message": "Progress updated", "data": entry}
+        
+        # New task entry
+        new_entry = progress.model_dump()
+        new_entry["startedAt"] = datetime.now(timezone.utc)
+        progressLog.append(new_entry)
+        return {"message": "Progress received", "data": new_entry}
 
+    elif progress.status == "complete":
+        # Complete existing task
+        for entry in progressLog:
+            if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
+                entry.update({
+                    "subtaskProgress": progress.subtaskProgress,
+                    "completedAt": datetime.now(timezone.utc),
+                    "status": "complete"
+                })
+                return {"message": "Task completed", "data": entry}
+        return {"message": f"No active task {progress.taskName} found."}
+
+    else:
+        raise HTTPException(400, "Status must be 'start' or 'complete'.")
+
+@router.get("/api/progress")
+def get_progress_log():
+    return progressLog  # Returns the entire in-memory list
