@@ -1,7 +1,11 @@
 import os
+import logging
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from src.context_upload import process_file_and_store
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
 
@@ -11,6 +15,9 @@ async def upload_document(file: UploadFile = File(...), NPC: int = 0):
     API to receive a document, process it, and store it.
     """
     try:
+        # Create the directory if it does not exist
+        os.makedirs("temp_files", exist_ok=True)
+
         # Save the file temporarily
         file_location = f"temp_files/{file.filename}"
         with open(file_location, "wb") as buffer:
