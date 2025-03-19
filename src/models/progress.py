@@ -16,7 +16,7 @@ class SubtaskProgressDTO(BaseModel):
 class ProgressData(BaseModel):
     taskName: str
     description: str
-    status: str  # "start" or "complete"
+    status: str  # "started" or "complete"
     userId: Optional[str] = None
     subtaskProgress: List[SubtaskProgressDTO]
     startedAt: Optional[datetime] = None

@@ -14,9 +14,9 @@ router = APIRouter()
 @router.post("/api/progress")
 def receive_progress(progress: ProgressData):
     """
-    Handles task progress updates (start/complete) and stores them.
+    Handles task progress updates (started/complete) and stores them.
     """
-    if progress.status == "start":
+    if progress.status == "started":
         # Check for existing incomplete task to update
         for entry in progressLog:
             if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
@@ -45,7 +45,7 @@ def receive_progress(progress: ProgressData):
         return {"message": f"No active task {progress.taskName} found."}
 
     else:
-        raise HTTPException(400, "Status must be 'start' or 'complete'.")
+        raise HTTPException(400, "Status must be 'started' or 'complete'.")
 
 @router.get("/api/progress")
 def get_progress_log():
