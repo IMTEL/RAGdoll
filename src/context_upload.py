@@ -54,12 +54,23 @@ def process_file_and_store(file_path: str, NPC: int) -> bool:
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             text = f.read()
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                text = f.read()
+        except Exception as e:
+            logging.error(f"Error reading file '{file_path}': {e}")
+            return False
     except Exception as e:
         logging.error(f"Error reading file '{file_path}': {e}")
         return False
 
     # Compute the embedding using the actual model.
-    embedding = compute_embedding(text)
+    try:
+        embedding = compute_embedding(text)
+    except Exception as e:
+        logging.error(f"Error computing embedding for file '{file_path}': {e}")
+        return False
 
     # Use the file's basename as the document name.
     document_name = os.path.basename(file_path)
