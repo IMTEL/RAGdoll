@@ -16,7 +16,21 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    env:
+      ENV: ${{secrets.ENV}}
+      OPENAI_API_KEY: ${{secrets.OPENAI_API_KEY}}
+      GPT_MODEL: ${{secrets.GPT_MODEL}}
+      GEMINI_API_KEY: ${{secrets.GEMINI_API_KEY}}
+      GEMINI_MODEL: ${{secrets.GEMNI_MODEL}}
+      MONGODB_URI: ${{secrets.MONGODB_URI}}
+      MONGODB_DATABASE: ${{secrets.MONGODB_DATABASE}}
+      MONGODB_COLLECTION: ${{secrets.MONGODB_COLLECTION}}
+      RAG_DATABASE_SYSTEM: ${{secrets.RAG_DATABASE_SYSTEM}}
+      MOCK_DATABASE_SYSTEM: ${{secrets.MOCK_DATABASE_SYSTEM}}
+      MOCK_MONGODB_URI: ${{secrets.MOCK_MONGODB_URI}}
+      MOCK_MONGODB_DATABASE: ${{secrets.MOCK_MONGODB_DATABASE}}
+      MOCK_MONGODB_COLLECTION: ${{secrets.MOCK_MONGODB_COLLECTION}}
+      MOCK_RAG_DATABASE_SYSTEM: ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.10
