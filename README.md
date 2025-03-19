@@ -113,6 +113,7 @@ curl -X POST "http://localhost:8000/api/progress" \
 -H "Content-Type: application/json" \
 -d '{
   "taskName": "Daily Exercise Routine",
+  "description": "Complete daily fitness routine to improve overall health",
   "status": "start",
   "userId": "user123",
   "subtaskProgress": [
@@ -142,45 +143,6 @@ curl -X POST "http://localhost:8000/api/progress" \
           "stepName": "Push Ups",
           "repetitionNumber": 50,
           "completed": false
-        }
-      ]
-    }
-  ]
-}
-
-curl -X POST "http://localhost:8000/api/progress" \
--H "Content-Type: application/json" \
--d '{
-  "taskName": "Daily Exercise Routine",
-  "status": "complete",
-  "userId": "user123",
-  "subtaskProgress": [
-    {
-      "subtaskName": "Warm Up",
-      "description": "Prepare muscles for workout",
-      "completed": true,
-      "stepProgress": [
-        {
-          "stepName": "Jumping Jacks",
-          "repetitionNumber": 30,
-          "completed": true
-        },
-        {
-          "stepName": "Arm Circles",
-          "repetitionNumber": 20,
-          "completed": true
-        }
-      ]
-    },
-    {
-      "subtaskName": "Main Workout",
-      "description": "Intense exercise session",
-      "completed": true,
-      "stepProgress": [
-        {
-          "stepName": "Push Ups",
-          "repetitionNumber": 50,
-          "completed": true
         }
       ]
     }
