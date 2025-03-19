@@ -1,0 +1,2 @@
+This is a test to check if the CI pipeline works.
+If this file is in the main branch, then the CI pipeline is a success!
