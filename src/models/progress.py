@@ -1,10 +1,22 @@
-from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime, timezone
+from pydantic import BaseModel
+from datetime import datetime
+from typing import List, Optional
+
+class StepProgressDTO(BaseModel):
+    stepName: str
+    repetitionNumber: int
+    completed: bool
+
+class SubtaskProgressDTO(BaseModel):
+    subtaskName: str
+    description: str
+    completed: bool
+    stepProgress: List[StepProgressDTO]
 
 class ProgressData(BaseModel):
     taskName: str
-    status: str  #"start", "complete"
+    status: str  # "start" or "complete"
     userId: Optional[str] = None
-    startedAt: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))  # Task started
-    completedAt: Optional[datetime] = None #Task completed
+    subtaskProgress: List[SubtaskProgressDTO]
+    startedAt: Optional[datetime] = None
+    completedAt: Optional[datetime] = None

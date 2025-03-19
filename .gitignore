@@ -1,5 +1,9 @@
 __pycache__/
 
 venv/
+venv311/
+py311/
+fresh_env/
+fresh_venv/
 .env
 env
