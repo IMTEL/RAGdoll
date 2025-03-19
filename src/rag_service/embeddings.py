@@ -65,13 +65,13 @@ def create_embeddings_model(embeddings_model: str = "openai") -> EmbeddingsModel
     Returns:
         EmbeddingsModel: _description_
     """
-    match embeddings_model.lower():
-        case "openai":
-            return OpenAIEmbedding()
-        case "google":
-            return GoogleEmbedding()
-        case _:
-            raise ValueError(f"Embeddings model {embeddings_model} not supported")
+    embeddings_model_lower = embeddings_model.lower()
+    if embeddings_model_lower == "openai":
+        return OpenAIEmbedding()
+    elif embeddings_model_lower == "google":
+        return GoogleEmbedding()
+    else:
+        raise ValueError(f"Unknown embeddings model: {embeddings_model}")
         
         
     
