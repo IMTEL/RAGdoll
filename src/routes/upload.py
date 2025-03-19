@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from src.context_upload import process_file_and_store
 
