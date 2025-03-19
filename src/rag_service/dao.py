@@ -98,7 +98,7 @@ class MongoDB(Database):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_COLLECTION]
-        self.similarity_threshold = 1.0
+        self.similarity_threshold = 0.5
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
@@ -180,10 +180,10 @@ class MongoDB(Database):
             # if str(document["documentId"]) != str(document_id):
             #     continue
 
-            # if ( # TODO: can mongodb Atlas search do this?
-            #     similarity_search(embedding, document["embedding"])
-            #     > self.similarity_threshold
-            # ):
+            if ( # TODO: can mongodb Atlas search do this?
+                similarity_search(embedding, document["embedding"])
+                > self.similarity_threshold
+            ):
                 results.append(
                     Context(
                         text=document["text"],
