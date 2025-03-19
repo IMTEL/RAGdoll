@@ -8,7 +8,7 @@ class Command(BaseModel):
     user_name: str
     user_mode: str
     question: str
-    progress: list[str]
+    progress: str
     user_actions: list[str]
     NPC: int
 

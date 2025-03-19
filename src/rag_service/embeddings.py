@@ -22,7 +22,7 @@ class EmbeddingsModel(ABC):
 
 
 class OpenAIEmbedding(EmbeddingsModel):
-    def __init__(self, model_name: str = "text-embedding-ada-002"):
+    def __init__(self, model_name: str = "text-embedding-3-small"):
         
         self.config = Config()
         self.model = self.config.GPT_MODEL
@@ -33,7 +33,7 @@ class OpenAIEmbedding(EmbeddingsModel):
     def get_embedding(self, text: str) -> list[float]:
         
         text = text.replace("\n", " ")
-        response = self.client.embeddings.create(input=text, model=self.model_name)
+        response = self.client.embeddings.create(input=text, model=self.model_name, dimensions=768)
         return response.data[0].embedding
     
 
@@ -48,12 +48,14 @@ class GoogleEmbedding(EmbeddingsModel):
         embedding = genai.embed_content(
             model=self.model_name,
             content=text,
-            task_type="retrieval_query"
+            task_type="retrieval_query",
+            output_dimensionality=768
+            
         )
         return embedding["embedding"]
     
 
-def create_embeddings_model(embeddings_model: str = "openai") -> EmbeddingsModel:
+def create_embeddings_model(embeddings_model: str = "google") -> EmbeddingsModel:
     """Factory for creating embeddings models.
 
     Args:

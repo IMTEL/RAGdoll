@@ -9,9 +9,8 @@ def assemble_prompt(command: Command) -> str:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     # TODO: use rag service to get the context, and create a Prompt pydantic object.
     
-    
-    to_embed = " ".join([command.question] + command.progress + command.user_actions)
-    
+    #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
+    to_embed: str = str(command.question)
     
     db = get_database()
     embedding_model = create_embeddings_model()
@@ -27,11 +26,12 @@ def assemble_prompt(command: Command) -> str:
     The user has taken the following actions: {user_actions}.
     """
     prompt: str = ""
-    if context is None:
-        prompt = base_prompt, "question:", command.question
+    if context is None or len(context) == 0:
+        prompt += str(base_prompt) + "question:" +  str(command.question)
+        print(context[0])
     
     else:
-        prompt = base_prompt, "context:", context[0], "question:", command.question
+        prompt += str(base_prompt) + "context:" + str(context[0])+ "question:"+ str(command.question)
     
     language_model = create_llm()
     response = language_model.generate(prompt)

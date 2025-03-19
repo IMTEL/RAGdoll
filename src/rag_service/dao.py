@@ -98,7 +98,7 @@ class MongoDB(Database):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_COLLECTION]
-        self.similarity_threshold = 0.7
+        self.similarity_threshold = 1.0
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
@@ -144,13 +144,23 @@ class MongoDB(Database):
             raise ValueError("Embedding cannot be None")
 
         # Define the MongoDB query that utilizes the search index "embeddings".
+        # query = {
+        #     "$vectorSearch": {
+        #         "index": "embeddings",
+        #         "path": "embedding",
+        #         "queryVector": embedding,
+        #         "numCandidates": 30, # numCandidates = 10 * limit
+        #         "limit": 3,
+        #     }
+        # }
         query = {
+                
             "$vectorSearch": {
                 "index": "embeddings",
                 "path": "embedding",
                 "queryVector": embedding,
-                "numCandidates": 30, # numCandidates = 10 * limit
-                "limit": 3,
+                "numCandidates": 30,
+                "limit": 3
             }
         }
 
@@ -170,10 +180,10 @@ class MongoDB(Database):
             # if str(document["documentId"]) != str(document_id):
             #     continue
 
-            if ( # TODO: can mongodb Atlas search do this?
-                similarity_search(embedding, document["embedding"])
-                > self.similarity_threshold
-            ):
+            # if ( # TODO: can mongodb Atlas search do this?
+            #     similarity_search(embedding, document["embedding"])
+            #     > self.similarity_threshold
+            # ):
                 results.append(
                     Context(
                         text=document["text"],
@@ -294,7 +304,8 @@ class MockDatabase(Database):
         # Filter documents based on similarity and document_name
         for document in self.data:
             #if document["document_name"] == document_name:
-            similarity = similarity_search(embedding, document["embedding"])
+            #similarity = similarity_search(embedding, document["embedding"])
+            similarity = 0.9
             if similarity > self.similarity_threshold:
                 results.append(
                     Context(

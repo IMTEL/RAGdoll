@@ -1,13 +1,13 @@
 
-import os
-import logging
-import uuid
-import pytest
-from src.context_upload import compute_embedding
-from src.context_upload import process_file_and_store
+# import os
+# import logging
+# import uuid
+# import pytest
+# from src.context_upload import compute_embedding
+# from src.context_upload import process_file_and_store
 
 
-# UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR OWN VALUES TO UPLOAD FILE
+# # UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR OWN VALUES TO UPLOAD FILE
     
 # @pytest.mark.integration
 # def test_process_file_and_store():

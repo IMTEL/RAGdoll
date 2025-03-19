@@ -48,7 +48,7 @@ def test_openai_get_embedding():
     Test that we can call get_embedding on a piece of text
     and receive a list of floats with nonzero length.
     """
-    model = create_embeddings_model("openai")
+    model = create_embeddings_model()
     test_text = "Hello, world!"
 
     embedding = model.get_embedding(test_text)
@@ -64,7 +64,7 @@ def test_similarity_search_identical_texts():
     """
     Test that two identical texts produce embeddings with a high similarity score.
     """
-    model = create_embeddings_model("openai")
+    model = create_embeddings_model()
 
     text = "OpenAI is powering the next generation of AI applications."
     embedding1 = model.get_embedding(text)
@@ -82,7 +82,7 @@ def test_similarity_search_different_texts():
     Test that two very different texts produce embeddings
     with a lower similarity score (though exact threshold may vary).
     """
-    model = create_embeddings_model("openai")
+    model = create_embeddings_model()
 
     embedding1 = model.get_embedding("The Eiffel Tower is in Paris.")
     embedding2 = model.get_embedding("Quantum physics deals with subatomic particles.")
