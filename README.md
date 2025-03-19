@@ -199,11 +199,11 @@ Invoke-WebRequest -Uri “http://localhost:8080/api/progress” `
 ## Receive the log
 ### MacOS:
 ```bash
-curl -X GET "http://localhost:8000/api/progress"
+curl -X GET "http://localhost:8080/api/progress"
 ```
 
 
 ### Windows:
 ```bash
-Invoke-WebRequest -Uri "http://localhost:8000/api/progress" -Method Get
+Invoke-WebRequest -Uri "http://localhost:8080/api/progress" -Method Get
 ```
