@@ -394,13 +394,12 @@ def get_database() -> Database:
     Returns:
         Database: The database to use
     """
-    db_type = config.RAG_DATABASE_SYSTEM.lower()
-    
-    if db_type == "mock":
-        return MockDatabase()
-    elif db_type == "mongodb":
-        return MongoDB()
-    elif db_type == "local_mock":
-        return LocalMockDatabase()
-    else:
-        raise ValueError("Invalid database type")
+    match config.RAG_DATABASE_SYSTEM.lower():
+        case "mock":
+            return MockDatabase()  
+        case "mongodb":
+            return MongoDB()
+        case "local_mock":
+            return LocalMockDatabase()
+        case _:
+            raise ValueError("Invalid database type")
