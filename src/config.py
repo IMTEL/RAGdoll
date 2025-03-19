@@ -1,11 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-# Adjust the path if necessary. If your .env file is in the project root, use:
-load_dotenv()  # Loads .env from the current working directory
+load_dotenv()  
 
-# Alternatively, if it's located in a specific directory:
-# load_dotenv("../.env")
 
 class Config:
     def __init__(self, path=".env", gpt_model="gpt-4o-mini", gemini_model="gemini-2.0-flash-lite"):

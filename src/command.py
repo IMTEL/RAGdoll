@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import Optional
 
 
-
 class Command(BaseModel):
     """Message from the VR application about the current state. This is an loose implementation of the command pattern
     """
