@@ -2,17 +2,15 @@ import os
 import uuid
 import logging
 
-
-
 # Import your project modules.
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.embeddings import create_embeddings_model
 from src.rag_service.dao import get_database
+
 # Load configuration and initialize the SentenceTransformer model.
 config = Config()
 embedding_model = create_embeddings_model()
-
 
 def compute_embedding(text: str) -> list[float]:
     """
@@ -27,7 +25,6 @@ def compute_embedding(text: str) -> list[float]:
     embeddings = embedding_model.get_embedding(text)
     return embeddings
 
-
 def process_file_and_store(file_path: str, NPC: int) -> bool:
     """
     Processes a .txt or .md file, extracts its text, computes its embedding, and
@@ -40,6 +37,8 @@ def process_file_and_store(file_path: str, NPC: int) -> bool:
     Returns:
         bool: True if storing was successful; False otherwise.
     """
+    logging.info(f"Starting file processing for: {file_path} with NPC: {NPC}")
+
     # Verify file exists
     if not os.path.exists(file_path):
         logging.error(f"File '{file_path}' does not exist.")
@@ -89,7 +88,6 @@ def process_file_and_store(file_path: str, NPC: int) -> bool:
         logging.error(f"Failed to store '{document_name}' into the database.")
 
     return success
-
 
 if __name__ == '__main__':
     # Example usage of the process_file_and_store function.
