@@ -5,9 +5,8 @@ from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM, create_llm
 
-def assemble_prompt(command: Command) -> str:
+def assemble_prompt(command: Command, model: str) -> str:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
-    # TODO: use rag service to get the context, and create a Prompt pydantic object.
     
     #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
     to_embed: str = str(command.question)
@@ -35,7 +34,7 @@ def assemble_prompt(command: Command) -> str:
     else:
         prompt += str(base_prompt) + "context:" + str(context[0])+ "question:"+ str(command.question)
     
-    language_model = create_llm()
+    language_model = create_llm(model)
     response = language_model.generate(prompt)
     
     return response
