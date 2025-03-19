@@ -107,9 +107,11 @@ pytest --cov=src --cov-report=term-missing
 ```
 
 # 6 test enpoint with mock data
-### curl command to test the endpoint:
+## curl command to test the endpoint:
 
-curl -X POST "http://localhost:8000/api/progress" \
+### MacOS:
+```bash
+curl -X POST "http://localhost:8080/api/progress" \
 -H "Content-Type: application/json" \
 -d '{
   "taskName": "Daily Exercise Routine",
@@ -148,6 +150,60 @@ curl -X POST "http://localhost:8000/api/progress" \
     }
   ]
 }'
+```
 
-### Receive the log
+### Windows:
+```bash
+Invoke-WebRequest -Uri “http://localhost:8080/api/progress” `
+-Method POST `
+-Headers @{ “Content-Type” = “application/json” } `
+-Body ‘{
+  “taskName”: “Daily Exercise Routine”,
+  “description”: “Complete daily fitness routine to improve overall health”,
+  “status”: “start”,
+  “userId”: “user123”,
+  “subtaskProgress”: [
+    {
+      “subtaskName”: “Warm Up”,
+      “description”: “Prepare muscles for workout”,
+      “completed”: false,
+      “stepProgress”: [
+        {
+          “stepName”: “Jumping Jacks”,
+          “repetitionNumber”: 30,
+          “completed”: false
+        },
+        {
+          “stepName”: “Arm Circles”,
+          “repetitionNumber”: 20,
+          “completed”: false
+        }
+      ]
+    },
+    {
+      “subtaskName”: “Main Workout”,
+      “description”: “Intense exercise session”,
+      “completed”: false,
+      “stepProgress”: [
+        {
+          “stepName”: “Push Ups”,
+          “repetitionNumber”: 50,
+          “completed”: false
+        }
+      ]
+    }
+  ]
+}’
+```
+
+## Receive the log
+### MacOS:
+```bash
 curl -X GET "http://localhost:8000/api/progress"
+```
+
+
+### Windows:
+```bash
+Invoke-WebRequest -Uri "http://localhost:8000/api/progress" -Method Get
+```
