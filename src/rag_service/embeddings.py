@@ -4,6 +4,9 @@ import openai
 import numpy as np
 import google.generativeai as genai
 
+from numpy import dot
+from numpy.linalg import norm
+
 from src.config import Config
 
 class EmbeddingsModel(ABC):
@@ -22,7 +25,7 @@ class EmbeddingsModel(ABC):
 
 
 class OpenAIEmbedding(EmbeddingsModel):
-    def __init__(self, model_name: str = "text-embedding-ada-002"):
+    def __init__(self, model_name: str = "text-embedding-3-small"):
         
         self.config = Config()
         self.model = self.config.GPT_MODEL
@@ -33,7 +36,7 @@ class OpenAIEmbedding(EmbeddingsModel):
     def get_embedding(self, text: str) -> list[float]:
         
         text = text.replace("\n", " ")
-        response = self.client.embeddings.create(input=text, model=self.model_name)
+        response = self.client.embeddings.create(input=text, model=self.model_name, dimensions=768)
         return response.data[0].embedding
     
 
@@ -48,12 +51,14 @@ class GoogleEmbedding(EmbeddingsModel):
         embedding = genai.embed_content(
             model=self.model_name,
             content=text,
-            task_type="retrieval_query"
+            task_type="retrieval_query",
+            output_dimensionality=768
+            
         )
         return embedding["embedding"]
     
 
-def create_embeddings_model(embeddings_model: str = "openai") -> EmbeddingsModel:
+def create_embeddings_model(embeddings_model: str = "google") -> EmbeddingsModel:
     """Factory for creating embeddings models.
 
     Args:
@@ -76,33 +81,42 @@ def create_embeddings_model(embeddings_model: str = "openai") -> EmbeddingsModel
         
     
     
-def similarity_search(embedding1: list[float], embedding2: list[float]) -> float:
-    """
-    Calculate the cosine similarity between two embedding vectors.
+# def similarity_search(embedding1: list[float], embedding2: list[float]) -> float:
+#     """
+#     Calculate the cosine similarity between two embedding vectors.
     
-    Cosine similarity is defined as:
-      cosine_similarity = (A · B) / (||A|| * ||B||)
+#     Cosine similarity is defined as:
+#       cosine_similarity = (A · B) / (||A|| * ||B||)
     
-    Args:
-        embedding1 (list[float]): The first embedding vector.
-        embedding2 (list[float]): The second embedding vector.
+#     Args:
+#         embedding1 (list[float]): The first embedding vector.
+#         embedding2 (list[float]): The second embedding vector.
     
-    Returns:
-        float: The cosine similarity between the two embeddings. Returns 0.0 if either vector is zero.
-    """
-    # Calculate dot product
-    dot_product = sum(a * b for a, b in zip(embedding1, embedding2))
+#     Returns:
+#         float: The cosine similarity between the two embeddings. Returns 0.0 if either vector is zero.
+#     """
+#     # Calculate dot product
+#     dot_product = sum(a * b for a, b in zip(embedding1, embedding2))
     
-    # Calculate the Euclidean norms (magnitudes) of the vectors
-    norm1 = math.sqrt(sum(a * a for a in embedding1))
-    norm2 = math.sqrt(sum(b * b for b in embedding2))
+#     # Calculate the Euclidean norms (magnitudes) of the vectors
+#     norm1 = math.sqrt(sum(a * a for a in embedding1))
+#     norm2 = math.sqrt(sum(b * b for b in embedding2))
     
-    # Guard against division by zero if any of the norms is zero
-    if norm1 == 0 or norm2 == 0:
+#     # Guard against division by zero if any of the norms is zero
+#     if norm1 == 0 or norm2 == 0:
+#         return 0.0
+    
+#     # Compute cosine similarity
+#     return dot_product / (norm1 * norm2)
+
+
+
+def similarity_search(list_1, list_2):
+    product = (norm(list_1) * norm(list_2))
+    if product == 0:
         return 0.0
-    
-    # Compute cosine similarity
-    return dot_product / (norm1 * norm2)
+    cos_sim = dot(list_1, list_2) / product
+    return float(cos_sim)
 
 
 if __name__ == "__main__":

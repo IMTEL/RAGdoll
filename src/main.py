@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from src.routes import progress, failure, debug, rag
+from src.routes import progress, failure, debug, rag, upload
 import uvicorn
 import sys
 import os
@@ -20,6 +20,8 @@ app.include_router(failure.router)
 app.include_router(debug.router)
 # RAG router
 app.include_router(rag.router)
+# Upload router
+app.include_router(upload.router)
 
 @app.get("/")
 def hello_world():
