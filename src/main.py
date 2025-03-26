@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from src.command import Command, command_from_json
+from src.pipeline import assemble_prompt
 from src.routes import progress, failure, debug, rag, upload
 import uvicorn
 import sys
@@ -41,6 +43,22 @@ def ping():
         status: Pong
     """
     return {"status": "PONG!"}
+
+
+@app.get("/ask")
+def ask(
+    data: str
+) -> str:
+    """Ask
+
+    Returns:
+        response: str
+    """
+    command: Command = command_from_json(data)
+    if command is None:
+        return {"message": "Invalid command."}
+    response = assemble_prompt(command)
+    return {response}
 
 if __name__ == "__main__": 
     uvicorn.run(app, host="0.0.0.0", port=8000)

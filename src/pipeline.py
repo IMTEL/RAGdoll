@@ -5,7 +5,7 @@ from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM, create_llm
 
-def assemble_prompt(command: Command, model: str) -> str:
+def assemble_prompt(command: Command, model: str = "openai") -> str:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     
     #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
@@ -23,8 +23,8 @@ def assemble_prompt(command: Command, model: str) -> str:
     The user is in {command.user_mode} mode.
     The user has made the following progress: {command.progress}.
     The user has taken the following actions: {command.user_actions}.
-    IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE SO.
-    PROVIDE SHORT AMSWERS THAT ARE EASY TO UNDERSTAND. STATE THE NAME OF THE USER IN THE RESPONSE.
+    IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE THAT YOU ARE NOT SURE, BUT TRY TO PROVIDE AN ANSWER.
+    PROVIDE SHORT AMSWERS THAT ARE EASY TO UNDERSTAND. STATE THE NAME OF THE USER IN A NATURAL WAY IN THE RESPONSE.
     """
     base_prompt = base_prompt.format(command=command)
     prompt: str = ""
