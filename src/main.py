@@ -58,7 +58,22 @@ def ask(
     if command is None:
         return {"message": "Invalid command."}
     response = assemble_prompt(command)
-    return {response}
+    return {"response": response}
+
+
+@app.get("/getAnswerFromUser")
+def getAnswerFromUser(
+    answer: str,
+    target: str,
+    question: str,
+) -> str:
+    """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name".
+
+    Returns:
+        response: str
+    """
+    response: str = getAnswerFromUser(answer, target, question)
+    return {"response": response}
 
 if __name__ == "__main__": 
     uvicorn.run(app, host="0.0.0.0", port=8000)

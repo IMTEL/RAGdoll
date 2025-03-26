@@ -5,6 +5,26 @@ from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM, create_llm
 
+def getAnswerFromUser(answer: str, target: str, question: str, model = "openai") -> str:
+    """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
+    prompt = """A user has provided the following answer to the question: {question}. 
+                    The answer is: {answer}. The question is about the user's {target} You are to ONLY REPLY IN JSON FORMAT like so:
+                    target: "some answer"
+                    An example of a valid response is for the question "What is your name?" where target is name and answer from user is My name is John Doe is:
+                    name: "John Doe"
+                    
+                """
+    prompt.format(answer=answer, target=target, question=question)
+    
+    language_model = create_llm(model)
+    response = language_model.generate(prompt)
+    if response is None:
+        return "No response from the language model."
+    if response == "":
+        return "Empty response from the language model."
+    
+    return response
+
 def assemble_prompt(command: Command, model: str = "openai") -> str:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     
