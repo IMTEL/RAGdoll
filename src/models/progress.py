@@ -21,3 +21,6 @@ class ProgressData(BaseModel):
     subtaskProgress: List[SubtaskProgressDTO]
     startedAt: Optional[datetime] = None
     completedAt: Optional[datetime] = None
+
+class ListProgressData(BaseModel):
+    items: List[ProgressData]

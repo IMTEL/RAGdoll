@@ -116,7 +116,7 @@ curl -X POST "http://localhost:8080/api/progress" \
 -d '{
   "taskName": "Daily Exercise Routine",
   "description": "Complete daily fitness routine to improve overall health",
-  "status": "start",
+  "status": "started",
   "userId": "user123",
   "subtaskProgress": [
     {
@@ -160,7 +160,7 @@ Invoke-WebRequest -Uri “http://localhost:8080/api/progress” `
 -Body ‘{
   “taskName”: “Daily Exercise Routine”,
   “description”: “Complete daily fitness routine to improve overall health”,
-  “status”: “start”,
+  “status”: “started”,
   “userId”: “user123”,
   “subtaskProgress”: [
     {
