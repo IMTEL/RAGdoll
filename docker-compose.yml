@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   chat-service:
     build: 
@@ -11,8 +13,13 @@ services:
       - logvolume01:/var/log
     depends_on:
       - redis
+      - mongodb
     environment:
       - PYTHONUNBUFFERED=1
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DATABASE='VrChatBot'
+      - MONGODB_COLLECTION='ragService'
+
   redis:
     image: redis
     container_name: redis
@@ -20,6 +27,14 @@ services:
     ports:
       - "6379:6379"
 
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
 
 volumes:
   logvolume01: {}
+  mongo-data:
