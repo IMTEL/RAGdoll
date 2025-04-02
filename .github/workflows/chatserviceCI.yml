@@ -54,12 +54,6 @@ jobs:
         echo "MOCK_MONGODB_COLLECTION = ${{secrets.MOCK_MONGODB_COLLECTION}}" >> .env
         echo "MOCK_RAG_DATABASE_SYSTEM = ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}" >> .env
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
     - name: Build Docker image
       run: |
         docker build -t chat-service .
