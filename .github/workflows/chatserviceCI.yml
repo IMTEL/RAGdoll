@@ -54,15 +54,6 @@ jobs:
         echo "MOCK_MONGODB_COLLECTION = ${{secrets.MOCK_MONGODB_COLLECTION}}" >> .env
         echo "MOCK_RAG_DATABASE_SYSTEM = ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}" >> .env
 
-    - name: Cache Python dependencies if "requirements.txt" hasn't changed
-      uses: actions/cache@v4
-      id: cache
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
