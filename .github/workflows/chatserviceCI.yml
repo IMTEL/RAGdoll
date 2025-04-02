@@ -21,7 +21,7 @@ jobs:
       OPENAI_API_KEY: ${{secrets.OPENAI_API_KEY}}
       GPT_MODEL: ${{secrets.GPT_MODEL}}
       GEMINI_API_KEY: ${{secrets.GEMINI_API_KEY}}
-      GEMINI_MODEL: ${{secrets.GEMNI_MODEL}}
+      GEMINI_MODEL: ${{secrets.GEMINI_MODEL}}
       MONGODB_URI: ${{secrets.MONGODB_URI}}
       MONGODB_DATABASE: ${{secrets.MONGODB_DATABASE}}
       MONGODB_COLLECTION: ${{secrets.MONGODB_COLLECTION}}
@@ -43,7 +43,7 @@ jobs:
         echo "OPENAI_API_KEY = ${{secrets.OPENAI_API_KEY}}" >> .env
         echo "MODEL = ${{secrets.GPT_MODEL}}" >> .env
         echo "GEMINI_API_KEY = ${{secrets.GEMINI_API_KEY}}" >> .env
-        echo "GEMINI_MODEL = ${{secrets.GEMNI_MODEL}}" >> .env
+        echo "GEMINI_MODEL = ${{secrets.GEMINI_MODEL}}" >> .env
         echo "MONGODB_URI = ${{secrets.MONGODB_URI}}" >> .env
         echo "MONGODB_DATABASE = ${{secrets.MONGODB_DATABASE}}" >> .env
         echo "MONGODB_COLLECTION = ${{secrets.MONGODB_COLLECTION}}" >> .env
@@ -54,17 +54,27 @@ jobs:
         echo "MOCK_MONGODB_COLLECTION = ${{secrets.MOCK_MONGODB_COLLECTION}}" >> .env
         echo "MOCK_RAG_DATABASE_SYSTEM = ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}" >> .env
 
-    - name: Install dependencies
+    - name: Build Docker image
       run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        docker build -t chat-service .
+
+    - name: Run Docker container
+      run: |
+        docker run -d -p 8000:8000 --name chat-service chat-service
+        
     - name: Lint with flake8
       run: |
-        # stop the build if there are Python syntax errors or undefined names
+        continue-on-error: true
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+    - name: Check if 'Lint with flake8' step failed
+      if: steps.flake8.outcome != 'success'
+      run: |
+        echo "flake8 fails"
+        exit 1
+      
     - name: Test with pytest
       run: |
-        pytest
+        docker exec chat-service pytest
