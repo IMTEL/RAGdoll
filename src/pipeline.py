@@ -7,13 +7,23 @@ from src.LLM import LLM, create_llm
 
 def getAnswerFromUser(answer: str, target: str, question: str, model = "openai") -> str:
     """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
-    prompt = """A user has provided the following answer to the question: {question}. 
-                    The answer is: {answer}. The question is about the user's {target} You are to ONLY REPLY IN JSON FORMAT like so:
-                    target: "some answer"
-                    An example of a valid response is for the question "What is your name?" where target is name and answer from user is My name is John Doe is:
-                    name: "John Doe"
-                    
-                """
+    prompt = ""
+    if target == "name":
+    
+        prompt = """A user has provided the following answer to the question: {question}. 
+                        The answer is: {answer}. The question is about the user's {target} You are to ONLY REPLY IN JSON FORMAT like so:
+                        target: "some answer"
+                        An example of a valid response is for the question "What is your name?" where target is name and answer from user is My name is John Doe is:
+                        name: "John Doe"
+                    """
+    else :
+        prompt = """A user has provided the following answer to the question: {question}. 
+                        The answer is: {answer}. The question is about the user's {target} You are to ONLY REPLY IN JSON FORMAT like so:
+                        target: "some answer"
+                        When the target is user_mode, you shall review the answer and categorize it as either "experienced, beginner, or unsure".
+                        An example of a valid response is for the question "What is your name?" where target is user_mode and answer from user is "I am not experienced with VR" is:
+                        user_mode: "beginner"
+                    """
     prompt.format(answer=answer, target=target, question=question)
     
     language_model = create_llm(model)
