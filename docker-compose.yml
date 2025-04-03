@@ -14,14 +14,17 @@ services:
     depends_on:
       - redis
       - mongodb
+    env_file:
+    - .env
+
     environment:
       - PYTHONUNBUFFERED=1
-      - ENV = 'prod' # 'prod' or 'dev'
+      - ENV ='prod'
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GPT_MODEL = ${GPT_MODEL}
+      - GPT_MODEL=${GPT_MODEL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL}
-      - MONGODB_URI= ${MONGODB_URI}
+      - MONGODB_URI=${MONGODB_URI}
       - MONGODB_DATABASE=${MONGODB_DATABASE}
       - MONGODB_COLLECTION=${MONGODB_COLLECTION}
       - RAG_DATABASE_SYSTEM=${RAG_DATABASE_SYSTEM}
