@@ -69,7 +69,7 @@ def test_pipeline():
  
  
 import pytest
-import pipeline  # Import the module where getAnswerFromUser is defined
+from src import pipeline  # Import the module where getAnswerFromUser is defined
 
 # Dummy language model for testing.
 class DummyLLM:
