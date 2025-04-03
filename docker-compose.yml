@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   chat-service:
@@ -30,7 +30,6 @@ services:
       - MOCK_MONGODB_DATABASE=${MOCK_MONGODB_DATABASE}
       - MOCK_MONGODB_COLLECTION=${MOCK_MONGODB_COLLECTION}
       - MOCK_RAG_DATABASE_SYSTEM=${MOCK_RAG_DATABASE_SYSTEM}
-
 
   redis:
     image: redis
