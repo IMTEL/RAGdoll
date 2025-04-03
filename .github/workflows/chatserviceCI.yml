@@ -63,8 +63,9 @@ jobs:
         docker run -d -p 8000:8000 --name chat-service chat-service
         
     - name: Lint with flake8
+      id: flake8
+      continue-on-error: true
       run: |
-        continue-on-error: true
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
