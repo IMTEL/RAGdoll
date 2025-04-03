@@ -105,7 +105,13 @@ without docker:
 ```bash
 pytest --cov=src --cov-report=term-missing
 ```
-
+Docker:
+```bash
+docker compose build
+docker compose up -d
+docker compose run chat-service pytest
+docker compose down
+```
 # 6 test enpoint with mock data
 ### curl command to test the endpoint:
 
