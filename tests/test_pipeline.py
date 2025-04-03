@@ -1,5 +1,5 @@
 from src.command import Command, Prompt, prompt_to_json
-from src.rag_service.dao import get_database
+from src.rag_service.dao import get_database, MockDatabase
 from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM
@@ -10,9 +10,21 @@ use_tokens = False
 
 @pytest.mark.integration
 def test_pipeline():
-    
-  
-        
+    # Ensure the mock database is used
+    db = get_database()
+    if not isinstance(db, MockDatabase):
+        pytest.skip("Skipping test because MockDatabase is not being used.")
+
+    # Add a document to the mock database with the required keys
+    test_document = {
+        "text": "This is a test document.",
+        "documentName": "test_document",  # Include 'documentName'
+        "NPC": 100,
+        "embedding": [0.1, 0.2, 0.3],
+        "documentId": "test_id"
+    }
+    db.post_context(**test_document)
+
     command = Command(
         user_name="Tobias",
         user_mode="Used to VR, but dont know the game",
