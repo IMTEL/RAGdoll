@@ -307,10 +307,12 @@ class MockDatabase(Database):
             #similarity = similarity_search(embedding, document["embedding"])
             similarity = 0.9
             if similarity > self.similarity_threshold:
+                # Use get() method with a default value to avoid KeyError
+                doc_name = document.get("document_name", "default_document_name")
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["document_name"],
+                        document_name=doc_name,
                         NPC=document["NPC"],
                     )
                 )
