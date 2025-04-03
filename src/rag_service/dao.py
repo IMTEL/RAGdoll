@@ -247,6 +247,7 @@ class MockDatabase(Database):
     """
 
     _instance = None  # Class variable to hold the singleton instance
+    collection = None  # Placeholder for the collection attribute
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
