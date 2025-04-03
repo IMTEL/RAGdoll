@@ -324,8 +324,14 @@ class MockDatabase(Database):
         document_id: str,
         document_name: str,
     ) -> bool:
-        if not text or not document_id or NPC is None or not embedding:
-            raise ValueError("All parameters are required and must be valid")
+        if not text:
+            raise ValueError("text cannot be None")
+        if not document_id:
+            raise ValueError("document_id cannot be None")
+        if NPC is None:
+            raise ValueError("NPC cannot be None")
+        if not embedding:
+            raise ValueError("embedding cannot be None")
 
         # Append a new document to the in-memory storage
         self.data.append(
