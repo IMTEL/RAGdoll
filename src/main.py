@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body, Request
+from fastapi.responses import JSONResponse
 from src.command import Command, command_from_json
 from src.pipeline import assemble_prompt
-from src.routes import progress, failure, debug, rag, upload
+from src.routes import progress, debug, upload
 import uvicorn
 import sys
 import os
@@ -17,11 +18,11 @@ app = FastAPI(
 # Progress router
 app.include_router(progress.router)
 # Failure router
-app.include_router(failure.router)
+# app.include_router(failure.router)
 # Debug router
 app.include_router(debug.router)
 # RAG router
-app.include_router(rag.router)
+# app.include_router(rag.router)
 # Upload router
 app.include_router(upload.router)
 
@@ -45,20 +46,31 @@ def ping():
     return {"status": "PONG!"}
 
 
-@app.get("/ask")
-def ask(
-    data: str
-) -> str:
+@app.post("/ask")
+async def ask(request: Request):
     """Ask
+    
+    Accepts a byte array input and returns a response.
 
     Returns:
         response: str
     """
-    command: Command = command_from_json(data)
-    if command is None:
-        return {"message": "Invalid command."}
-    response = assemble_prompt(command)
-    return {"response": response}
+    try:
+        body_bytes = await request.body()
+        
+        data = body_bytes.decode('utf-8')
+        
+        command: Command = command_from_json(data)
+        if command is None:
+            return JSONResponse(content={"message": "Invalid command format."}, status_code=400)
+        
+        response = assemble_prompt(command)
+        return {"response": response}
+    
+    except UnicodeDecodeError:
+        return JSONResponse(content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."}, status_code=400)
+    except Exception as e:
+        return JSONResponse(content={"message": f"Error processing request: {str(e)}"}, status_code=500)
 
 
 @app.get("/getAnswerFromUser")

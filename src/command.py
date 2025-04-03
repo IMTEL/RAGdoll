@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from pydantic import ValidationError
 from typing import Optional
+from src.models.progress import ProgressData
 import json
 
 
@@ -10,7 +11,7 @@ class Command(BaseModel):
     user_name: str
     user_mode: str
     question: str
-    progress: str
+    progress: list[ProgressData]
     user_actions: list[str]
     NPC: int
 
@@ -20,7 +21,7 @@ class Prompt(BaseModel):
     user_name: str
     user_mode: str
     question: str
-    progress: list[str]
+    progress: list[ProgressData]
     user_actions: list[str]
     base_prompt: str
     context: str
