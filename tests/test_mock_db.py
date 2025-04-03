@@ -11,16 +11,17 @@ from src.config import Config  # Import Config
 TEST_FILE = "tests/test_sets/test_document.txt"
 TEST_NPC = 100
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def mock_db():
-    """Set up the mock database environment for the test session."""
-    # No need to call setup_mock_environment() here
-    pass
+    """Set up the mock database environment for the test session and skip if not using mock."""
+    config = Config()
+    if config.RAG_DATABASE_SYSTEM != "mock":
+        pytest.skip("Skipping tests because RAG_DATABASE_SYSTEM is not set to mock")
+    return None  # Return None as the fixture isn't actually used in the tests
 
-def test_upload_and_list(mock_db):
+def test_upload_and_list():
     """Test uploading a document and then listing all documents."""
-    config = Config()  # Instantiate Config here
-    assert config.RAG_DATABASE_SYSTEM == "mock", "RAG_DATABASE_SYSTEM is not set to mock"
+    # No need to check config here as the fixture will skip the test if needed
     initial_documents = list_documents()
     upload_success = upload_document(TEST_FILE, TEST_NPC)
     assert upload_success, f"Failed to upload {TEST_FILE}"
@@ -32,10 +33,9 @@ def test_upload_and_list(mock_db):
     assert uploaded_doc["document_name"] == os.path.basename(TEST_FILE), "Document name mismatch"
     assert int(uploaded_doc["npc"]) == TEST_NPC, "NPC mismatch"
 
-def test_upload_and_get_by_id(mock_db):
+def test_upload_and_get_by_id():
     """Test uploading a document and then retrieving it by ID."""
-    config = Config()  # Instantiate Config here
-    assert config.RAG_DATABASE_SYSTEM == "mock", "RAG_DATABASE_SYSTEM is not set to mock"
+    # No need to check config here as the fixture will skip the test if needed
     upload_success = upload_document(TEST_FILE, TEST_NPC)
     assert upload_success, f"Failed to upload {TEST_FILE}"
     documents = list_documents()
@@ -45,10 +45,9 @@ def test_upload_and_get_by_id(mock_db):
     assert retrieved_doc["documentName"] == os.path.basename(TEST_FILE), "Document name mismatch"
     assert int(retrieved_doc["NPC"]) == TEST_NPC, "NPC mismatch"
 
-def test_upload_and_get_by_name(mock_db):
+def test_upload_and_get_by_name():
     """Test uploading a document and then retrieving it by name."""
-    config = Config()  # Instantiate Config here
-    assert config.RAG_DATABASE_SYSTEM == "mock", "RAG_DATABASE_SYSTEM is not set to mock"
+    # No need to check config here as the fixture will skip the test if needed
     upload_success = upload_document(TEST_FILE, TEST_NPC)
     assert upload_success, f"Failed to upload {TEST_FILE}"
     documents = get_document_by_name(os.path.basename(TEST_FILE))
