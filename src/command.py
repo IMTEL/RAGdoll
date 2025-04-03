@@ -1,6 +1,7 @@
 from pydantic import BaseModel
+from pydantic import ValidationError
 from typing import Optional
-
+import json
 
 
 class Command(BaseModel):
@@ -9,7 +10,7 @@ class Command(BaseModel):
     user_name: str
     user_mode: str
     question: str
-    progress: list[str]
+    progress: str
     user_actions: list[str]
     NPC: int
 
@@ -28,3 +29,20 @@ class Prompt(BaseModel):
 def prompt_to_json(prompt: Prompt) -> str:
     """Converts a Prompt instance to a JSON string."""
     return prompt.model_dump_json()
+
+
+
+def command_from_json(json_str: str) -> Optional[Command]:
+    """Parses a JSON string into a Command object.
+    
+    Args:
+        json_str (str): The JSON string representing a Command.
+
+    Returns:
+        Optional[Command]: The Command object if parsing is successful, otherwise None.
+    """
+    try:
+        return Command.model_validate_json(json_str)
+    except ValidationError as e:
+        print("Validation error:", e)
+        return None

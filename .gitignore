@@ -7,3 +7,10 @@ fresh_env/
 fresh_venv/
 .env
 env
+.coverage/
+coverage/
+coverage
+htmlcov/
+htmlcov
+# remove .coverage files
+*.coverage

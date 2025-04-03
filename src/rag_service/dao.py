@@ -43,7 +43,6 @@ class Database(ABC):
         pass
         
         
-    
     @abstractmethod
     def get_context(self, 
         document_name: str, 
@@ -94,15 +93,12 @@ class Database(ABC):
         pass
     
     
-    
-
-
 class MongoDB(Database):
     def __init__(self):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_COLLECTION]
-        self.similarity_threshold = 0.7
+        self.similarity_threshold = 0.5
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
@@ -142,20 +138,29 @@ class MongoDB(Database):
 
         return results
 
-        
 
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
         if not embedding:
             raise ValueError("Embedding cannot be None")
 
         # Define the MongoDB query that utilizes the search index "embeddings".
+        # query = {
+        #     "$vectorSearch": {
+        #         "index": "embeddings",
+        #         "path": "embedding",
+        #         "queryVector": embedding,
+        #         "numCandidates": 30, # numCandidates = 10 * limit
+        #         "limit": 3,
+        #     }
+        # }
         query = {
+                
             "$vectorSearch": {
                 "index": "embeddings",
                 "path": "embedding",
                 "queryVector": embedding,
-                "numCandidates": 30, # numCandidates = 10 * limit
-                "limit": 3,
+                "numCandidates": 30,
+                "limit": 3
             }
         }
 
@@ -235,9 +240,6 @@ class MongoDB(Database):
             print(f"Failed to ping MongoDB: {e}")
             return False
 
-
-
-
 class MockDatabase(Database):
     """
     A mock database for testing purposes, storing data in memory.
@@ -258,8 +260,6 @@ class MockDatabase(Database):
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
-            
-            
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
@@ -273,8 +273,6 @@ class MockDatabase(Database):
                 }
             }
         }
-
-        
 
         # Execute the aggregate pipeline
         documents = self.collection.aggregate([
@@ -296,10 +294,7 @@ class MockDatabase(Database):
                 )
             )
         return results
-
-
         
-
     def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
         if not embedding:
             raise ValueError("Embedding cannot be None")
@@ -309,7 +304,8 @@ class MockDatabase(Database):
         # Filter documents based on similarity and document_name
         for document in self.data:
             #if document["document_name"] == document_name:
-            similarity = similarity_search(embedding, document["embedding"])
+            #similarity = similarity_search(embedding, document["embedding"])
+            similarity = 0.9
             if similarity > self.similarity_threshold:
                 results.append(
                     Context(
@@ -409,13 +405,12 @@ def get_database() -> Database:
     Returns:
         Database: The database to use
     """
-    db_type = config.RAG_DATABASE_SYSTEM.lower()
-    
-    if db_type == "mock":
-        return MockDatabase()
-    elif db_type == "mongodb":
-        return MongoDB()
-    elif db_type == "local_mock":
-        return LocalMockDatabase()
-    else:
-        raise ValueError("Invalid database type")
+    match config.RAG_DATABASE_SYSTEM.lower():
+        case "mock":
+            return MockDatabase()  
+        case "mongodb":
+            return MongoDB()
+        case "local_mock":
+            return LocalMockDatabase()
+        case _:
+            raise ValueError("Invalid database type")

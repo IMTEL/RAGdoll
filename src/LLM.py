@@ -76,7 +76,14 @@ class Gemini_LLM(LLM):
         response = self.client.generate_content(prompt)
         return response.text.strip()
     
-
+class MockLLM(LLM):
+    def create_prompt(self, base_prompt: str, **kwargs) -> str:
+        return f"Mocked prompt for base prompt: {base_prompt}"
+    
+    def generate(self, prompt: str) -> str:
+        return f"Mocked response for prompt: {prompt}"
+    
+    
 def create_llm(llm: str = "openai") -> LLM:
     """
     Factory for creating LLM instances.
@@ -95,5 +102,7 @@ def create_llm(llm: str = "openai") -> LLM:
             return OpenAI_LLM()
         case "gemini":
             return Gemini_LLM()
+        case "mock":
+            return MockLLM()
         case _:
             raise ValueError(f"LLM {llm} not supported")
