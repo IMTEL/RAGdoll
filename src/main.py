@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from src.command import Command, command_from_json
 from src.pipeline import assemble_prompt
-from src.routes import progress, failure, debug, rag, upload
+from src.routes import progress, debug, upload
 import uvicorn
 import sys
 import os
@@ -16,12 +16,8 @@ app = FastAPI(
 )
 # Progress router
 app.include_router(progress.router)
-# Failure router
-app.include_router(failure.router)
 # Debug router
 app.include_router(debug.router)
-# RAG router
-app.include_router(rag.router)
 # Upload router
 app.include_router(upload.router)
 

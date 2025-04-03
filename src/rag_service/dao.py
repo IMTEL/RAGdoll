@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 from pymongo import MongoClient
 import logging
@@ -260,6 +259,7 @@ class MockDatabase(Database):
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
+            self.collection = self  # collection attribute for compatibility
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
