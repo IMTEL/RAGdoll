@@ -25,6 +25,15 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "openai")
                         user_mode: "beginner"
                     """
     prompt.format(answer=answer, target=target, question=question)
+    # skoleelev
+    # unge arbeidsledige
+    # studerer fagskole
+    # om de har jobberfaring
+    # Nettopp ferdig med skole?
+    # arbeidsløs en stund
+    # har de vært i jobb før?
+    # har de hatt praksis tidligere i et relevant felt? 
+    # interests?
     
     language_model = create_llm(model)
     response = language_model.generate(prompt)
