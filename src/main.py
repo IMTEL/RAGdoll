@@ -65,7 +65,7 @@ async def ask(request: Request):
             return JSONResponse(content={"message": "Invalid command format."}, status_code=400)
         
         response = assemble_prompt(command)
-        return {"response": response}
+        return response
     
     except UnicodeDecodeError:
         return JSONResponse(content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."}, status_code=400)

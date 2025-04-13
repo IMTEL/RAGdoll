@@ -5,7 +5,7 @@ from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM, create_llm
 
-def getAnswerFromUser(answer: str, target: str, question: str, model = "openai") -> str:
+def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini") -> str:
     """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
     prompt = ""
     if target == "name":
@@ -49,13 +49,13 @@ def assemble_prompt(command: Command, model: str = "openai") -> str:
     base_prompt = """
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
+    Earlier chathistory is: {command.chatHistory_str}
     The name of the user is {command.user_name}.
     The user is in {command.user_mode} mode, so adjust your answer based on this.
     The user has made the following progress: {command.progress}.
     The user has taken the following actions: {command.user_actions}. (Actions may not be available)
     IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE THAT YOU ARE NOT SURE, BUT TRY TO PROVIDE AN ANSWER.
     PROVIDE A SHORT ANSWER THAT ARE EASY TO UNDERSTAND. STATE THE NAME OF THE USER IN A NATURAL WAY IN THE RESPONSE.
-    Earlier chathistory is: {command.chatHistory_str}
     """
     base_prompt = base_prompt.format(command=command)
     prompt: str = ""
@@ -64,7 +64,9 @@ def assemble_prompt(command: Command, model: str = "openai") -> str:
     
     else:
         prompt += str(base_prompt) + "context:" + str(context[0])+ "question:"+ str(command.question)
-    
+
+    print(f"Prompt sent to LLM:\n{prompt}")
+
     language_model = create_llm(model)
     response = language_model.generate(prompt)
     
