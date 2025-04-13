@@ -55,6 +55,7 @@ def assemble_prompt(command: Command, model: str = "openai") -> str:
     The user has taken the following actions: {command.user_actions}. (Actions may not be available)
     IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE THAT YOU ARE NOT SURE, BUT TRY TO PROVIDE AN ANSWER.
     PROVIDE A SHORT ANSWER THAT ARE EASY TO UNDERSTAND. STATE THE NAME OF THE USER IN A NATURAL WAY IN THE RESPONSE.
+    Earlier chathistory is: {command.chatHistory_str}
     """
     base_prompt = base_prompt.format(command=command)
     prompt: str = ""

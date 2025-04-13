@@ -14,6 +14,7 @@ class Command(BaseModel):
     progress: list[ProgressData]
     user_actions: list[str]
     NPC: int
+    chatHistory_str: str
 
 
 class Prompt(BaseModel):
