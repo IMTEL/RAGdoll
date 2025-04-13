@@ -49,7 +49,7 @@ def assemble_prompt(command: Command, model: str = "openai") -> str:
     base_prompt = """
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
-    Earlier chathistory is: {command.chatHistory_str}
+    Earlier chathistory is: {command.chat_history}
     The name of the user is {command.user_name}.
     The user is in {command.user_mode} mode, so adjust your answer based on this.
     The user has made the following progress: {command.progress}.
