@@ -8,8 +8,7 @@ import json
 class Command(BaseModel):
     """Message from the VR application about the current state. This is an loose implementation of the command pattern
     """
-    user_name: str
-    user_mode: str
+    user_information: Optional[dict]
     question: str
     progress: list[ProgressData]
     user_actions: list[str]
@@ -19,8 +18,7 @@ class Command(BaseModel):
 
 class Prompt(BaseModel):
     """Message to be passed to a large language model."""
-    user_name: str
-    user_mode: str
+    user_information: Optional[dict]
     question: str
     progress: list[ProgressData]
     user_actions: list[str]

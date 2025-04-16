@@ -50,8 +50,8 @@ def assemble_prompt(command: Command, model: str = "openai") -> str:
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
     Earlier chathistory is: {command.chat_history}
-    The name of the user is {command.user_name}.
-    The user is in {command.user_mode} mode, so adjust your answer based on this.
+    The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE.
+    If user information is unavailable, try to provide a general answer.
     The user has made the following progress: {command.progress}.
     The user has taken the following actions: {command.user_actions}. (Actions may not be available)
     IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE THAT YOU ARE NOT SURE, BUT TRY TO PROVIDE AN ANSWER.
