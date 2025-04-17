@@ -2,23 +2,23 @@ from pydantic import BaseModel
 from pydantic import ValidationError
 from typing import Optional
 from src.models.progress import ProgressData
+from src.models.message import Message
 import json
 
 
 class Command(BaseModel):
     """Message from the VR application about the current state. This is an loose implementation of the command pattern
     """
-    user_information: Optional[dict]
-    question: str
+    user_information: Optional[dict] = None
     progress: list[ProgressData]
     user_actions: list[str]
     NPC: int
-    chat_history: list[str]
+    chatLog: list[Message]
 
 
 class Prompt(BaseModel):
     """Message to be passed to a large language model."""
-    user_information: Optional[dict]
+    user_information: Optional[dict] = None
     question: str
     progress: list[ProgressData]
     user_actions: list[str]

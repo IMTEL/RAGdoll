@@ -61,6 +61,7 @@ async def ask(request: Request):
         data = body_bytes.decode('utf-8')
         
         command: Command = command_from_json(data)
+
         if command is None:
             return JSONResponse(content={"message": "Invalid command format."}, status_code=400)
         
