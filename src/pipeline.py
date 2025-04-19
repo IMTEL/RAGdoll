@@ -4,6 +4,8 @@ from src.rag_service.dao import get_database
 from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM, create_llm
+import uuid
+import time
 
 def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini") -> str:
     """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
@@ -70,7 +72,34 @@ def assemble_prompt(command: Command, model: str = "openai") -> str:
     language_model = create_llm(model)
     response = language_model.generate(prompt)
     
-    return response
+    return {
+        "id": str(uuid.uuid4()),
+        "created": int(time.time()),
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": response
+                },
+                "logprobs": None,
+                "finish_reason": "stop"
+            }
+        ],
+        "usage": {
+            # "prompt_tokens": prompt_token_count,
+            # "completion_tokens": completion_token_count,
+            # "total_tokens": total_tokens
+        },
+        "system_fingerprint": "v1-system",  # placeholder
+        "context_used": context if context else [],
+        "metadata": {
+            "response_length": len(response),
+            # "confidence_score": 0.95
+        },
+        "response": response
+    }
 
 
 
