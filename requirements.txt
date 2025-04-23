@@ -10,10 +10,11 @@ coverage==7.7.0
 distro==1.9.0
 dnspython==2.7.0
 fastapi==0.115.8
-ffmpeg==1.4
+ffmpeg-python==0.2.0
 filelock==3.18.0
 Flask==3.1.0
 fsspec==2025.3.2
+future==1.0.0
 google-ai-generativelanguage==0.6.15
 google-api-core==2.24.1
 google-api-python-client==2.162.0
