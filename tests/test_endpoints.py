@@ -8,23 +8,6 @@ from fastapi import FastAPI, File, UploadFile, Form
 
 from src.main import app
 
-
-
-# app = FastAPI(
-#     title="Chat-Service Microservice API",
-#     description="Generate prompts with context and passing them to LLM.",
-#     version="1.0.0",
-
-# )
-
-# # Progress router
-# app.include_router(progress.router)
-# # Debug router
-# app.include_router(debug.router)
-# # Upload router
-# app.include_router(upload.router)
-
-
 client = TestClient(app)
 
 
