@@ -10,8 +10,6 @@ from src.main import app
 
 client = TestClient(app)
 
-
-
 # Use a small dummy WAV header (not playable, but passes the file check)
 DUMMY_WAV = (
     b"RIFF$\x00\x00\x00WAVEfmt " +
