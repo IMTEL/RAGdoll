@@ -105,5 +105,3 @@ without docker:
 ```bash
 pytest --cov=src --cov-report=term-missing
 ```
-
-# 6 test enpoint with mock data
