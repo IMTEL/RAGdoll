@@ -45,3 +45,66 @@ def test_ask_transcribe_invalid_json(dummy_audio_file):
     )
     assert response.status_code == 200
     assert response.json()["message"] == "Invalid command."
+
+
+import os
+
+# New test with real .wav file
+@pytest.mark.integration
+def test_ask_transcribe_with_real_wav():
+    file_path = os.path.join("tests", "test_sets", "Chorus.wav")
+
+    with open(file_path, "rb") as audio_file:
+        response = client.post(
+            "/askTranscribe",
+            files={"audio": ("Chorus.wav", audio_file, "audio/wav")},
+            data={"data": json.dumps({
+                "user_name": "test_user",
+                "user_mode": "test",
+                "question": "should be replaced",
+                "progress": "test",
+                "user_actions": ["test"],
+                "NPC": "123"
+            })}
+        )
+
+    assert response.status_code == 200
+    assert "response" in response.json()
+    
+from src.transcribe import transcribe_from_upload
+
+import os
+import io
+import pytest
+from starlette.datastructures import UploadFile
+
+from src.transcribe import transcribe_from_upload
+
+from difflib import SequenceMatcher
+
+def similarity(a: str, b: str) -> float:
+    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+
+
+
+@pytest.mark.integration
+def test_transcribe():
+    file_path = os.path.join("tests", "test_sets", "Chorus.wav")
+
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    # Wrap raw bytes into UploadFile
+    upload_file = UploadFile(filename="Chorus.wav", file=io.BytesIO(file_bytes), headers="audio/wav")
+
+    result = transcribe_from_upload(upload_file)
+
+    expected = "caught in a landslide no escape from reality open your eyes"  
+
+    actual = result
+
+    similarity_score = similarity(expected, actual)
+
+    print(f"Similarity score: {similarity_score:.2f}")
+    assert similarity_score > 0.8  
