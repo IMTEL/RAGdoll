@@ -3,10 +3,12 @@ from fastapi.responses import JSONResponse
 from src.command import Command, command_from_json
 from src.pipeline import assemble_prompt
 from src.routes import progress, debug, upload
+from fastapi import FastAPI, File, UploadFile, Form
 import uvicorn
 import sys
 import os
-
+from tempfile import NamedTemporaryFile
+from src.transcribe import transcribe_from_upload
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 app = FastAPI(
@@ -73,6 +75,23 @@ async def ask(request: Request):
     except Exception as e:
         return JSONResponse(content={"message": f"Error processing request: {str(e)}"}, status_code=500)
 
+@app.post("/askTranscribe")
+async def askTranscribe(
+    audio: UploadFile = File(...),
+    data: str = Form(...)
+):
+    """
+    Transcribes an audio file and processes a command.
+    """
+    transcribed = transcribe_from_upload(audio)
+
+   
+    command: Command = command_from_json(data, question=transcribed)
+    if command is None:
+        return {"message": "Invalid command."}
+
+    response = assemble_prompt(command)
+    return {"response": response}
 
 @app.get("/getAnswerFromUser")
 def getAnswerFromUser(

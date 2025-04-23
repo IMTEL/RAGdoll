@@ -105,3 +105,93 @@ without docker:
 ```bash
 pytest --cov=src --cov-report=term-missing
 ```
+Docker:
+```bash
+docker compose build
+docker compose up -d
+docker compose run chat-service pytest
+docker compose down
+```
+# 6 test enpoint with mock data
+### curl command to test the endpoint:
+
+curl -X POST "http://localhost:8000/api/progress" \
+-H "Content-Type: application/json" \
+-d '{
+  "taskName": "Daily Exercise Routine",
+  "status": "start",
+  "userId": "user123",
+  "subtaskProgress": [
+    {
+      "subtaskName": "Warm Up",
+      "description": "Prepare muscles for workout",
+      "completed": false,
+      "stepProgress": [
+        {
+          "stepName": "Jumping Jacks",
+          "repetitionNumber": 30,
+          "completed": false
+        },
+        {
+          "stepName": "Arm Circles",
+          "repetitionNumber": 20,
+          "completed": false
+        }
+      ]
+    },
+    {
+      "subtaskName": "Main Workout",
+      "description": "Intense exercise session",
+      "completed": false,
+      "stepProgress": [
+        {
+          "stepName": "Push Ups",
+          "repetitionNumber": 50,
+          "completed": false
+        }
+      ]
+    }
+  ]
+}
+
+curl -X POST "http://localhost:8000/api/progress" \
+-H "Content-Type: application/json" \
+-d '{
+  "taskName": "Daily Exercise Routine",
+  "status": "complete",
+  "userId": "user123",
+  "subtaskProgress": [
+    {
+      "subtaskName": "Warm Up",
+      "description": "Prepare muscles for workout",
+      "completed": true,
+      "stepProgress": [
+        {
+          "stepName": "Jumping Jacks",
+          "repetitionNumber": 30,
+          "completed": true
+        },
+        {
+          "stepName": "Arm Circles",
+          "repetitionNumber": 20,
+          "completed": true
+        }
+      ]
+    },
+    {
+      "subtaskName": "Main Workout",
+      "description": "Intense exercise session",
+      "completed": true,
+      "stepProgress": [
+        {
+          "stepName": "Push Ups",
+          "repetitionNumber": 50,
+          "completed": true
+        }
+      ]
+    }
+  ]
+}'
+
+### Receive the log
+curl -X GET "http://localhost:8000/api/progress"

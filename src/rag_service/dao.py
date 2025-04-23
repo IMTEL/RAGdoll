@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 from pymongo import MongoClient
 import logging
@@ -247,6 +246,7 @@ class MockDatabase(Database):
     """
 
     _instance = None  # Class variable to hold the singleton instance
+    collection = None  # Placeholder for the collection attribute
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -260,6 +260,7 @@ class MockDatabase(Database):
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
+            self.collection = self  # collection attribute for compatibility
         
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
@@ -307,10 +308,12 @@ class MockDatabase(Database):
             #similarity = similarity_search(embedding, document["embedding"])
             similarity = 0.9
             if similarity > self.similarity_threshold:
+                # Use get() method with a default value to avoid KeyError
+                doc_name = document.get("document_name", "default_document_name")
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["document_name"],
+                        document_name=doc_name,
                         NPC=document["NPC"],
                     )
                 )
@@ -324,8 +327,14 @@ class MockDatabase(Database):
         document_id: str,
         document_name: str,
     ) -> bool:
-        if not text or not document_id or NPC is None or not embedding:
-            raise ValueError("All parameters are required and must be valid")
+        if not text:
+            raise ValueError("text cannot be None")
+        if not document_id:
+            raise ValueError("document_id cannot be None")
+        if NPC is None:
+            raise ValueError("NPC cannot be None")
+        if not embedding:
+            raise ValueError("embedding cannot be None")
 
         # Append a new document to the in-memory storage
         self.data.append(

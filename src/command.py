@@ -32,7 +32,7 @@ def prompt_to_json(prompt: Prompt) -> str:
 
 
 
-def command_from_json(json_str: str) -> Optional[Command]:
+def command_from_json(json_str: str, question: Optional[str] = None) -> Optional[Command]:
     """Parses a JSON string into a Command object.
     
     Args:
@@ -42,7 +42,10 @@ def command_from_json(json_str: str) -> Optional[Command]:
         Optional[Command]: The Command object if parsing is successful, otherwise None.
     """
     try:
-        return Command.model_validate_json(json_str)
+        command = Command.model_validate_json(json_str)
+        if question:
+            command.question = question
+        return command
     except ValidationError as e:
         print("Validation error:", e)
         return None
