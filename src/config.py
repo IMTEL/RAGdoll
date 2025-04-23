@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+import whisper
 
 load_dotenv()  
 
@@ -13,7 +14,11 @@ class Config:
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", gemini_model)
         self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_gemini_api_key")
-        
+         # Load the model (options: tiny, base, small, medium, large)
+        try:
+            self.whisper_model = whisper.load_model("base").to("cuda") # TODO: load model on ping or keep container warm
+        except:
+            self.whisper_model = whisper.load_model("base")
         
         if self.ENV == 'dev': # TODO: change this to 'dev' when ready
             self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")
