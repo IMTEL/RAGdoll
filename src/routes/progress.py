@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from datetime import datetime, timezone
 
-from src.models.progress import ProgressData
+from src.models.progress import ProgressData, ListProgressData
 
 
 # In-memory log to store progress data
@@ -11,12 +11,26 @@ from src.utils.global_logs import progressLog
 # Define a router for progress-related endpoints
 router = APIRouter()
 
-@router.post("/api/progress")
+@router.post("/api/progress/initializeTasks")
+def receive_hierarchy(taskHierarchy: ListProgressData):
+    """
+    Initializes a list of tasks with their subtasks and steps.
+    """
+    try:
+        for task in taskHierarchy.items:
+            progressLog.append(task.model_dump())
+        return {"message": "Tasks initialized", "data": taskHierarchy}
+    except Exception as e:
+        print(f"Error processing task hierarchy: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/api/progress/updateTask")
 def receive_progress(progress: ProgressData):
     """
-    Handles task progress updates (start/complete) and stores them.
+    Handles task progress updates (started/complete) and stores them.
     """
-    if progress.status == "start":
+    if progress.status == "started" or progress.status == "pending":
         # Check for existing incomplete task to update
         for entry in progressLog:
             if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
@@ -45,7 +59,7 @@ def receive_progress(progress: ProgressData):
         return {"message": f"No active task {progress.taskName} found."}
 
     else:
-        raise HTTPException(400, "Status must be 'start' or 'complete'.")
+        raise HTTPException(400, "Status must be 'started' or 'complete'.")
 
 @router.get("/api/progress")
 def get_progress_log():

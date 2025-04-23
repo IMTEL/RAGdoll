@@ -1,26 +1,26 @@
 from pydantic import BaseModel
 from pydantic import ValidationError
 from typing import Optional
+from src.models.progress import ProgressData
+from src.models.message import Message
 import json
 
 
 class Command(BaseModel):
     """Message from the VR application about the current state. This is an loose implementation of the command pattern
     """
-    user_name: str
-    user_mode: str
-    question: str
-    progress: str
+    user_information: Optional[dict] = None
+    progress: list[ProgressData]
     user_actions: list[str]
     NPC: int
+    chatLog: list[Message]
 
 
 class Prompt(BaseModel):
     """Message to be passed to a large language model."""
-    user_name: str
-    user_mode: str
+    user_information: Optional[dict] = None
     question: str
-    progress: list[str]
+    progress: list[ProgressData]
     user_actions: list[str]
     base_prompt: str
     context: str
@@ -43,8 +43,10 @@ def command_from_json(json_str: str, question: Optional[str] = None) -> Optional
     """
     try:
         command = Command.model_validate_json(json_str)
-        if question:
-            command.question = question
+        if question and len(command.chatLog) > 0:
+            command.chatLog[-1] = question
+        else :
+            command.chatLog.append(Message(role="user", content=question)) # TODO: what should user mode be?
         return command
     except ValidationError as e:
         print("Validation error:", e)

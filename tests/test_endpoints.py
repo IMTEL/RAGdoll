@@ -49,7 +49,28 @@ def test_ask_transcribe_invalid_json(dummy_audio_file):
 
 import os
 
-# New test with real .wav file
+# @pytest.mark.integration
+# def test_ask_transcribe_with_real_wav():
+#     file_path = os.path.join("tests", "test_sets", "Chorus.wav")
+
+#     with open(file_path, "rb") as audio_file:
+#         response = client.post(
+#             "/askTranscribe",
+#             files={"audio": ("Chorus.wav", audio_file, "audio/wav")},
+#             data={"data": json.dumps({
+#                 "user_name": "test_user",
+#                 "user_mode": "test",
+#                 "question": "should be replaced",
+#                 "progress": "test",
+#                 "user_actions": ["test"],
+#                 "NPC": "123"
+#             })}
+#         )
+
+#     assert response.status_code == 200
+#     assert "response" in response.json()
+
+
 @pytest.mark.integration
 def test_ask_transcribe_with_real_wav():
     file_path = os.path.join("tests", "test_sets", "Chorus.wav")
@@ -59,17 +80,24 @@ def test_ask_transcribe_with_real_wav():
             "/askTranscribe",
             files={"audio": ("Chorus.wav", audio_file, "audio/wav")},
             data={"data": json.dumps({
-                "user_name": "test_user",
-                "user_mode": "test",
-                "question": "should be replaced",
-                "progress": "test",
-                "user_actions": ["test"],
-                "NPC": "123"
+                "progress": [
+                    {
+                        "taskName": "Test Task",
+                        "description": "A description",
+                        "status": "in_progress",
+                        "userId": "test_user",
+                        "subtaskProgress": []
+                    }
+                ],
+                "user_actions": ["test_action"],
+                "NPC": 123,
+                "chatLog": []
             })}
         )
 
     assert response.status_code == 200
     assert "response" in response.json()
+
     
 from src.transcribe import transcribe_from_upload
 
