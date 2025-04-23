@@ -43,8 +43,10 @@ def command_from_json(json_str: str, question: Optional[str] = None) -> Optional
     """
     try:
         command = Command.model_validate_json(json_str)
-        if question:
-            command.question = question
+        if question and len(command.chatLog) > 0:
+            command.chatLog[-1] = question
+        else :
+            command.chatLog.append(Message(role="user", content=question)) # TODO: what should user mode be?
         return command
     except ValidationError as e:
         print("Validation error:", e)

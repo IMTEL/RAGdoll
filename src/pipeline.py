@@ -46,11 +46,12 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini")
     
     return response
 
-def assemble_prompt(command: Command, model: str = "openai") -> str:
+def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     
     #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
-    to_embed: str = str(command.chatLog[-1])
+    
+    to_embed: str = str(command.chatLog[-1].content)
     
     db = get_database()
     embedding_model = create_embeddings_model()
