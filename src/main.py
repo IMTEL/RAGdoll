@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Body, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from src.command import Command, command_from_json
+from src.command import Command, command_from_json, command_from_json_transcribeVersion
 from src.pipeline import assemble_prompt
 from src.routes import progress, debug, upload
 from fastapi import FastAPI, File, UploadFile, Form
@@ -116,7 +116,7 @@ async def askTranscribe(
     transcribed = transcribe_from_upload(audio)
 
    
-    command: Command = command_from_json(data, question=transcribed)
+    command: Command = command_from_json_transcribeVersion(data, question=transcribed)
     if command is None:
         return {"message": "Invalid command."}
 
