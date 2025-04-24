@@ -15,6 +15,8 @@ class DocumentCategory(Enum):
     # Other categories
     BEHAVIORAL_CONTEXT = "Behavioral Context"
     GENERAL_INFORMATION = "General Information"
+    CONVERSATIONAL_ASSETS = "Conversational Assets"
+    TRAINING_DATA = "Training Data"
     MISCELLANEOUS = "Miscellaneous"
     
     # Scene categories from Blue Sector
