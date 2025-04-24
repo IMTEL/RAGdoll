@@ -46,8 +46,7 @@ async def upload_document(
         with open(file_location, "wb") as buffer:
             buffer.write(file.file.read())
 
-        # Process and store - convert enum to integer for database compatibility
-        category_value = category.value if category else DocumentCategory.GENERAL_INFORMATION.value
+        # Process and store - convert enum to its string value for database compatibility
         success = process_file_and_store(file_location, category_value)
 
         # Delete temporary file
