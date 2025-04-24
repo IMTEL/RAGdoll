@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 
 import whisper
 import numpy as np
-import ffmpeg
+# import ffmpeg
 from fastapi import UploadFile
 import tempfile
 
@@ -17,18 +17,39 @@ model = Config().whisper_model
 
 app = Flask(__name__)
 
-def load_audio_from_upload(file: UploadFile) -> np.ndarray:
-    input_bytes = file.file.read()
 
-    # Convert uploaded file (WAV/MP3/etc) into 16kHz float32 mono PCM
-    out, _ = (
-        ffmpeg
-        .input("pipe:0")
-        .output("pipe:1", format="f32le", ac=1, ar="16000")
-        .run(input=input_bytes, capture_stdout=True, capture_stderr=True)
-    )
-    audio = np.frombuffer(out, np.float32)
+import io, math, numpy as np, soundfile as sf
+from scipy.signal import resample_poly      # pip install scipy soundfile
+
+TARGET_SR = 16_000          # 16 kHz mono float32
+
+def load_audio_from_upload(file) -> np.ndarray:
+    raw = file.file.read()                  # UploadFile → bytes
+    # --- decode ----------------------------------------------------------------------------------
+    with io.BytesIO(raw) as bio:
+        audio, sr = sf.read(bio, dtype='float32')   # libsndfile does the heavy lifting
+    # --- mono ------------------------------------------------------------------------------------
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)          # down-mix
+    # --- resample -------------------------------------------------------------------------------
+    if sr != TARGET_SR:
+        g = math.gcd(sr, TARGET_SR)         # polyphase → good quality & fast
+        audio = resample_poly(audio, TARGET_SR // g, sr // g).astype('float32')
     return audio
+
+
+# def load_audio_from_upload(file: UploadFile) -> np.ndarray:
+#     input_bytes = file.file.read()
+
+#     # Convert uploaded file (WAV/MP3/etc) into 16kHz float32 mono PCM
+#     out, _ = (
+#         ffmpeg
+#         .input("pipe:0")
+#         .output("pipe:1", format="f32le", ac=1, ar="16000")
+#         .run(input=input_bytes, capture_stdout=True, capture_stderr=True)
+#     )
+#     audio = np.frombuffer(out, np.float32)
+#     return audio
 
 
 def transcribe_from_upload(file: UploadFile) -> str:
