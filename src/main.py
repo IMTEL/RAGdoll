@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Body, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from src.command import Command, command_from_json
 from src.pipeline import assemble_prompt
 from src.routes import progress, debug, upload
@@ -17,6 +18,35 @@ app = FastAPI(
     version="1.0.0",
 
 )
+
+# Mount static files directory
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+# Create static directory if it doesn't exist (optional, good practice)
+if not os.path.exists(static_dir):
+    try:
+        os.makedirs(static_dir)
+        print(f"Created static directory at: {static_dir}")
+    except OSError as e:
+        print(f"Error creating static directory {static_dir}: {e}")
+
+# Check if directory exists before mounting
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+else:
+    print(f"Warning: Static directory not found at {static_dir}. Static files will not be served.")
+
+# Route to serve the main HTML page
+@app.get("/test-ui", response_class=HTMLResponse)
+async def read_test_ui():
+    html_file_path = os.path.join(static_dir, "index.html")
+    if os.path.exists(html_file_path):
+        with open(html_file_path, "r", encoding='utf-8') as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    error_message = f"<h1>Error: Test UI HTML file not found.</h1><p>Expected location: {html_file_path}</p>"
+    if not os.path.isdir(static_dir):
+        error_message += "<p>The static directory itself was not found or is not a directory.</p>"
+    return HTMLResponse(content=error_message, status_code=404)
+
 # Progress router
 app.include_router(progress.router)
 # Failure router
