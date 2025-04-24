@@ -3,21 +3,26 @@ import time
 from uuid import uuid4
 from src.rag_service.dao import get_database, MockDatabase
 from src.rag_service.context import Context
+from unittest.mock import MagicMock, patch
 
 # --- Helper Classes and Fixtures ---
 
 class FakeCollection:
     """
-    A fake collection to simulate MongoDB's aggregate() method.
-    It simply returns an iterator over the provided data.
+    A fake collection to simulate MongoDB's aggregate() and insert_one() methods.
     """
-    def __init__(self, data):
-        self.data = data
-
+    def __init__(self, data=None):
+        self.data = data if data is not None else []
+        
     def aggregate(self, pipeline):
         # In a real scenario, you'd parse the pipeline;
         # here we just return all stored documents.
         return iter(self.data)
+    
+    def insert_one(self, document):
+        # Simulate MongoDB insert_one operation
+        self.data.append(document)
+        return MagicMock()
 
 @pytest.fixture
 def mock_db():
@@ -28,10 +33,18 @@ def mock_db():
     db = get_database()
     if not isinstance(db, MockDatabase):
         pytest.skip("Skipping tests because get_database() did not return a MockDatabase instance")
-    # Attach a FakeCollection based on its in-memory data
-    data = db.collection.data
-    db.collection = FakeCollection(data)
-    return db
+    
+    # Create a new FakeCollection with empty data
+    fake_collection = FakeCollection([])
+    # Save the original collection to restore later
+    original_collection = db.collection
+    # Set the fake collection
+    db.collection = fake_collection
+    
+    yield db
+    
+    # Restore the original collection after the test
+    db.collection = original_collection
 
 
 def test_post_context_invalid_params(mock_db):
@@ -42,7 +55,7 @@ def test_post_context_invalid_params(mock_db):
     with pytest.raises(ValueError) as exc_info:
         mock_db.post_context(
             text="",
-            NPC=1,
+            category="General Information",
             embedding=[0.1, 0.1],
             document_id="some_id",
             document_name="TestDoc"
@@ -54,5 +67,29 @@ def test_is_reachable(mock_db):
     Test that is_reachable returns True for the mock database.
     """
     assert mock_db.is_reachable() is True
+
+@patch("src.rag_service.dao.similarity_search", return_value=0.8)  # Mock the similarity_search to return 0.8
+def test_get_context_by_category(similarity_search_mock, mock_db):
+    """
+    Test that get_context_by_category returns contexts with the specified category.
+    """
+    # Add test data directly to the fake collection
+    test_category = "FishFeeding"
+    document = {
+        "text": "Test text for FishFeeding scene",
+        "category": test_category,
+        "embedding": [0.1, 0.2, 0.3],
+        "documentId": "test_id_1",
+        "documentName": "TestDoc1"
+    }
+    mock_db.collection.data.append(document)
+    
+    # Try to retrieve by category - this should work now with our fake collection
+    contexts = mock_db.get_context_by_category(test_category)
+    
+    # Assertions - check that we got the expected data back
+    assert len(contexts) > 0
+    assert contexts[0].category == test_category
+    assert contexts[0].text == "Test text for FishFeeding scene"
 
 

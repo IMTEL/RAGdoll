@@ -1,4 +1,3 @@
-
 import os
 import logging
 import uuid
@@ -15,8 +14,8 @@ from unittest.mock import patch
 # def test_process_file_and_store():
 #     current_dir = os.path.dirname(__file__)  # Directory of the current test file.
 #     file_path = os.path.join(current_dir, "test_sets", "bee_movie_script.txt")
-#     NPC = 100
-#     success = process_file_and_store(file_path, NPC)
+#     category = "General Information"  # Updated to use category instead of NPC
+#     success = process_file_and_store(file_path, category)
 #     assert success == True
 #     assert os.path.exists(file_path) == True
 #     assert os.path.isfile(file_path) == True
@@ -38,9 +37,9 @@ from unittest.mock import patch
 #     mock_db.return_value.post_context.return_value = True  # Mock DB success
 
 #     file_path = "tests/test_sets/bee_movie_script.txt"
-#     NPC = 100
+#     category = "General Information"  # Updated to use category instead of NPC
 
-#     success = process_file_and_store(file_path, NPC)
+#     success = process_file_and_store(file_path, category)
     
 #     assert success == True
     
@@ -53,3 +52,4 @@ from unittest.mock import patch
     
 #     assert len(data) > 0  # Ensure at least one document was stored
 #     assert data[0]["documentName"] == "bee_movie_script.txt"  # Check stored filename
+#     assert data[0]["category"] == "General Information"  # Check the category
