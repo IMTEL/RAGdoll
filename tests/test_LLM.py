@@ -121,4 +121,127 @@ def test_llm_comparison():
     assert len(openai_response) > 0, "OpenAI response should not be empty"
     assert len(gemini_response) > 0, "Gemini response should not be empty"
     assert openai_response != gemini_response, "Responses should differ between models"
+    
+    
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from src.LLM import OpenAI_LLM
+import src.streaming_ws as streaming_ws
+
+# --------------------------------------------------------------------------- #
+# Helper fakes                                                                
+# --------------------------------------------------------------------------- #
+from collections import deque
+from types import SimpleNamespace
+
+class _FakeDelta(SimpleNamespace):      # exposes .content
+    pass
+
+class _FakeChunk(SimpleNamespace):      # exposes .choices[0].delta.content
+    def __init__(self, token: str):
+        super().__init__(choices=[SimpleNamespace(delta=_FakeDelta(content=token))])
+
+class _FakeStream:
+    """Mimic what OpenAI returns when stream=True."""
+    def __init__(self, tokens):
+        self._tokens = deque(tokens)
+
+    # -- awaitable ---------------------------------------------------------- #
+    def __await__(self):
+        async def _dummy():              # so `await _FakeStream(...)` works
+            return self
+        return _dummy().__await__()
+
+    # -- async-iterable ----------------------------------------------------- #
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._tokens:
+            raise StopAsyncIteration
+        return _FakeChunk(self._tokens.popleft())
+
+async def _fake_async_create(**kwargs):
+    return _FakeStream(["Hello", " ", "world", "!"])
+
+
+class _MockStreamingLLM:
+    """Lean stand-in used to isolate `stream_chat_completion`."""
+    def __init__(self):
+        self.prompt_seen = None
+
+    async def astream(self, prompt: str):
+        self.prompt_seen = prompt
+        for tok in ["foo", "bar"]:
+            yield tok
+
+
+# --------------------------------------------------------------------------- #
+# Helper fakes                                                                
+# --------------------------------------------------------------------------- #
+
+
+
+
+
+
+
+
+
+# --------------------------------------------------------------------------- #
+# 1.  OpenAI_LLM.astream                                                      
+# --------------------------------------------------------------------------- #
+
+pytestmark = [pytest.mark.unit]   # applies to every test in this file
+
+
+@pytest.mark.asyncio
+async def test_openai_astream(monkeypatch):
+    """
+    Patched `OpenAI_LLM.astream` should emit every token coming from the fake
+    async client without blocking the event-loop.
+    """
+    llm = OpenAI_LLM()
+
+    # Patch ONLY the network call – the rest of the logic stays intact
+    monkeypatch.setattr(
+    llm.client.chat.completions,
+    "create",
+    _fake_async_create,
+    raising=True,
+)
+
+
+    tokens = []
+    async for tok in llm.astream("dummy prompt"):
+        tokens.append(tok)
+
+    assert "".join(tokens) == "Hello world!"
+
+
+# --------------------------------------------------------------------------- #
+# 2.  streaming_ws.stream_chat_completion                                      
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.asyncio
+async def test_stream_chat_completion_uses_astream(monkeypatch):
+    """
+    Verify that `stream_chat_completion` delegates to LLM.astream and yields the
+    *exact* stream it produces.
+    """
+
+    mock_llm = _MockStreamingLLM()
+
+    # Monkey-patch the factory that streaming_ws relies on
+    monkeypatch.setattr(streaming_ws, "create_llm", lambda _: mock_llm, raising=True)
+
+    tokens = []
+    async for tok in streaming_ws.stream_chat_completion("whatever", model="openai"):
+        tokens.append(tok)
+
+    assert tokens == ["foo", "bar"]
+    assert mock_llm.prompt_seen == "whatever", "prompt should be forwarded unchanged"
 
