@@ -71,24 +71,15 @@ class WhisperStreamer:
 # ──────────────────────────────────────────────────────────────────────────
 # LLM streaming helper (OpenAI today; easy to swap via factory)
 # ──────────────────────────────────────────────────────────────────────────
+# streaming_ws.py
 async def stream_chat_completion(prompt: str, model: str = "openai") -> AsyncGenerator[str, None]:
     llm = create_llm(model)
-    if hasattr(llm, "client"):  # Only OpenAI_LLM exposes raw client today
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
-        ]
-        response = llm.client.chat.completions.create(
-            model=llm.model,
-            messages=messages,
-            stream=True,
-        )
-        for chunk in response:  # type: ignore [attr-defined]
-            delta = chunk.choices[0].delta
-            if delta and delta.content:
-                yield delta.content
-    else:  # fallback – no streaming available; send once
+    if hasattr(llm, "astream"):
+        async for tok in llm.astream(prompt):
+            yield tok
+    else:                               # never hits OpenAI / Gemini after step 3
         yield llm.generate(prompt)
+
 
 # ──────────────────────────────────────────────────────────────────────────
 # WebSocket endpoint
