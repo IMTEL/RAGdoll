@@ -10,6 +10,7 @@ import sys
 import os
 from tempfile import NamedTemporaryFile
 from src.transcribe import transcribe_from_upload
+from src.streaming_ws import router as streaming_router
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 app = FastAPI(
@@ -57,6 +58,9 @@ app.include_router(debug.router)
 # app.include_router(rag.router)
 # Upload router
 app.include_router(upload.router)
+
+# WebSocket router
+app.include_router(streaming_router)
 
 @app.get("/")
 def hello_world():

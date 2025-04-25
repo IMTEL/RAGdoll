@@ -1,3 +1,7 @@
+
+# pip install websocket
+
+#  src/streaming_ws.py
 """streaming_ws.py
 -----------------
 Adds full‑duplex WebSocket streaming to the chat‑service for:
@@ -47,7 +51,7 @@ import whisper
 _MODEL = Config().whisper_model     # already GPU‑aware in existing code
 _SAMPLE_RATE = 16_000               # Unity should down‑sample if needed
 _CHUNK_S    = 1.0                   # seconds of audio per decode step
-_CHUNK_BYTES = int(_SAMPLE_RATE * _CHUNK_S) * 2  # 16‑bit = 2 bytes
+_CHUNK_BYTES = int(_SAMPLE_RATE * _CHUNK_S)  # 16‑bit = 2 bytes
 
 class WhisperStreamer:
     """Feed raw PCM chunks; yields partial transcripts every *_CHUNK_S* seconds."""
@@ -58,15 +62,51 @@ class WhisperStreamer:
     def feed(self, pcm_bytes: bytes) -> Optional[str]:
         self._buf.extend(pcm_bytes)
         if len(self._buf) < _CHUNK_BYTES:
+            print(f"Buffer not full yet: {len(self._buf)}/{_CHUNK_BYTES} bytes")
             return None
+        
         # Take one slice; leave remainder for next round
         slice_bytes = self._buf[:_CHUNK_BYTES]
         del self._buf[:_CHUNK_BYTES]
-        audio_np = np.frombuffer(slice_bytes, np.int16).astype(np.float32) / 32768.0
-        mel = whisper.log_mel_spectrogram(audio_np).to(_MODEL.device)
-        opts = whisper.DecodingOptions(language="no", without_timestamps=True)
-        dec  = whisper.decode(_MODEL, mel, opts)
-        return dec.text.strip()
+        
+        try:
+            # Convert to numpy array with proper normalization
+            audio_np = np.frombuffer(slice_bytes, np.int16).astype(np.float32) / 32768.0
+            
+            # Debug information
+            print(f"Audio buffer: {len(slice_bytes)} bytes, {len(audio_np)} samples")
+            print(f"Expected samples: {_SAMPLE_RATE * _CHUNK_S}")
+            print(f"Audio shape: {audio_np.shape}, min: {np.min(audio_np):.4f}, max: {np.max(audio_np):.4f}")
+            
+            # Make sure audio is the correct length
+            if len(audio_np) != _SAMPLE_RATE * _CHUNK_S:
+                target_length = int(_SAMPLE_RATE * _CHUNK_S)
+                if len(audio_np) < target_length:
+                    print(f"Padding audio: {len(audio_np)} → {target_length} samples")
+                    audio_np = np.pad(audio_np, (0, target_length - len(audio_np)))
+                else:
+                    print(f"Truncating audio: {len(audio_np)} → {target_length} samples")
+                    audio_np = audio_np[:target_length]
+            
+            # Get information about mel spectrogram before processing
+            mel = whisper.log_mel_spectrogram(audio_np)
+            print(f"Mel spectrogram shape before unsqueeze: {mel.shape}")
+            
+            # Add batch dimension and move to device
+            mel = mel.unsqueeze(0).to(_MODEL.device)
+            print(f"Mel spectrogram shape after processing: {mel.shape}")
+            print(f"Whisper expects shape: [1, 80, N] where N depends on audio length")
+            
+            # Now the shape should be [1, 80, frames]
+            opts = whisper.DecodingOptions(language="no", without_timestamps=True)
+            dec = whisper.decode(_MODEL, mel, opts)
+            return dec.text.strip()
+            
+        except Exception as e:
+            print(f"Error processing audio: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 # ──────────────────────────────────────────────────────────────────────────
 # LLM streaming helper (OpenAI today; easy to swap via factory)
