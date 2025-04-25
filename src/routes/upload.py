@@ -49,13 +49,16 @@ async def upload_document(
             buffer.write(file.file.read())
 
         # Process and store - convert enum to its string value for database compatibility
-        success = process_file_and_store(file_location, category_value)
+        success = process_file_and_store(file_location, category.value)
 
         # Delete temporary file
         os.remove(file_location)
+        
+
+        logging.info(f"Uploaded file: {file.filename}, Category: {category.value}")
 
         if success:
-            return {"message": "File uploaded and processed successfully", "category": category_value}
+            return {"message": "File uploaded and processed successfully", "category": category.value}
         else:
             raise HTTPException(status_code=500, detail="Failed to process file")
     
