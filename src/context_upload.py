@@ -25,19 +25,19 @@ def compute_embedding(text: str) -> list[float]:
     embeddings = embedding_model.get_embedding(text)
     return embeddings
 
-def process_file_and_store(file_path: str, NPC: int) -> bool:
+def process_file_and_store(file_path: str, category: str) -> bool:
     """
     Processes a .txt or .md file, extracts its text, computes its embedding, and
     stores the data in the database.
 
     Args:
         file_path (str): Path to the text or markdown file.
-        NPC (int): NPC identifier to associate with this context.
+        category (str): Document category to associate with this context.
 
     Returns:
         bool: True if storing was successful; False otherwise.
     """
-    logging.info(f"Starting file processing for: {file_path} with NPC: {NPC}")
+    logging.info(f"Starting file processing for: {file_path} with category: {category}")
 
     # Verify file exists
     if not os.path.exists(file_path):
@@ -82,9 +82,10 @@ def process_file_and_store(file_path: str, NPC: int) -> bool:
     db = get_database()
 
     try:
+        # Changed from NPC parameter to category parameter
         success = db.post_context(
             text=text,
-            NPC=NPC,
+            category=category,  # Using category instead of NPC
             embedding=embedding,
             document_id=document_id,
             document_name=document_name
@@ -94,7 +95,7 @@ def process_file_and_store(file_path: str, NPC: int) -> bool:
         return False
 
     if success:
-        logging.info(f"Successfully stored '{document_name}' into the database.")
+        logging.info(f"Successfully stored '{document_name}' into the database with category '{category}'.")
     else:
         logging.error(f"Failed to store '{document_name}' into the database.")
 
@@ -103,5 +104,5 @@ def process_file_and_store(file_path: str, NPC: int) -> bool:
 if __name__ == '__main__':
     # Example usage of the process_file_and_store function.
     file_path = "src.context_files.salmon.txt"
-    NPC = 100
-    process_file_and_store(file_path, NPC)
+    category = "General Information"  # Changed from NPC to category
+    process_file_and_store(file_path, category)

@@ -14,12 +14,12 @@ def test_compute_embedding_calls_model(mock_model):
 
 @patch("os.path.exists", return_value=False)
 def test_process_file_not_found(mock_exists):
-    result = process_file_and_store("missing.txt", NPC=123)
+    result = process_file_and_store("missing.txt", category="General Information")
     assert result is False
 
 @patch("os.path.exists", return_value=True)
 def test_process_file_unsupported_type(mock_exists):
-    result = process_file_and_store("file.pdf", NPC=123)
+    result = process_file_and_store("file.pdf", category="General Information")
     assert result is False
 
 @patch("src.rag_service.dao.get_database")
@@ -27,6 +27,6 @@ def test_process_file_unsupported_type(mock_exists):
 @patch("builtins.open", new_callable=mock_open, read_data="text")
 @patch("os.path.exists", return_value=True)
 def test_process_file_embedding_failure(mock_exists, mock_open_func, mock_embed, mock_get_db):
-    result = process_file_and_store("file.txt", NPC=123)
+    result = process_file_and_store("file.txt", category="General Information")
     assert result is False
 

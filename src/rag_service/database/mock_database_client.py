@@ -4,7 +4,7 @@ import argparse
 import uuid
 import logging
 
-# Add the project root to Python’s path
+# Add the project root to Python's path
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', '..', '..')
 )
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 # Initialize embedding model
 embedding_model = create_embeddings_model()
 
-def upload_document(file_path, npc=0):
+def upload_document(file_path, category="General Information"):
     """Upload a document to the mock database"""
-    success = process_file_and_store(file_path, npc)
+    success = process_file_and_store(file_path, category)
     return success
 
 def list_documents():
@@ -38,7 +38,7 @@ def list_documents():
         documents.append({
             "document_id": doc.get("documentId", "N/A"),
             "document_name": doc.get("documentName", "N/A"),
-            "npc": doc.get("NPC", "N/A"),
+            "category": doc.get("category", doc.get("NPC", "N/A")),  # Handle both new and old formats
             "text_preview": doc.get("text", "")[:50] + "..." if len(doc.get("text", "")) > 50 else doc.get("text", "")
         })
     return documents
@@ -76,7 +76,8 @@ def main():
     # Upload command
     upload_parser = subparsers.add_parser('upload', help='Upload a document')
     upload_parser.add_argument('file', help='Path to the file to upload')
-    upload_parser.add_argument('--npc', type=int, default=0, help='NPC identifier (default: 0)')
+    upload_parser.add_argument('--category', default="General Information", 
+                              help='Document category (default: General Information)')
     
     # List command
     subparsers.add_parser('list', help='List all documents')
@@ -97,7 +98,7 @@ def main():
             logger.error(f"File not found: {args.file}")
             return 1
         
-        success = upload_document(args.file, args.npc)
+        success = upload_document(args.file, args.category)
         if success:
             logger.info(f"Successfully uploaded {args.file}")
         else:
@@ -112,7 +113,7 @@ def main():
         else:
             logger.info(f"Found {len(documents)} documents:")
             for doc in documents:
-                logger.info(f"ID: {doc['document_id']}, Name: {doc['document_name']}, NPC: {doc['npc']}")
+                logger.info(f"ID: {doc['document_id']}, Name: {doc['document_name']}, Category: {doc['category']}")
                 logger.info(f"Preview: {doc['text_preview']}")
                 logger.info("-" * 40)
     
@@ -123,7 +124,7 @@ def main():
             if doc:
                 logger.info(f"Document ID: {doc.get('documentId')}")
                 logger.info(f"Document Name: {doc.get('documentName')}")
-                logger.info(f"NPC: {doc.get('NPC')}")
+                logger.info(f"Category: {doc.get('category', doc.get('NPC', 'N/A'))}")
                 logger.info(f"Text: {doc.get('text')[:500]}...")
             else:
                 logger.error(f"Document with ID {args.id} not found")
@@ -135,7 +136,7 @@ def main():
                 logger.info(f"Found {len(docs)} documents with name {args.name}:")
                 for doc in docs:
                     logger.info(f"Document ID: {doc.get('documentId')}")
-                    logger.info(f"NPC: {doc.get('NPC')}")
+                    logger.info(f"Category: {doc.get('category', doc.get('NPC', 'N/A'))}")
                     logger.info(f"Text: {doc.get('text')[:500]}...")
                     logger.info("-" * 40)
             else:

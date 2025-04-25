@@ -43,7 +43,7 @@ def test_pipeline(mock_llm):
     test_document = {
         "text": "This is a test document.",
         "document_name": "test_document",
-        "NPC": 100,
+        "category": 'Miscellaneous',
         "embedding": [0.1, 0.2, 0.3],
         "document_id": "test_id"
     }
