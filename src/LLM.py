@@ -1,4 +1,5 @@
-from typing import Protocol
+import asyncio
+from typing import AsyncGenerator, Protocol
 from openai import OpenAI
 import google.generativeai as genai
 from src.config import Config 
@@ -13,6 +14,12 @@ class LLM(Protocol):
     def generate(self, prompt: str) -> str:
         """
         Send the prompt to the LLM and return the generated response.
+        """
+        pass
+    
+    async def astream(self, prompt: str) -> AsyncGenerator[str, None]:
+        """
+        Asynchronously stream the response from the LLM.
         """
         pass
 
@@ -48,6 +55,21 @@ class OpenAI_LLM(LLM):
             messages=messages
         )
         return response.choices[0].message.content.strip()
+    
+    async def astream(self, prompt: str) -> AsyncGenerator[str, None]:
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user",   "content": prompt},
+        ]
+        response = await self.client.chat.completions.create(
+            model   = self.model,
+            messages= messages,
+            stream  = True,
+        )
+        async for chunk in response:
+            delta = chunk.choices[0].delta
+            if delta and delta.content:
+                yield delta.content
 
 # GOOGLE GEMINI
 
@@ -75,6 +97,13 @@ class Gemini_LLM(LLM):
         """
         response = self.client.generate_content(prompt)
         return response.text.strip()
+
+    async def astream(self, prompt: str):
+        # Gemini’s Python client supports stream=True
+        resp = self.client.generate_content(prompt, stream=True)
+        for chunk in resp:
+            yield chunk.text
+
     
 class MockLLM(LLM):
     def create_prompt(self, base_prompt: str, **kwargs) -> str:
@@ -82,6 +111,11 @@ class MockLLM(LLM):
     
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
+    
+    async def astream(self, prompt: str):
+        for tok in "Mock response".split():
+            yield tok + " "
+            await asyncio.sleep(0.05)
     
     
 def create_llm(llm: str = "openai") -> LLM:
