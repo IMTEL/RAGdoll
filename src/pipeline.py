@@ -1,4 +1,3 @@
-
 from src.command import Command, Prompt, prompt_to_json
 from src.rag_service.dao import get_database
 from src.config import Config
@@ -53,6 +52,11 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     
     to_embed: str = str(command.chatLog[-1].content)
     
+    # Check if this is an idle timeout message
+    is_idle_timeout = False
+    if len(command.chatLog) > 0 and "idle" in to_embed.lower() and ("minutes" in to_embed.lower() or "seconds" in to_embed.lower()):
+        is_idle_timeout = True
+    
     db = get_database()
     embedding_model = create_embeddings_model()
     embeddings: list[float] = embedding_model.get_embedding(to_embed)
@@ -69,7 +73,36 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE THAT YOU ARE NOT SURE, BUT TRY TO PROVIDE AN ANSWER.
     PROVIDE A SHORT ANSWER THAT IS EASY TO UNDERSTAND. STATE THE NAME OF THE USER IN A NATURAL WAY IN THE RESPONSE.
     """
-    base_prompt = base_prompt.format(command=command)
+    
+    # Special prompt for idle timeout
+    idle_prompt = """
+    You are a helpful assistant and guide in the Blue Sector Virtual Reality work training.
+    The user has been idle for some time. Based on their current progress and last activity, provide a SHORT, FRIENDLY prompt 
+    that offers guidance or asks if they need help. Your response will be spoken by an NPC in VR, so keep it brief (1-2 sentences max) and conversational.
+    
+    Earlier chathistory is: {command.chatLog}
+    The information you have on the user is {command.user_information}. 
+    The user has made the following progress: {command.progress}.
+    The user has taken the following actions: {command.user_actions}.
+    
+    Recent activity: {recent_activity}
+    
+    Acknowledge the user being idle and offer specific help related to their current task.
+    ALWAYS KEEP YOUR RESPONSE UNDER 150 CHARACTERS. This is crucial as it will be spoken by an NPC.
+    """
+    
+    # Format the appropriate prompt
+    if is_idle_timeout:
+        # Extract recent activities (last 3) if available
+        recent_activity = ""
+        if hasattr(command, 'user_actions') and command.user_actions:
+            recent_actions = command.user_actions[-3:] if len(command.user_actions) > 3 else command.user_actions
+            recent_activity = ", ".join(recent_actions)
+        
+        base_prompt = idle_prompt.format(command=command, recent_activity=recent_activity)
+    else:
+        base_prompt = base_prompt.format(command=command)
+    
     prompt: str = ""
     if context is None or len(context) == 0:
         prompt += str(base_prompt) + "context: NO CONTEXT AVAILABLE " + "question: " +  str(command.chatLog[-1])
@@ -106,7 +139,7 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
         "context_used": context if context else [],
         "metadata": {
             "response_length": len(response),
-            # "confidence_score": 0.95
+            "is_idle_timeout": is_idle_timeout
         },
         "response": response
     }
