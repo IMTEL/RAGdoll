@@ -62,6 +62,7 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
     Earlier chathistory is: {command.chatLog}
+    The user is currently in the {command.scene_name} scene.
     The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE.
     If user information is unavailable, try to provide a general answer.
     The user has made the following progress: {command.progress}.
