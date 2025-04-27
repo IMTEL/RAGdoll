@@ -129,14 +129,17 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     
     # Parse the response for function calls
     function_call = None
-    
+    parsed_response = response
+
     import re
     function_match = re.search(r'\[FUNCTION\](.*?)\|(.*?)\[\/FUNCTION\](.*)', response, re.DOTALL)
     if function_match:
         function_name = function_match.group(1).strip()
-        print("Function name:", function_name)
         function_param = function_match.group(2).strip()
-        print("Function parameter:", function_param)
+        
+        function_tag_text = function_match.group(0)
+        parsed_response = response.replace(function_tag_text, "").strip()
+
         function_call = {
             "function_name": function_name,
             "function_parameters": [function_param]
@@ -151,7 +154,7 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": response,
+                    "content": parsed_response,
                     "function_call": function_call
                 },
                 "logprobs": None,
@@ -166,10 +169,10 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
         "system_fingerprint": "v1-system",  # placeholder
         "context_used": context if context else [],
         "metadata": {
-            "response_length": len(response),
+            "response_length": len(parsed_response),
             # "confidence_score": 0.95
         },
-        "response": response,
+        "response": parsed_response,
         "function_call": function_call
     }
 
