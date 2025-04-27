@@ -10,7 +10,7 @@ class Command(BaseModel):
     """Message from the VR application about the current state. This is an loose implementation of the command pattern
     """
     scene_name: str
-    user_information: Optional[dict] = None
+    user_information: list[str]
     progress: list[ProgressData]
     user_actions: list[str]
     NPC: int
@@ -19,7 +19,7 @@ class Command(BaseModel):
 
 class Prompt(BaseModel):
     """Message to be passed to a large language model."""
-    user_information: Optional[dict] = None
+    user_information: list[str]
     question: str
     progress: list[ProgressData]
     user_actions: list[str]
