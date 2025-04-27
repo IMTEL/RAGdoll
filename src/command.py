@@ -9,6 +9,7 @@ import json
 class Command(BaseModel):
     """Message from the VR application about the current state. This is an loose implementation of the command pattern
     """
+    scene_name: str
     user_information: Optional[dict] = None
     progress: list[ProgressData]
     user_actions: list[str]
