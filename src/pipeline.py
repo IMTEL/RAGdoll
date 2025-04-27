@@ -46,7 +46,7 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini")
     
     return response
 
-def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
+def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     
     #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
@@ -59,6 +59,10 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     context = db.get_context("hello", embeddings ) # TODO: remove document name from here
     
     base_prompt = """
+    MANDATORY: 
+    If you detect the user needs an action, you MUST guess the appropriate function call using [FUNCTION]function_name|parameter[/FUNCTION].
+    If you are unsure, make your best guess. DO NOT return an empty response.
+
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
     Earlier chathistory is: {command.chatLog}
@@ -69,7 +73,47 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     The user has taken the following actions: {command.user_actions}. (Actions may not be available)
     IF THERE ARE NO CONTEXT AVAILABLE, PLEASE STATE THAT YOU ARE NOT SURE, BUT TRY TO PROVIDE AN ANSWER.
     PROVIDE A SHORT ANSWER THAT IS EASY TO UNDERSTAND. STATE THE NAME OF THE USER IN A NATURAL WAY IN THE RESPONSE.
+
+    IMPORTANT - FUNCTION CALLING INSTRUCTIONS:
+    When the user asks to move to a different location or scene, or when you need to assist them by showing objects or playing animations,
+    follow this two-step confirmation process:
+
+    1. First, ask the user to confirm the action you're about to perform. For example:
+       "Would you like me to teleport you to the Laboratory?" or "Shall I show you the safety equipment?"
+    
+    2. Only after the user confirms, use the function calling format as your next response:
+       [FUNCTION]function_name|parameter[/FUNCTION]
+    
+    If the user has already explicitly confirmed in their current message, you may execute the function immediately.
+
+    IMPORTANT CONSTRAINTS:
+    - NEVER teleport the user to the scene they are currently in. If they ask to go to their current location, inform them they are already there.
+
+    Function call format:
+    [FUNCTION]function_name|parameter[/FUNCTION]
+
+    Available functions:
+    - teleport(location: str): Teleport the user to a specific scene. Available scenes are:
+        * ReceptionOutdoor - The main entrance area
+        * Laboratory - Where scientific experiments take place
+    If the user asks to go to any of these locations or expresses a desire to move to another area, follow the confirmation process.
+    REMEMBER: Do not teleport the user to their current scene location.
+
+    - showObject(objectId: str): Highlight or show a specific object to the user.
+
+    Example 1: If the user says "Can you take me to the lab?", respond with:
+    "Would you like me to teleport you to the Laboratory? Please confirm."
+    
+    Example 2: If the user then confirms "Yes, please", respond with:
+    "[FUNCTION]teleport|Laboratory[/FUNCTION]"
+    
+    Example 3: If the user says "Yes, teleport me to the reception right now", you can respond directly with:
+    "[FUNCTION]teleport|ReceptionOutdoor[/FUNCTION]"
+
+    Example 4: If the user says "Take me to the Laboratory" but they are already in the Laboratory scene, respond with:
+    "You're already in the Laboratory. Is there something specific you're looking for here?"
     """
+    
     base_prompt = base_prompt.format(command=command)
     prompt: str = ""
     if context is None or len(context) == 0:
@@ -83,6 +127,24 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
     language_model = create_llm(model)
     response = language_model.generate(prompt)
     
+    # Parse the response for function calls
+    function_call = None
+    parsed_response = response
+
+    import re
+    function_match = re.search(r'\[FUNCTION\](.*?)\|(.*?)\[\/FUNCTION\](.*)', response, re.DOTALL)
+    if function_match:
+        function_name = function_match.group(1).strip()
+        function_param = function_match.group(2).strip()
+        
+        function_tag_text = function_match.group(0)
+        parsed_response = response.replace(function_tag_text, "").strip()
+
+        function_call = {
+            "function_name": function_name,
+            "function_parameters": [function_param]
+        }
+    
     return {
         "id": str(uuid.uuid4()),
         "created": int(time.time()),
@@ -92,7 +154,8 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": response
+                    "content": parsed_response,
+                    "function_call": function_call
                 },
                 "logprobs": None,
                 "finish_reason": "stop"
@@ -106,10 +169,11 @@ def assemble_prompt(command: Command, model: str = "openai") -> dict[str]:
         "system_fingerprint": "v1-system",  # placeholder
         "context_used": context if context else [],
         "metadata": {
-            "response_length": len(response),
+            "response_length": len(parsed_response),
             # "confidence_score": 0.95
         },
-        "response": response
+        "response": parsed_response,
+        "function_call": function_call
     }
 
 
