@@ -10,6 +10,10 @@ WORKDIR /app
 
 # Copy and install dependencies
 COPY requirements.txt .
+# Install build tools and git
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential git && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 # Copy the rest of the application
