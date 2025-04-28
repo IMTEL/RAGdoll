@@ -67,7 +67,8 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     You are here to help the user with their questions and guide them through the training.
     Earlier chathistory is: {command.chatLog}
     The user is currently in the {command.scene_name} scene.
-    The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE.
+    The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE. IF TWO ANSWERS TO THE SAME QUESTION ARE GIVEN, USE THE LATEST ONE.
+    IF TWO ANSWERS CONTRADICT EACH OTHER, USE THE LATEST ONE.
     If user information is unavailable, try to provide a general answer.
     The user has made the following progress: {command.progress}.
     The user has taken the following actions: {command.user_actions}. (Actions may not be available)
