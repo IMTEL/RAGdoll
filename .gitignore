@@ -13,4 +13,12 @@ coverage
 htmlcov/
 htmlcov
 # remove .coverage files
+
 *.coverage
+
+
+# remove whisper package, it is hugely large and not needed for the repo, added when running for the first time
+src/models/whisper
+
+# Personal files
+terminal_commands.md
