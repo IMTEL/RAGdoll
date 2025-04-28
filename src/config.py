@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-import whisper
+# import whisper # No longer needed here
 
 load_dotenv()  
 
@@ -14,11 +14,22 @@ class Config:
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", gemini_model)
         self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_gemini_api_key")
-         # Load the model (options: tiny, base, small, medium, large)
-        try:
-            self.whisper_model = whisper.load_model("base").to("cuda") # TODO: load model on ping or keep container warm
-        except:
-            self.whisper_model = whisper.load_model("base")
+        
+        # Faster-Whisper Configuration
+        # Options: tiny, tiny.en, base, base.en, small, small.en, medium, medium.en, large-v1, large-v2, large-v3, distil-large-v3 etc.
+        self.whisper_model_size = os.getenv("WHISPER_MODEL_SIZE", "base") 
+        # Options: "cuda", "cpu"
+        self.whisper_device = os.getenv("WHISPER_DEVICE", "cpu") 
+        # Options for CPU: "int8", "float32"
+        # Options for CUDA: "float16", "int8_float16", "int8"
+        default_compute_type = "int8" if self.whisper_device == "cpu" else "float16"
+        self.whisper_compute_type = os.getenv("WHISPER_COMPUTE_TYPE", default_compute_type)
+
+        # Remove direct model loading from config
+        # try:
+        #     self.whisper_model = whisper.load_model("base").to("cuda") # TODO: load model on ping or keep container warm
+        # except:
+        #     self.whisper_model = whisper.load_model("base")
         
         if self.ENV == 'dev': # TODO: change this to 'dev' when ready
             self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")

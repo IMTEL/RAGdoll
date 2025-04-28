@@ -1,19 +1,41 @@
 # transcribe_service.py
 from flask import Flask, request, jsonify
 
-import whisper
+from faster_whisper import WhisperModel
 import numpy as np
 # import ffmpeg
 from fastapi import UploadFile
 import tempfile
-
+import logging
 import os
+import torch
 
 from src.config import Config
 
-model = Config().whisper_model
+# Configure logging for faster-whisper
+logging.basicConfig()
+whisper_logger = logging.getLogger("faster_whisper")
+whisper_logger.setLevel(logging.INFO)
 
+# Check for GPU
+device = "cuda" if torch.cuda.is_available() else Config().whisper_device
+compute_type = "float16" if torch.cuda.is_available() else Config().whisper_compute_type
 
+# Load the faster-whisper model with advanced optimizations
+model = WhisperModel(
+    Config().whisper_model_size,
+    device=device,
+    compute_type=compute_type,
+    # Adding optimizations:
+    cpu_threads=8,            # Increased for better parallelization
+    num_workers=4,            # Increased for parallel processing
+    download_root=os.path.join(os.path.dirname(__file__), "models", "whisper")  # Cache models locally
+)
+
+# Configure model to be faster by reducing beam size and using other optimizations
+DEFAULT_BEAM_SIZE = 1        # Reduced from 5 for faster processing
+DEFAULT_BEST_OF = 1          # Reduced for faster processing
+USE_EFFICIENT_BY_DEFAULT = True # Use efficient processing by default
 
 app = Flask(__name__)
 
@@ -54,25 +76,37 @@ def load_audio_from_upload(file) -> np.ndarray:
 
 def transcribe_from_upload(file: UploadFile) -> str:
     audio = load_audio_from_upload(file)
-    audio = whisper.pad_or_trim(audio)
+    # Use the batched model for faster processing
+    segments, info = model.transcribe(
+        audio, 
+        beam_size=5,
+        vad_filter=True,  # Filter out non-speech parts
+        vad_parameters=dict(min_silence_duration_ms=500)
+    )
+    
+    print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+    
+    # Concatenate segments to get the full text
+    full_text = "".join(segment.text for segment in segments)
+    return full_text
 
-    mel = whisper.log_mel_spectrogram(audio).to(model.device)
-    options = whisper.DecodingOptions()
-    result = whisper.decode(model, mel, options)
-    return result.text
 
-
-def transcribe(audio):
+def transcribe(audio_path: str) -> str:
     """
-    Transcribe an audio file using Whisper model.
+    Transcribe an audio file using the optimized faster-whisper model.
     
     Args:
-        audio (str): Path to the audio file.
+        audio_path (str): Path to the audio file.
         
     Returns:
         str: Transcribed text.
     """
-    # model = Config.whisper_model
-
-    result = model.transcribe(audio)
-    return result["text"]
+    segments, info = model.transcribe(
+        audio_path, 
+        beam_size=5, 
+        vad_filter=True,
+        vad_parameters=dict(min_silence_duration_ms=500)
+    )
+    print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+    full_text = "".join(segment.text for segment in segments)
+    return full_text
