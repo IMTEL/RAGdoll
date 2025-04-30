@@ -15,6 +15,7 @@ class Command(BaseModel):
     user_actions: list[str]
     NPC: int
     chatLog: list[Message]
+    idle_type: Optional[str] = None # Can be 'initial' or 'interval'
 
 
 class Prompt(BaseModel):

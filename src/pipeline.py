@@ -119,12 +119,19 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     "You're already in the Laboratory. Is there something specific you're looking for here?"
     """
     
-    
-    # Special prompt for idle timeout
-    idle_prompt = """
+    # Special prompt for initial idle timeout
+    initial_idle_prompt = """
+    You are a helpful assistant and guide in the Blue Sector Virtual Reality work training.
+    The user has been idle for a bit. Briefly ask if they need any help or are stuck.
+    Keep it very short (1 sentence) and conversational. Example: "Everything alright there? Need any help?"
+    ALWAYS KEEP YOUR RESPONSE UNDER 100 CHARACTERS.
+    """
+
+    # Special prompt for interval idle timeout
+    interval_idle_prompt = """
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training.
     The user has been idle for some time. Based on their current progress and last activity, provide a SHORT, FRIENDLY prompt 
-    that offers guidance or asks if they need help. Your response will be spoken by an NPC in VR, so keep it brief (1-2 sentences max) and conversational.
+    that offers specific guidance or asks if they need help related to their current task. Your response will be spoken by an NPC in VR, so keep it brief (1-2 sentences max) and conversational.
     
     Earlier chathistory is: {command.chatLog}
     The information you have on the user is {command.user_information}. 
@@ -133,7 +140,7 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     
     Recent activity: {recent_activity}
     
-    Acknowledge the user being idle and offer specific help related to their current task.
+    Acknowledge the user being idle and offer specific help related to their current task and common issues or struggles with their current task.
     ALWAYS KEEP YOUR RESPONSE UNDER 150 CHARACTERS. This is crucial as it will be spoken by an NPC.
     """
     
@@ -145,7 +152,15 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
             recent_actions = command.user_actions[-3:] if len(command.user_actions) > 3 else command.user_actions
             recent_activity = ", ".join(recent_actions)
         
-        base_prompt = idle_prompt.format(command=command, recent_activity=recent_activity)
+        # Choose prompt based on idle_type
+        if command.idle_type == 'initial':
+             base_prompt = initial_idle_prompt # No formatting needed for the simple initial prompt
+        elif command.idle_type == 'interval':
+             base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
+        else: # Default to interval prompt if type is missing or unexpected
+             print(f"Warning: Unknown or missing idle_type '{command.idle_type}'. Using interval idle prompt.")
+             base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
+
     else:
         base_prompt = base_prompt.format(command=command)
     
