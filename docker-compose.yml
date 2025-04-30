@@ -19,7 +19,7 @@ services:
 
     environment:
       - PYTHONUNBUFFERED=1
-      - ENV ='prod'
+      - ENV='prod'
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GPT_MODEL=${GPT_MODEL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -33,7 +33,6 @@ services:
       - MOCK_MONGODB_DATABASE=${MOCK_MONGODB_DATABASE}
       - MOCK_MONGODB_COLLECTION=${MOCK_MONGODB_COLLECTION}
       - MOCK_RAG_DATABASE_SYSTEM=${MOCK_RAG_DATABASE_SYSTEM}
-     
 
   redis:
     image: redis
@@ -53,4 +52,3 @@ services:
 volumes:
   logvolume01: {}
   mongo-data:
- 

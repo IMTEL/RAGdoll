@@ -35,6 +35,11 @@ let mediaRecorder;
 let audioChunks = [];
 let recordedAudioBlob = null;
 
+// Variables for transcribe-specific recording
+let transcribeMediaRecorder;
+let transcribeAudioChunks = [];
+let transcribeAudioBlob = null;
+
 // --- Recording Functions ---
 async function startRecording() {
     const startBtn = document.getElementById('start-record-btn');
@@ -57,11 +62,14 @@ async function startRecording() {
             audioPlayback.src = audioUrl;
             audioPlayback.style.display = 'block'; // Show playback element
 
+            // Clear any file input to prioritize the recording
+            document.getElementById('audio-file').value = '';
+
             // Update UI
             startBtn.disabled = false;
             stopBtn.disabled = true;
-            statusIndicator.textContent = '(Recording stopped)';
-            statusIndicator.style.color = 'grey';
+            statusIndicator.textContent = '(Recording completed)';
+            statusIndicator.style.color = 'green';
 
             // Clean up the stream tracks
             stream.getTracks().forEach(track => track.stop());
@@ -97,6 +105,128 @@ function stopRecording() {
     }
 }
 
+// --- Transcribe Recording Functions ---
+async function startTranscribeRecording() {
+    const startBtn = document.getElementById('transcribe-start-record-btn');
+    const stopBtn = document.getElementById('transcribe-stop-record-btn');
+    const statusIndicator = document.getElementById('transcribe-recording-status');
+    const audioPlayback = document.getElementById('transcribe-audio-playback');
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        transcribeMediaRecorder = new MediaRecorder(stream);
+
+        transcribeMediaRecorder.ondataavailable = event => {
+            transcribeAudioChunks.push(event.data);
+        };
+
+        transcribeMediaRecorder.onstop = () => {
+            transcribeAudioBlob = new Blob(transcribeAudioChunks, { type: 'audio/wav' }); // Specify WAV type
+            transcribeAudioChunks = []; // Reset chunks
+            const audioUrl = URL.createObjectURL(transcribeAudioBlob);
+            audioPlayback.src = audioUrl;
+            audioPlayback.style.display = 'block'; // Show playback element
+
+            // Clear any file input to prioritize the recording
+            document.getElementById('transcribe-audio-file').value = '';
+
+            // Update UI
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusIndicator.textContent = '(Recording completed)';
+            statusIndicator.style.color = 'green';
+
+            // Clean up the stream tracks
+            stream.getTracks().forEach(track => track.stop());
+        };
+
+        // Start recording
+        transcribeAudioChunks = []; // Clear previous chunks if any
+        transcribeAudioBlob = null; // Clear previous blob
+        audioPlayback.style.display = 'none'; // Hide playback initially
+        audioPlayback.src = ''; // Clear previous source
+        transcribeMediaRecorder.start();
+
+        // Update UI
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusIndicator.textContent = '(Recording...)';
+        statusIndicator.style.color = 'red';
+
+    } catch (err) {
+        console.error("Error accessing microphone:", err);
+        statusIndicator.textContent = `(Error: ${err.name})`;
+        statusIndicator.style.color = 'orange';
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        alert(`Could not access microphone: ${err.message}`);
+    }
+}
+
+function stopTranscribeRecording() {
+    if (transcribeMediaRecorder && transcribeMediaRecorder.state === "recording") {
+        transcribeMediaRecorder.stop();
+        // UI updates happen in transcribeMediaRecorder.onstop
+    }
+}
+
+async function testTranscribeEndpoint() {
+    const responseArea = document.getElementById('transcribe-response');
+    responseArea.textContent = 'Loading...';
+    const audioFile = document.getElementById('transcribe-audio-file').files[0];
+    const language = document.getElementById('transcribe-language').value;
+
+    let audioSource = null;
+    let audioFilename = 'audio.wav'; // Default filename
+
+    if (transcribeAudioBlob) {
+        audioSource = transcribeAudioBlob;
+        audioFilename = 'recording.wav'; // Use specific name for recorded audio
+        console.log("Using recorded audio blob for transcription.");
+        // Update UI to indicate using recorded audio
+        responseArea.textContent = 'Loading... (using recorded audio)';
+    } else if (audioFile) {
+        audioSource = audioFile;
+        audioFilename = audioFile.name;
+        console.log("Using uploaded audio file for transcription.");
+        // Update UI to indicate using uploaded file
+        responseArea.textContent = `Loading... (using uploaded file: ${audioFile.name})`;
+    }
+
+    if (!audioSource) {
+        responseArea.textContent = 'Please record audio or select an audio file.';
+        responseArea.style.color = 'orange';
+        return;
+    }
+
+    const formData = new FormData();
+    // The backend expects the audio file under the key 'audio'
+    formData.append('audio', audioSource, audioFilename);
+    // Add language if provided
+    if (language) {
+        formData.append('language', language);
+    }
+
+    try {
+        const response = await fetch('/transcribe', {
+            method: 'POST',
+            body: formData
+            // Content-Type is set automatically by browser for FormData
+        });
+        const data = await response.json();
+        responseArea.textContent = JSON.stringify(data, null, 2);
+        if (!response.ok) {
+            responseArea.textContent = `Error ${response.status}: ${response.statusText}\n\n${responseArea.textContent}`;
+            responseArea.style.color = 'red';
+        } else {
+            responseArea.style.color = 'green';
+        }
+    } catch (error) {
+        responseArea.textContent = `Fetch Error: ${error}`;
+        responseArea.style.color = 'red';
+    }
+}
+
 async function testAskTranscribeEndpoint() {
     const responseArea = document.getElementById('ask-transcribe-response');
     responseArea.textContent = 'Loading...';
@@ -110,10 +240,14 @@ async function testAskTranscribeEndpoint() {
         audioSource = recordedAudioBlob;
         audioFilename = 'recording.wav'; // Use specific name for recorded audio
         console.log("Using recorded audio blob.");
+        // Update UI to indicate using recorded audio
+        responseArea.textContent = 'Loading... (using recorded audio)';
     } else if (audioFile) {
         audioSource = audioFile;
         audioFilename = audioFile.name;
         console.log("Using uploaded audio file.");
+        // Update UI to indicate using uploaded file
+        responseArea.textContent = `Loading... (using uploaded file: ${audioFile.name})`;
     }
 
     if (!audioSource) {
@@ -150,12 +284,6 @@ async function testAskTranscribeEndpoint() {
     } catch (error) {
         responseArea.textContent = `Fetch Error: ${error}`;
         responseArea.style.color = 'red';
-    } finally {
-         // Optionally clear the recording after sending
-         // recordedAudioBlob = null;
-         // document.getElementById('audio-playback').style.display = 'none';
-         // document.getElementById('recording-status').textContent = '(Not recording)';
-         // document.getElementById('recording-status').style.color = 'grey';
     }
 }
 
