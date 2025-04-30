@@ -56,6 +56,23 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     is_idle_timeout = False
     if len(command.chatLog) > 0 and "idle" in to_embed.lower() and ("minutes" in to_embed.lower() or "seconds" in to_embed.lower()):
         is_idle_timeout = True
+        
+        # If idle_type is not set, try to auto-detect the type based on content and context
+        if not hasattr(command, 'idle_type') or not command.idle_type:
+            # Analyze message content to determine if it's likely an initial or interval idle message
+            # Initial idle events typically happen for the first time in a session
+            # Check if this appears to be the first idle detection in this conversation
+            idle_count = sum(1 for msg in command.chatLog if "idle" in msg.content.lower() and 
+                            ("minutes" in msg.content.lower() or "seconds" in msg.content.lower()))
+            
+            if idle_count <= 1:
+                # First or only idle message, likely initial
+                command.idle_type = 'initial'
+                print(f"Auto-detected idle_type as 'initial' based on conversation history")
+            else:
+                # Multiple idle messages, likely interval
+                command.idle_type = 'interval'
+                print(f"Auto-detected idle_type as 'interval' based on conversation history")
     
     db = get_database()
     embedding_model = create_embeddings_model()
@@ -124,14 +141,14 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training.
     The user has been idle for a bit. Briefly ask if they need any help or are stuck.
     Keep it very short (1 sentence) and conversational. Example: "Everything alright there? Need any help?"
-    ALWAYS KEEP YOUR RESPONSE UNDER 100 CHARACTERS.
+    ALWAYS KEEP YOUR RESPONSE UNDER 100 WORDS.
     """
 
     # Special prompt for interval idle timeout
     interval_idle_prompt = """
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training.
-    The user has been idle for some time. Based on their current progress and last activity, provide a SHORT, FRIENDLY prompt 
-    that offers specific guidance or asks if they need help related to their current task. Your response will be spoken by an NPC in VR, so keep it brief (1-2 sentences max) and conversational.
+    The user has been idle for some time. Based on their current progress and last activity, provide a DESCRIPTIVE prompt
+    that offers specific guidance on the current task. Your response will be spoken by an NPC in VR, so keep it brief (4 sentences max) and conversational.
     
     Earlier chathistory is: {command.chatLog}
     The information you have on the user is {command.user_information}. 
@@ -141,7 +158,7 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     Recent activity: {recent_activity}
     
     Acknowledge the user being idle and offer specific help related to their current task and common issues or struggles with their current task.
-    ALWAYS KEEP YOUR RESPONSE UNDER 150 CHARACTERS. This is crucial as it will be spoken by an NPC.
+    ALWAYS KEEP YOUR RESPONSE UNDER 100 WORDS. This is crucial as it will be spoken by an NPC.
     """
     
     # Format the appropriate prompt
@@ -153,13 +170,19 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
             recent_activity = ", ".join(recent_actions)
         
         # Choose prompt based on idle_type
-        if command.idle_type == 'initial':
-             base_prompt = initial_idle_prompt # No formatting needed for the simple initial prompt
-        elif command.idle_type == 'interval':
-             base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
-        else: # Default to interval prompt if type is missing or unexpected
-             print(f"Warning: Unknown or missing idle_type '{command.idle_type}'. Using interval idle prompt.")
-             base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
+        if hasattr(command, 'idle_type') and command.idle_type:
+            if command.idle_type == 'initial':
+                base_prompt = initial_idle_prompt # No formatting needed for the simple initial prompt
+            elif command.idle_type == 'interval':
+                base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
+            else:
+                # Use a more informative message that's less alarming
+                print(f"Info: Using interval idle prompt for idle_type '{command.idle_type}'.")
+                base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
+        else:
+            # Handle the None case explicitly
+            print("Info: No idle_type specified, defaulting to interval idle prompt.")
+            base_prompt = interval_idle_prompt.format(command=command, recent_activity=recent_activity)
 
     else:
         base_prompt = base_prompt.format(command=command)
