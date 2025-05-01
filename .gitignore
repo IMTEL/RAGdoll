@@ -14,3 +14,5 @@ htmlcov/
 htmlcov
 # remove .coverage files
 *.coverage
+
+*context_files/
