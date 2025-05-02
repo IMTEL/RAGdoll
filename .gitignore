@@ -16,3 +16,5 @@ htmlcov
 *.coverage
 
 *context_files/
+start-chat-service.bat
+stop-chat-service.bat
