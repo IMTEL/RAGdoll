@@ -1,0 +1,32 @@
+!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v14.0/Advanced/AWSCommon.puml
+!includeurl AWSPUML
+@startuml RAG_Chat_Service
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "External Services" {
+    
+    cloud "Embedding Model API" as EmbeddingModelAPI
+    cloud "LLM API" as LLM_API
+    database "Vector Store" as VectorStore
+}
+
+package "Chat Service Microservice" {
+
+    [API Endpoint] --> [Retriever]
+    [API Endpoint] --> [Prompt Constructor]
+    [API Endpoint] --> [Generator (LLM)]
+
+    [Retriever] --> [VectorStore]
+    [Prompt Constructor] --> [Retriever]
+    [Prompt Constructor] --> [Generator (LLM)]
+
+}
+
+
+
+[Retriever] --> [EmbeddingModelAPI] : Embed query
+[Generator (LLM)] --> [LLM_API] : Generate response
+
+@enduml
