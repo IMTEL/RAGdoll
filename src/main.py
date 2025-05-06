@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body, Request
+from fastapi import FastAPI, Body, Request, Query
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from src.command import Command, command_from_json, command_from_json_transcribeVersion
@@ -9,7 +9,7 @@ import uvicorn
 import sys
 import os
 from tempfile import NamedTemporaryFile
-from src.transcribe import transcribe_from_upload
+from src.transcribe import transcribe_from_upload, transcribe_audio
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 app = FastAPI(
@@ -104,6 +104,28 @@ async def ask(request: Request):
         return JSONResponse(content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."}, status_code=400)
     except Exception as e:
         return JSONResponse(content={"message": f"Error processing request: {str(e)}"}, status_code=500)
+
+@app.post("/transcribe")
+async def transcribe_endpoint(
+    audio: UploadFile = File(...),
+    language: str = Form(None)
+):
+    """
+    Transcribe an audio file to text.
+    
+    Parameters:
+    - audio: The audio file (WAV format recommended)
+    - language: Optional language code (e.g., 'en', 'fr', 'es')
+    
+    Returns:
+    - A JSON response with transcription or error message
+    """
+    result = transcribe_audio(audio, language)
+    
+    if result["success"]:
+        return JSONResponse(content=result, status_code=200)
+    else:
+        return JSONResponse(content=result, status_code=400)
 
 @app.post("/askTranscribe")
 async def askTranscribe(
