@@ -6,8 +6,10 @@ top to bottom direction
 
 node "Docker Host" {
 node "Chat Service Microservice Infrastructure" {
+    component "Chat Service Endpoint" as CS_Endpoint 
+    component "whisper model" as Whisper
   node "RAG " {
-    component "RAG Entry POint" as RAG_Entry
+    component "RAG Entry Point" as RAG_Entry
     component "DAO Component" as DAO
     component "LLM Facade" as LLM
     component "Embeddings Component" as Embeddings
@@ -31,6 +33,8 @@ cloud "External Services" as Cloud {
 }
 
 ' AM --> RAG_Entry : HTTPS Request
+CS_Endpoint --> RAG_Entry : Calls after preprocessing
+CS_Endpoint --> Whisper : Audio transcription
 RAG_Entry --> DAO : Data access
 DAO --> MockDB : Data access via DAO
 DAO --> DB : Data access via DAO
@@ -41,5 +45,14 @@ Embeddings --> Google_Embedding : Embed query
 LLM --> OpenAI_LLM : Generate response
 LLM --> Gemini_LLM : Generate response
 
+note right of Whisper
+    Transcription model hosted locally
+end note
+
+note right of CS_Endpoint
+    Chat Service Endpoint
+    - Receives data from Blue Sector via HTTP
+    - Sends responses back to Blue Sector via HTTP
+end note
 
 @enduml
