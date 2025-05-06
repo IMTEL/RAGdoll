@@ -4,9 +4,9 @@ node "VR Environment" {
 }
 node "Docker Host" {
 node "Chat Service Microservice Infrastructure" {
-  node "RAG Service Microservice" {
-    component "RAG Service" as RAG
-    component "DAO Component" as DAO
+  node "RAG " {
+    component "RAG Entry" as RAG_Entry
+
     component "LLM Facade" as LLM
   }
   database "MongoDB Atlas" as DB
@@ -14,8 +14,8 @@ node "Chat Service Microservice Infrastructure" {
 }
 }
 
-AM --> RAG : HTTPS Request
-RAG --> DB : Data access via DAO
-RAG --> MockDB : Data access via DAO
-RAG --> LLM : API call to LLM service
+AM --> RAG_Entry : HTTPS Request
+RAG_Entry --> DB : Data access via DAO
+RAG_Entry --> MockDB : Data access via DAO
+RAG_Entry --> LLM : API call to LLM service
 @enduml

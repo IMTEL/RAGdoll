@@ -7,6 +7,8 @@ participant "DAO" as DAO
 participant "LLM Facade" as LLM
 
 User -> AM: Initiates action
+AM -> CSM: Transcribe request (HTTP request)
+CSM -> AM: Send the transcribed audio
 AM -> CSM: Dispatches command (HTTP request)
 CSM -> RAG: Transcribes audio and embed
 RAG -> DAO: Retrieve context (DAO Pattern)

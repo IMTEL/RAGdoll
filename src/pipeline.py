@@ -65,7 +65,7 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
 
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
-    Earlier chathistory is: {command.chatLog}
+    Earlier chat history is: {command.chatLog}
     The user is currently in the {command.scene_name} scene.
     The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE. IF TWO ANSWERS TO THE SAME QUESTION ARE GIVEN, USE THE LATEST ONE.
     IF TWO ANSWERS CONTRADICT EACH OTHER, USE THE LATEST ONE.
@@ -113,6 +113,8 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
 
     Example 4: If the user says "Take me to the Laboratory" but they are already in the Laboratory scene, respond with:
     "You're already in the Laboratory. Is there something specific you're looking for here?"
+    
+    Answer in a SHORT and UNDERSTANDABLE way, NOT exceeding 200 characters.
     """
     
     base_prompt = base_prompt.format(command=command)
