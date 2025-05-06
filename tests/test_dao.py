@@ -77,12 +77,12 @@ def test_get_context_by_category(similarity_search_mock, mock_db):
     test_category = "FishFeeding"
     document = {
         "text": "Test text for FishFeeding scene",
-        "category": test_category,
-        "embedding": [0.1, 0.2, 0.3],
+        "category": "FishFeeding",
+        "embedding": [0.1, 0.1, 0.3],
         "documentId": "test_id_1",
         "documentName": "TestDoc1"
     }
-    mock_db.collection.data.append(document)
+    mock_db.data.append(document)
     
     # Try to retrieve by category - this should work now with our fake collection
     contexts = mock_db.get_context_by_category(test_category)

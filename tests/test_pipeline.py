@@ -60,21 +60,16 @@ def test_pipeline(mock_llm):
     ]
 
     command = Command(
+        scene_name="Laboratory",
+        user_information=["Name: Tobias", "Mode: Beginner"],
         progress=progress,
         user_actions=["Not implemented"],
         NPC=100,
         chatLog=[
-            Message(
-                role="user",
-                content="Why does salmon swim upstream?"
-            )
-        ],
-        user_information={
-            "user_name": "Tobias",
-            "user_mode": "Used to VR, but don't know the game"
-        }
-        
+            Message(role="user", content="Why does salmon swim upstream?")
+        ]
     )
+
 
     # Set the response for the mock LLM
     DummyLLM.response = "This is a mock response."

@@ -51,7 +51,9 @@ def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     
     #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
     
-    to_embed: str = str(command.chatLog[-1].content)
+    #to_embed: str = str(command.chatLog[-1].content)
+    to_embed: str = str(command.chatLog[-1].content) if command.chatLog else "No user message"
+
     
     db = get_database()
     embedding_model = create_embeddings_model()

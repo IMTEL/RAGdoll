@@ -60,10 +60,11 @@ def command_from_json_transcribeVersion(json_str: str, question: Optional[str] =
     """
     try:
         command = Command.model_validate_json(json_str)
-        if question and len(command.chatLog) > 0:
-            command.chatLog[-1] = question
-        else :
-            command.chatLog.append(Message(role="user", content=question)) # TODO: what should user mode be?
+        
+        if question:
+            command.chatLog.append(Message(role="user", content=question))
+        else:
+            command.chatLog.append(Message(role="user", content=""))
         return command
     except ValidationError as e:
         print("Validation error:", e)
