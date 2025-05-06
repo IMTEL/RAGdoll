@@ -1,14 +1,16 @@
 @startuml ProcessView
 actor User
 participant "Action Manager" as AM
-participant "Chat Service Module" as CSM
-participant "RAG Service" as RAG
+participant "Chat Service endpoint" as CSM
+participant "RAG" as RAG
 participant "DAO" as DAO
 participant "LLM Facade" as LLM
 
 User -> AM: Initiates action
-AM -> CSM: Dispatches command (Command Pattern)
-CSM -> RAG: Sends HTTP request with command data
+AM -> CSM: Transcribe request (HTTP request)
+CSM -> AM: Send the transcribed audio
+AM -> CSM: Dispatches command (HTTP request)
+CSM -> RAG: Transcribes audio and embed
 RAG -> DAO: Retrieve context (DAO Pattern)
 RAG -> LLM: Generate response (Facade Pattern)
 LLM --> RAG: Return generated text

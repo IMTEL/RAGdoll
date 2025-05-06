@@ -1,8 +1,5 @@
 @startuml LogicalView
-package "VR Chatbot System" {
-  [Action Manager] as AM
-  [Chat Service Module] as CSM
-}
+
 
 package "Chat Service Microservice" {
   [Query Processing & Embedding] as QPE
@@ -10,6 +7,11 @@ package "Chat Service Microservice" {
   [Prompt Generation] as PG
   [LLM Generation] as LLMGen
   [Data Access Layer (DAO)] as DAO
+}
+
+package "VR Chatbot System" {
+  [Action Manager] as AM
+  [Chat Service Module] as CSM
 }
 
 AM --> CSM : Sends user actions
