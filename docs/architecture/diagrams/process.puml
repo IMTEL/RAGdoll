@@ -1,6 +1,6 @@
 @startuml ProcessView
 actor User
-participant "Action Manager" as AM
+participant "NPC AI" as AM
 participant "Chat Service endpoint" as CSM
 participant "RAG" as RAG
 participant "DAO" as DAO

@@ -1,0 +1,18 @@
+@startuml BlueSectorProcessView
+actor User
+participant "NPC" as NPC
+participant "Transcription Manager" as TM
+participant "Action Manager" as AM
+participant "AI Conversation Controller" as ACC
+participant "Chat Service endpoint" as CSM
+
+User -> NPC: Speaks to
+NPC -> TM: Sends audio
+TM -> CSM: Chunk audio and send transcribe request (HTTP request)
+CSM -> TM: Send the transcribed audio
+TM -> ACC: Add transcription to request
+AM -> ACC: Add logged data to request
+ACC -> CSM: Dispatches command (HTTP request)
+CSM --> NPC: Delivers response to VR environment
+NPC -> User: Displays response
+@enduml
