@@ -12,17 +12,13 @@ package "VR Chatbot System" {
   [ServerTranscriptionManager]
 }
 
-AM --> [WatchManager] : Logs progress
-AM --> [Questionnaire] : Receives user info
 AM --> [AICC] : Provides upload data
 AICC --> [AIRequest] : Creates and configures
 AICC --> [Transcribe] : Starts/ends recording
 AICC --> AM : Adds chat message
-AIRequest --> AM : Uses upload payload
 Transcribe --> [ServerTranscriptionManager] : Sends audio for transcription
 Transcribe --> AICC : Sends final transcript
 Questionnaire --> AM : Sets user info
 WatchManager --> AM : Logs steps/tasks
-
 
 @enduml
