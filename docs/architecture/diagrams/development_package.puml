@@ -1,0 +1,27 @@
+@startuml PackageDiagram
+skinparam packageStyle rectangle
+skinparam packageLayout vertical
+skinparam nodesep 50
+
+package "main" {
+}
+
+
+package "dao" {
+}
+
+package "embeddings" {
+}
+
+package "llm" {
+}
+
+package "command" {
+}
+
+"main" -|> "command" : Uses command
+"main" --> "dao" : Uses DAO  
+"main" --> "embeddings" : Uses embeddings  
+"main" --> "llm" : Uses LLM  
+
+@enduml

@@ -1,5 +1,6 @@
 @startuml
 ' Abstract DAO class
+left to right direction
 abstract class Database {
   +get_context_from_NPC(NPC: int) : List<Context>
   +get_context(document_name: str, embedding: List<float>) : List<Context>

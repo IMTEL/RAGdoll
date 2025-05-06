@@ -49,7 +49,6 @@ package "src.rag_service.command" {
   abstract class Command {
     +execute() : void
   }
-  class GetContextCommand
   class PostContextCommand
 }
 

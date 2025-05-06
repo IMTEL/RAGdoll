@@ -1,0 +1,60 @@
+@startuml
+title Development View - RAG-based Chat Service
+
+package "API Layer" {
+  [main.py] --> [pipeline.py] : calls
+  [main.py] --> [transcribe.py] : audio upload
+  [main.py] --> [command.py] : parse request
+}
+
+package "Processing Layer" {
+  [pipeline.py] --> [LLM.py] : create_llm, generate
+  [pipeline.py] --> [embeddings.py] : get_embedding
+  [pipeline.py] --> [dao.py] : get_context
+}
+
+
+
+package "Model Layer" {
+  [command.py] --> [ProgressData]
+  [command.py] --> [Message]
+  [command.py] --> [Prompt]
+  [context.py] --> [Context]
+}
+
+
+
+' package "Infrastructure" {
+'   [dao.py] --> [MongoDB/MockDB]
+'   [embeddings.py] --> [OpenAIEmbedding]
+'   [embeddings.py] --> [GoogleEmbedding]
+'   [LLM.py] --> [OpenAI_LLM]
+'   [LLM.py] --> [Gemini_LLM]
+'   [LLM.py] --> [MockLLM]
+'   [config.py] --> [Config]
+' }
+
+
+
+
+
+
+' note right of [config.py]
+'   Config is publicly available in the entire system
+'   used to load env variables
+' end note
+
+[dao.py] --> [context.py]
+[dao.py] --> [embeddings.py] : similarity_search
+
+' [LLM.py] --> [config.py]
+
+' note right of [config.py]
+'     Config is publicly available in the entire system
+'     used to load env variables
+'     used by main, dao, embeddings, and llm
+' end note
+
+
+
+@enduml
