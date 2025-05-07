@@ -16,7 +16,6 @@ class LLM(Protocol):
         """
         pass
 
-# OPENAI
 
 class OpenAI_LLM(LLM):
     def __init__(self):
@@ -49,7 +48,6 @@ class OpenAI_LLM(LLM):
         )
         return response.choices[0].message.content.strip()
 
-# GOOGLE GEMINI
 
 class Gemini_LLM(LLM):
     def __init__(self):

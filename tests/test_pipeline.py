@@ -91,6 +91,7 @@ def test_valid_response_name(monkeypatch):
     result = getAnswerFromUser(answer, target, question)
     assert result == 'name: "John Doe"'
 
+
 def test_valid_response_user_mode(monkeypatch):
     # Set the response for the mock LLM
     DummyLLM.response = 'user_mode: "beginner"'
@@ -103,6 +104,7 @@ def test_valid_response_user_mode(monkeypatch):
     result = getAnswerFromUser(answer, target, question)
     assert result == 'user_mode: "beginner"'
 
+
 def test_none_response(monkeypatch):
     # Set the response for the mock LLM
     DummyLLM.response = None
@@ -114,6 +116,7 @@ def test_none_response(monkeypatch):
     question = "How do you rate your VR experience?"
     result = getAnswerFromUser(answer, target, question)
     assert result == "No response from the language model."
+
 
 def test_empty_response(monkeypatch):
     # Set the response for the mock LLM

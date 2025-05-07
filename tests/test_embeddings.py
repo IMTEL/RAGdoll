@@ -4,8 +4,8 @@ from uuid import uuid4
 import sys
 import os
 from typing import Any
-from src.config import Config
 
+from src.config import Config
 from src.rag_service.dao import get_database
 from src.rag_service.context import Context
 from src.rag_service.embeddings import (
@@ -16,7 +16,6 @@ from src.rag_service.embeddings import (
     GoogleEmbedding,
 )
 from src.LLM import OpenAI_LLM, create_llm
-
 
 
 @pytest.mark.unit
@@ -107,8 +106,6 @@ def test_similarity_search_zero_vector():
     assert similarity == 0.0, "Similarity should be 0 if one vector is zero"
     
 
-
-
 @pytest.mark.integration
 def test_create_embeddings_model_google():
     """
@@ -116,6 +113,7 @@ def test_create_embeddings_model_google():
     """
     model = create_embeddings_model("google")
     assert isinstance(model, GoogleEmbedding), "Should be a GoogleEmbedding instance"
+
 
 @pytest.mark.integration
 def test_google_embedding_get_embedding():

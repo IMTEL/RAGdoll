@@ -32,9 +32,11 @@ class UserPromptData(BaseModel):
     prompt: str
     conversation_id: str
 
+
 class UserPromptRequest(BaseModel):
     event: str
     data: UserPromptData
+
 
 # Generic event request
 class BaseEventRequest(BaseModel):
@@ -44,9 +46,7 @@ ws_manager = WebSocketManager()
 
 app = FastAPI()
 
-
-        
-        
+ 
 active_websockets = {}
 
 @app.websocket("/ws/{session_id}")

@@ -1,11 +1,13 @@
 
+import uuid
+import time
+
 from src.command import Command, Prompt, prompt_to_json
 from src.rag_service.dao import get_database
 from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
 from src.LLM import LLM, create_llm
-import uuid
-import time
+
 
 def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini") -> str:
     """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
@@ -45,6 +47,7 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini")
         return "Empty response from the language model."
     
     return response
+
 
 def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""

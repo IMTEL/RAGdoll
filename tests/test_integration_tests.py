@@ -4,9 +4,8 @@ from uuid import uuid4
 import sys
 import os
 from typing import Any
+
 from src.config import Config
-
-
 from src.rag_service.dao import get_database
 from src.rag_service.context import Context
 from src.rag_service.embeddings import (
@@ -16,6 +15,7 @@ from src.rag_service.embeddings import (
     OpenAIEmbedding,
 )
 from src.LLM import OpenAI_LLM, create_llm
+
 
 @pytest.mark.integration
 def test_database_is_reachable():
@@ -27,6 +27,7 @@ def test_database_is_reachable():
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     assert db.is_reachable() is True, "Database should be reachable"
+
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_NPC():
@@ -54,7 +55,6 @@ def test_post_context_and_retrieve_by_NPC():
     time.sleep(1)
     assert post_result is True, "post_context should return True"
 
-
     # Retrieve the context by NPC
     retrieved_contexts = db.get_context_from_NPC(test_NPC)
     assert len(retrieved_contexts) > 0, "Should retrieve at least one context"
@@ -63,6 +63,7 @@ def test_post_context_and_retrieve_by_NPC():
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
     assert str(context.NPC) == test_NPC, "NPC should match"
+
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_embedding():
@@ -98,6 +99,7 @@ def test_post_context_and_retrieve_by_embedding():
     assert context.document_name == test_document_name, "Document name should match"
     assert str(context.NPC) == str(test_NPC), "NPC should match"
 
+
 @pytest.mark.integration
 def test_get_context_from_NPC_no_results():
     """
@@ -114,7 +116,6 @@ def test_get_context_from_NPC_no_results():
 
     assert f"No documents found for NPC: {non_existent_NPC}" in str(exc_info.value), \
         "Should raise ValueError if NPC not found"
-
 
 
 @pytest.mark.integration
@@ -137,8 +138,6 @@ def test_comparison_between_embedding_providers():
     # Output embedding dimensions for comparison
     print(f"\nOpenAI embedding dimensions: {len(openai_embedding)}")
     print(f"Google embedding dimensions: {len(google_embedding)}")
-    
-    
     
 
 @pytest.mark.integration

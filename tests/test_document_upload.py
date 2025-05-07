@@ -6,9 +6,10 @@ from src.context_upload import compute_embedding
 from src.context_upload import process_file_and_store
 from unittest.mock import patch
 
+# KEEP THIS TEST DISABLED. The actual tests for document upload is test_file_upload.py
 
-
-#UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR OWN VALUES TO UPLOAD FILE
+# UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR 
+# OWN VALUES TO UPLOAD FILE DIRECLTY FROM SOURCE CODE
     
 # @pytest.mark.integration
 # def test_process_file_and_store():

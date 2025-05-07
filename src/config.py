@@ -6,6 +6,9 @@ load_dotenv()
 
 
 class Config:
+    """Configuration class to manage environment variables and model loading.
+    
+    """
     def __init__(self, path=".env", gpt_model="gpt-4o-mini", gemini_model="gemini-2.0-flash-lite"):
         self.path = path
         self.ENV = os.getenv("ENV", "dev")

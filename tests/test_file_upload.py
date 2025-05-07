@@ -17,10 +17,12 @@ def test_process_file_not_found(mock_exists):
     result = process_file_and_store("missing.txt", category="General Information")
     assert result is False
 
+
 @patch("os.path.exists", return_value=True)
 def test_process_file_unsupported_type(mock_exists):
     result = process_file_and_store("file.pdf", category="General Information")
     assert result is False
+
 
 @patch("src.rag_service.dao.get_database")
 @patch("src.context_upload.compute_embedding", side_effect=Exception("Embedding error"))

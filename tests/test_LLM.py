@@ -5,6 +5,7 @@ from uuid import uuid4
 import sys
 import os
 from typing import Any
+
 from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model, GoogleEmbedding, similarity_search
 from src.LLM import OpenAI_LLM, create_llm
@@ -29,7 +30,6 @@ def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
     It ignores the inputs and returns a fake response.
     """
     return FakeResponse("Test response")
-
 
 
 @pytest.mark.unit

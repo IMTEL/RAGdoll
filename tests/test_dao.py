@@ -1,11 +1,11 @@
 import pytest
 import time
 from uuid import uuid4
-from src.rag_service.dao import get_database, MockDatabase
-from src.rag_service.context import Context
 from unittest.mock import MagicMock, patch
 
-# --- Helper Classes and Fixtures ---
+from src.rag_service.dao import get_database, MockDatabase
+from src.rag_service.context import Context
+
 
 class FakeCollection:
     """
@@ -23,6 +23,7 @@ class FakeCollection:
         # Simulate MongoDB insert_one operation
         self.data.append(document)
         return MagicMock()
+
 
 @pytest.fixture
 def mock_db():
@@ -62,11 +63,13 @@ def test_post_context_invalid_params(mock_db):
         )
     assert "text cannot be None" in str(exc_info.value)
 
+
 def test_is_reachable(mock_db):
     """
     Test that is_reachable returns True for the mock database.
     """
     assert mock_db.is_reachable() is True
+
 
 @patch("src.rag_service.dao.similarity_search", return_value=0.8)  # Mock the similarity_search to return 0.8
 def test_get_context_by_category(similarity_search_mock, mock_db):

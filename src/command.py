@@ -1,9 +1,9 @@
+import json
 from pydantic import BaseModel
 from pydantic import ValidationError
 from typing import Optional
 from src.models.progress import ProgressData
 from src.models.message import Message
-import json
 
 
 class Command(BaseModel):

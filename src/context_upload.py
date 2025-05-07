@@ -2,7 +2,6 @@ import os
 import uuid
 import logging
 
-# Import your project modules.
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.embeddings import create_embeddings_model

@@ -5,8 +5,13 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI, File, UploadFile, Form
+import os
+from starlette.datastructures import UploadFile
+from difflib import SequenceMatcher
 
+from src.transcribe import transcribe_from_upload
 from src.main import app
+
 
 client = TestClient(app)
 
@@ -24,9 +29,11 @@ TEST_JSON = """{
     "value": 42
 }"""
 
+
 @pytest.fixture
 def dummy_audio_file():
     return io.BytesIO(DUMMY_WAV)
+
 
 def test_ask_transcribe_with_mock_audio(dummy_audio_file):
     response = client.post(
@@ -37,6 +44,7 @@ def test_ask_transcribe_with_mock_audio(dummy_audio_file):
     assert response.status_code == 200
     # assert "response" in response.json()
 
+
 def test_ask_transcribe_invalid_json(dummy_audio_file):
     response = client.post(
         "/askTranscribe",
@@ -45,10 +53,6 @@ def test_ask_transcribe_invalid_json(dummy_audio_file):
     )
     assert response.status_code == 200
     assert response.json()["message"] == "Invalid command."
-
-
-import os
-
 
 
 @pytest.mark.integration
@@ -78,27 +82,12 @@ def test_ask_transcribe_with_real_wav():
 
         )
         
-        
-
     assert response.status_code == 200
     assert "response" in response.json()
 
-    
-from src.transcribe import transcribe_from_upload
-
-import os
-import io
-import pytest
-from starlette.datastructures import UploadFile
-
-from src.transcribe import transcribe_from_upload
-
-from difflib import SequenceMatcher
 
 def similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-
 
 
 @pytest.mark.integration

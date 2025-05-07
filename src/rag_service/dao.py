@@ -26,7 +26,6 @@ class Database(ABC):
             hasattr(subclass, "post_context") and callable(subclass.post_context)
         )
         
-        
     @abstractmethod
     def get_context_by_category(self,
         category: str
@@ -268,6 +267,7 @@ class MongoDB(Database):
             print(f"Failed to ping MongoDB: {e}")
             return False
 
+
 class MockDatabase(Database):
     """
     A mock database for testing purposes, storing data in memory.
@@ -332,11 +332,9 @@ class MockDatabase(Database):
 
         # Filter documents based on similarity and document_name
         for document in self.data:
-            #if document["document_name"] == document_name:
-            #similarity = similarity_search(embedding, document["embedding"])
+
             similarity = 0.9
             if similarity > self.similarity_threshold:
-                # Use get() method with a default value to avoid KeyError
                 doc_name = document.get("documentName", "default_document_name")
                 results.append(
                     Context(

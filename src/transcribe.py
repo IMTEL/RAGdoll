@@ -1,28 +1,21 @@
-# transcribe_service.py
 from flask import Flask, request, jsonify
-
 import whisper
 import numpy as np
-# import ffmpeg
 from fastapi import UploadFile, HTTPException
 import tempfile
 import logging
-
+import io, math, numpy as np, soundfile as sf
+from scipy.signal import resample_poly      # pip install scipy soundfile
 import os
 
 from src.config import Config
 
 model = Config().whisper_model
 
-
-
 app = Flask(__name__)
 
-
-import io, math, numpy as np, soundfile as sf
-from scipy.signal import resample_poly      # pip install scipy soundfile
-
 TARGET_SR = 16_000          # 16 kHz mono float32
+
 
 def load_audio_from_upload(file) -> np.ndarray:
     try:
@@ -45,19 +38,6 @@ def load_audio_from_upload(file) -> np.ndarray:
         logging.error(f"Error loading audio: {str(e)}")
         raise ValueError(f"Failed to process audio file: {str(e)}")
         
-# def load_audio_from_upload(file: UploadFile) -> np.ndarray:
-#     input_bytes = file.file.read()
-
-#     # Convert uploaded file (WAV/MP3/etc) into 16kHz float32 mono PCM
-#     out, _ = (
-#         ffmpeg
-#         .input("pipe:0")
-#         .output("pipe:1", format="f32le", ac=1, ar="16000")
-#         .run(input=input_bytes, capture_stdout=True, capture_stderr=True)
-#     )
-#     audio = np.frombuffer(out, np.float32)
-#     return audio
-
 
 def transcribe_from_upload(file: UploadFile) -> str:
     audio = load_audio_from_upload(file)
@@ -67,6 +47,7 @@ def transcribe_from_upload(file: UploadFile) -> str:
     options = whisper.DecodingOptions()
     result = whisper.decode(model, mel, options)
     return result.text
+
 
 def transcribe_audio(file: UploadFile, language: str = None) -> dict:
     """
@@ -134,6 +115,7 @@ def transcribe_audio(file: UploadFile, language: str = None) -> dict:
             "success": False, 
             "error": f"Failed to transcribe audio: {str(e)}"
         }
+
 
 def transcribe(audio):
     """

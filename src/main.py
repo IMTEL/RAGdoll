@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Body, Request, Query
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from src.command import Command, command_from_json, command_from_json_transcribeVersion
-from src.pipeline import assemble_prompt
 from src.routes import progress, debug, upload
 from fastapi import FastAPI, File, UploadFile, Form
 import uvicorn
 import sys
 import os
 from tempfile import NamedTemporaryFile
+
+from src.command import Command, command_from_json, command_from_json_transcribeVersion
+from src.pipeline import assemble_prompt
 from src.transcribe import transcribe_from_upload, transcribe_audio
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -57,6 +58,7 @@ app.include_router(debug.router)
 # app.include_router(rag.router)
 # Upload router
 app.include_router(upload.router)
+
 
 @app.get("/")
 def hello_world():
@@ -145,6 +147,7 @@ async def askTranscribe(
     response = assemble_prompt(command)
     return {"response": response}
 
+
 @app.get("/getAnswerFromUser")
 def getAnswerFromUser(
     answer: str,
@@ -158,6 +161,7 @@ def getAnswerFromUser(
     """
     response: str = getAnswerFromUser(answer, target, question)
     return {"response": response}
+
 
 if __name__ == "__main__": 
     uvicorn.run(app, host="0.0.0.0", port=8000)
