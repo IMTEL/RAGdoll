@@ -33,7 +33,6 @@ jobs:
       MOCK_RAG_DATABASE_SYSTEM: ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}
     steps:
     - uses: actions/checkout@v4
-      with: fetch-depth 0
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
