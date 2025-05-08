@@ -285,7 +285,7 @@ class MockDatabase(Database):
 
     def __init__(self):
         # Initialize only once (avoiding resetting on subsequent calls)
-        if not hasattr(self, "initialized"):
+        if not hasattr(self, "initialized"): 
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
