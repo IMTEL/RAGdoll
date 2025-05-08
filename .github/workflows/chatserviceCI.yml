@@ -56,11 +56,14 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t chat-service .
+        docker compose build
+        
+# docker build -t chat-service .
 
     - name: Run Docker container
       run: |
-        docker run -d -p 8000:8000 --name chat-service chat-service
+        docker compose up -d
+# docker run -d -p 8000:8000 --name chat-service chat-service
         
     # - name: Lint with flake8
     #   run: |
@@ -77,4 +80,10 @@ jobs:
       
     - name: Test with pytest
       run: |
-        docker exec chat-service pytest
+        docker compose run chat-service pytest
+    
+# docker exec chat-service pytest
+
+    - name: Stop Docker container
+      run: |
+        docker compose down
