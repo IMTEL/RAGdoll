@@ -85,6 +85,8 @@ def test_get_context_by_category(similarity_search_mock, mock_db):
         "documentId": "test_id_1",
         "documentName": "TestDoc1"
     }
+    if mock_db.__class__ is not MockDatabase:
+        pytest.skip("Not using MockDatabase; skipping DAO unit tests")
     mock_db.data.append(document)
     
     # Try to retrieve by category - this should work now with our fake collection
