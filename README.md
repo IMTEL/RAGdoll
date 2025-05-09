@@ -126,6 +126,9 @@ docker logs <container_id>
 # 📌 Notes
 Make sure Docker is installed and running before executing these commands.
 The Dockerfile is designed to expose port 8000, so ensure no other service is using this port.
+### Configuration
+
+Create a `.env` file in the root directory by following the .env.example
 
 # Testing
 without docker:
@@ -139,7 +142,7 @@ docker compose up -d
 docker compose run chat-service pytest
 docker compose down
 ```
-# 6 test enpoint with mock data
+##Test endpoint with mock data
 ### curl command to test the endpoint:
 
 curl -X POST "http://localhost:8000/api/progress" \
