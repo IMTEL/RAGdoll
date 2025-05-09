@@ -1,10 +1,13 @@
 # chat-service
 
-# 🚀 Chat Service Backend
+# 🚀 Chat Service Microservice
 
-This is the backend service for the **VR4VET Chatbot**, built with **FastAPI**.
+This is the backend microservice for the **VR4VET Chatbot**, built with **FastAPI**.
 
 ## 📦 Installation
+### Prerequisites
+- Ensure that git is installed on your machine. [Download Git](https://git-scm.com/downloads)
+- Docker is used for the backend and database setup. [Download Docker](https://www.docker.com/products/docker-desktop)
 
 ### **1️⃣ Clone the Repository**
 ```sh
@@ -15,13 +18,37 @@ cd chat-service
 ### **2️⃣ Set Up a Virtual Environment (Recommended)**
 It’s best to install dependencies inside a virtual environment:
 
-follow manual for updating requirements
+**1. Create a Virtual Environment**
+
+
+Run the following command to create a virtual environment named venv:
+<pre> python -m venv venv </pre>
+
+
+**2. Activate the Virtual Environment**
+
+Before installing or updating packages, activate the virtual environment.
+
+*On windows:*
+<pre>source venv/Scripts/activate</pre>
+
+*On linux and mac:*
+<pre>source venv/bin/activate</pre>
+
+
+
+**3. Install Existing Dependencies**
+
+
+follow [manual for updating requirements](docs/manuals/update_requirements.md)
 
 ### **3️⃣ Install Dependencies**
 ```sh
 pip install -r requirements.txt
 ```
 
+### Configuration
+Create a `.env` file in the root directory of the project and add the following environment variables:
 # 🚀 Running the Service Locally
 
 ### **1️⃣ Start the FastAPI Server**
@@ -195,3 +222,54 @@ curl -X POST "http://localhost:8000/api/progress" \
 
 ### Receive the log
 curl -X GET "http://localhost:8000/api/progress"
+
+
+
+## Contributors
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <a href="https://github.com/tobiasfremming">
+          <img src="https://github.com/tobiasfremming.png?size=100" width="100px;"/><br />
+          <sub><b>Tobias Fremming</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/haluboi">
+          <img src="https://github.com/haluboi.png?size=100" width="100px;"/><br />
+          <sub><b>Halvor Heien Førde</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/peter-olai">
+          <img src="https://github.com/peter-olai.png?size=100" width="100px;"/><br />
+          <sub><b>Peter Olai Johnsen</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/hallvardvo">
+          <img src="https://github.com/hallvardvo.png?size=100" width="100px;"/><br />
+          <sub><b>Hallvard Vatnar Olsen</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/erikleblanc">
+          <img src="https://github.com/erikleblanc.png?size=100" width="100px;"/><br />
+          <sub><b>Erik Le Blanc Pleym</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/selinyo">
+          <img src="https://github.com/selinyo.png?size=100" width="100px;"/><br />
+          <sub><b>Selin Yuki Øzkan</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/snobohle">
+          <img src="https://github.com/snobohle.png?size=100" width="100px;"/><br />
+          <sub><b>Erik Olsen Bøhle</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
