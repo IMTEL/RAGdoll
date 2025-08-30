@@ -41,7 +41,7 @@ def test_create_prompt():
     llm = OpenAI_LLM()
     base_prompt = "Explain the significance of Python."
     # Provide some extra context as keyword arguments.
-    prompt = llm.create_prompt(base_prompt, audience="beginner", detail="basic overview")
+    prompt = base_prompt
     expected_prompt = "Explain the significance of Python.\naudience: beginner\ndetail: basic overview"
     assert prompt == expected_prompt, "create_prompt should combine the base prompt with additional context"
 

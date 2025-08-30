@@ -1,14 +1,10 @@
 from typing import Protocol
 from openai import OpenAI
+import requests
 import google.generativeai as genai
 from src.config import Config 
 
 class LLM(Protocol):
-    def create_prompt(self, base_prompt: str, **kwargs) -> str:
-        """
-        Combine a base prompt with additional context.
-        """
-        pass
 
     def generate(self, prompt: str) -> str:
         """
@@ -16,6 +12,30 @@ class LLM(Protocol):
         """
         pass
 
+
+class Idun_LLM(LLM):
+    def __init__(self):
+        self.model = Config().IDUN_MODEL
+        self.url = Config().IDUN_API_URL
+        self.token = Config().IDUN_API_KEY
+
+    def generate(self, prompt: str) -> str:
+        
+        headers = {
+            'Authorization': f'Bearer {self.token}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+        "model": self.model,
+        "messages": [
+            {
+            "role": "user",
+            "content": prompt
+            }
+        ]
+        }
+        response = requests.post(self.url, headers=headers, json=data)
+        return response.json()['choices'][0]['message']['content'].strip()
 
 class OpenAI_LLM(LLM):
     def __init__(self):
@@ -26,13 +46,6 @@ class OpenAI_LLM(LLM):
         self.model = self.config.GPT_MODEL
         # Instantiate the client using the new OpenAI interface.
         self.client = OpenAI(api_key=self.config.API_KEY)
-
-    def create_prompt(self, base_prompt: str, **kwargs) -> str:
-        """
-        Creates a prompt by appending additional context.
-        """
-        additional_context = "\n".join(f"{key}: {value}" for key, value in kwargs.items())
-        return f"{base_prompt}\n{additional_context}" if additional_context else base_prompt
 
     def generate(self, prompt: str) -> str:
         """
@@ -60,13 +73,6 @@ class Gemini_LLM(LLM):
         genai.configure(api_key=self.config.GEMINI_API_KEY)
         self.client = genai.GenerativeModel(self.model)
 
-    def create_prompt(self, base_prompt: str, **kwargs) -> str:
-        """
-        Creates a prompt by appending additional context.
-        """
-        additional_context = "\n".join(f"{key}: {value}" for key, value in kwargs.items())
-        return f"{base_prompt}\n{additional_context}" if additional_context else base_prompt
-
     def generate(self, prompt: str) -> str:
         """
         Uses the Google Generative AI client to generate a response
@@ -75,14 +81,12 @@ class Gemini_LLM(LLM):
         return response.text.strip()
     
 class MockLLM(LLM):
-    def create_prompt(self, base_prompt: str, **kwargs) -> str:
-        return f"Mocked prompt for base prompt: {base_prompt}"
     
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
     
     
-def create_llm(llm: str = "openai") -> LLM:
+def create_llm(llm: str = "idun") -> LLM:
     """
     Factory for creating LLM instances.
 
@@ -96,6 +100,8 @@ def create_llm(llm: str = "openai") -> LLM:
         LLM: The specified LLM instance.
     """
     match llm.lower():
+        case "idun":
+            return Idun_LLM()
         case "openai":
             return OpenAI_LLM()
         case "gemini":
@@ -104,3 +110,10 @@ def create_llm(llm: str = "openai") -> LLM:
             return MockLLM()
         case _:
             raise ValueError(f"LLM {llm} not supported")
+        
+        
+if __name__ == "__main__":
+    llm = create_llm("idun")
+    prompt = "Why are flamingos white?"
+    response = llm.generate(prompt)
+    print(response)

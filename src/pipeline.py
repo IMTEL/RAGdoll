@@ -49,7 +49,7 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini")
     return response
 
 
-def assemble_prompt(command: Command, model: str = "gemini") -> dict[str]:
+def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     
     #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
