@@ -114,6 +114,8 @@ def create_llm(llm: str = "idun") -> LLM:
         
 if __name__ == "__main__":
     llm = create_llm("idun")
-    prompt = "Why are flamingos white?"
-    response = llm.generate(prompt)
-    print(response)
+    while True:
+        prompt = input("Enter your prompt: ")
+        response = llm.generate(prompt)
+        print(response)
+    
