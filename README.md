@@ -1,6 +1,6 @@
-# chat-service
+# RAGdoll
 
-# 🚀 Chat Service Microservice
+# 🚀 RAGdoll development tool
 
 This is the backend microservice for the **VR4VET Chatbot**, built with **FastAPI**.
 
