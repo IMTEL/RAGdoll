@@ -8,6 +8,7 @@ fresh_env/
 fresh_venv/
 .env
 env
+*.egg-info/
 .coverage/
 coverage/
 coverage
