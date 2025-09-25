@@ -1,0 +1,26 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        args: [--unsafe]
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        # optional: list of Conventional Commits types to allow e.g. [feat, fix, ci, chore, test]
+        args: []
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.4
+    hooks:
+      # Run the linter.
+      - id: ruff
+        entry: pdm lint --force-exclude
+      #   Run the formatter.
+      - id: ruff-format
+        entry: pdm format --force-exclude
