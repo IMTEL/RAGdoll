@@ -25,7 +25,9 @@ def test_create_embeddings_model_openai():
     of OpenAIEmbedding, which implements EmbeddingsModel.
     """
     model = create_embeddings_model("openai")
-    assert isinstance(model, EmbeddingsModel), "Should return a subclass of EmbeddingsModel"
+    assert isinstance(model, EmbeddingsModel), (
+        "Should return a subclass of EmbeddingsModel"
+    )
     assert isinstance(model, OpenAIEmbedding), "Should specifically be OpenAIEmbedding"
 
 
@@ -38,7 +40,9 @@ def test_create_embeddings_model_unsupported_raises():
     with pytest.raises(ValueError) as exc_info:
         create_embeddings_model("some-unsupported-model")
 
-    assert "not supported" in str(exc_info.value), "Should raise ValueError for unsupported model"
+    assert "not supported" in str(exc_info.value), (
+        "Should raise ValueError for unsupported model"
+    )
 
 
 @pytest.mark.integration
@@ -55,7 +59,9 @@ def test_openai_get_embedding():
     # Basic checks on the embedding
     assert isinstance(embedding, list), "Embedding should be a list"
     assert len(embedding) > 0, "Embedding should not be empty"
-    assert all(isinstance(x, float) for x in embedding), "All embedding values should be floats"
+    assert all(isinstance(x, float) for x in embedding), (
+        "All embedding values should be floats"
+    )
 
 
 @pytest.mark.unit
@@ -91,7 +97,9 @@ def test_similarity_search_different_texts():
     # We just check that it's significantly less than 1.0
     # The exact number can vary, but let's pick a reasonable upper bound
     # for dissimilar sentences:
-    assert similarity < 0.8, f"Similarity for very different texts was unexpectedly high: {similarity}"
+    assert similarity < 0.8, (
+        f"Similarity for very different texts was unexpectedly high: {similarity}"
+    )
 
 
 @pytest.mark.unit
@@ -104,7 +112,7 @@ def test_similarity_search_zero_vector():
 
     similarity = similarity_search(zero_vector, nonzero_vector)
     assert similarity == 0.0, "Similarity should be 0 if one vector is zero"
-    
+
 
 @pytest.mark.integration
 def test_create_embeddings_model_google():

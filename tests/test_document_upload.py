@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 # KEEP THIS TEST DISABLED. The actual tests for document upload is test_file_upload.py
 
-# UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR 
+# UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR
 # OWN VALUES TO UPLOAD FILE DIRECLTY FROM SOURCE CODE
-    
+
 # @pytest.mark.integration
 # def test_process_file_and_store():
 #     current_dir = os.path.dirname(__file__)  # Directory of the current test file.
@@ -41,16 +41,16 @@ from unittest.mock import patch
 #     category = "General Information"  # Updated to use category instead of NPC
 
 #     success = process_file_and_store(file_path, category)
-    
+
 #     assert success == True
-    
+
 
 # def test_retrieve_uploaded_data():
 #     from src.rag_service.dao import get_database
-    
+
 #     db = get_database()  # Get the mock DB
 #     data = db.data  # Access stored data
-    
+
 #     assert len(data) > 0  # Ensure at least one document was stored
 #     assert data[0]["documentName"] == "bee_movie_script.txt"  # Check stored filename
 #     assert data[0]["category"] == "General Information"  # Check the category

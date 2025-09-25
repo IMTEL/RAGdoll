@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List
 
+
 class RAGPostModel(BaseModel):
     text: str
     document_id: str

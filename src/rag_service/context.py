@@ -7,4 +7,3 @@ class Context(BaseModel):
     document_name: str
     category: Optional[str] = None
     NPC: Optional[int] = None  # Kept for backward compatibility
-

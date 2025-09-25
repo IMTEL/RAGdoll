@@ -11,6 +11,7 @@ from src.utils.global_logs import progressLog
 # Define a router for progress-related endpoints
 router = APIRouter()
 
+
 @router.post("/api/progress/initializeTasks")
 def receive_hierarchy(taskHierarchy: ListProgressData):
     """
@@ -23,7 +24,7 @@ def receive_hierarchy(taskHierarchy: ListProgressData):
     except Exception as e:
         print(f"Error processing task hierarchy: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @router.post("/api/progress/updateTask")
 def receive_progress(progress: ProgressData):
@@ -34,12 +35,14 @@ def receive_progress(progress: ProgressData):
         # Check for existing incomplete task to update
         for entry in progressLog:
             if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
-                entry.update({
-                    "subtaskProgress": progress.subtaskProgress,
-                    "startedAt": datetime.now(timezone.utc)
-                })
+                entry.update(
+                    {
+                        "subtaskProgress": progress.subtaskProgress,
+                        "startedAt": datetime.now(timezone.utc),
+                    }
+                )
                 return {"message": "Progress updated", "data": entry}
-        
+
         # New task entry
         new_entry = progress.model_dump()
         new_entry["startedAt"] = datetime.now(timezone.utc)
@@ -50,16 +53,19 @@ def receive_progress(progress: ProgressData):
         # Complete existing task
         for entry in progressLog:
             if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
-                entry.update({
-                    "subtaskProgress": progress.subtaskProgress,
-                    "completedAt": datetime.now(timezone.utc),
-                    "status": "complete"
-                })
+                entry.update(
+                    {
+                        "subtaskProgress": progress.subtaskProgress,
+                        "completedAt": datetime.now(timezone.utc),
+                        "status": "complete",
+                    }
+                )
                 return {"message": "Task completed", "data": entry}
         return {"message": f"No active task {progress.taskName} found."}
 
     else:
         raise HTTPException(400, "Status must be 'started' or 'complete'.")
+
 
 @router.get("/api/progress")
 def get_progress_log():

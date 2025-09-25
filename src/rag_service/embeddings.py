@@ -26,7 +26,6 @@ class EmbeddingsModel(ABC):
 
 class OpenAIEmbedding(EmbeddingsModel):
     def __init__(self, model_name: str = "text-embedding-3-small"):
-        
         self.config = Config()
         self.model = self.config.GPT_MODEL
         # Instantiate the client using the new OpenAI interface.
@@ -34,17 +33,22 @@ class OpenAIEmbedding(EmbeddingsModel):
         self.model_name = model_name
 
     def get_embedding(self, text: str) -> list[float]:
-        
         text = text.replace("\n", " ")
-        response = self.client.embeddings.create(input=text, model=self.model_name, dimensions=768)
+        response = self.client.embeddings.create(
+            input=text, model=self.model_name, dimensions=768
+        )
         return response.data[0].embedding
-    
-    
+
+
 class GoogleEmbedding(EmbeddingsModel):
     def __init__(self, model_name: str = "text-embedding-004"):
         self.config = Config()
         genai.configure(api_key=self.config.GEMINI_API_KEY)
-        self.model_name = f"models/{model_name}" if not model_name.startswith("models/") else model_name
+        self.model_name = (
+            f"models/{model_name}"
+            if not model_name.startswith("models/")
+            else model_name
+        )
 
     def get_embedding(self, text: str) -> list[float]:
         text = text.replace("\n", " ")
@@ -52,11 +56,10 @@ class GoogleEmbedding(EmbeddingsModel):
             model=self.model_name,
             content=text,
             task_type="retrieval_query",
-            output_dimensionality=768
-            
+            output_dimensionality=768,
         )
         return embedding["embedding"]
-    
+
 
 def create_embeddings_model(embeddings_model: str = "google") -> EmbeddingsModel:
     """Factory for creating embeddings models.
@@ -77,10 +80,10 @@ def create_embeddings_model(embeddings_model: str = "google") -> EmbeddingsModel
             return GoogleEmbedding()
         case _:
             raise ValueError(f"Embeddings model {embeddings_model} not supported")
-        
+
 
 def similarity_search(list_1, list_2):
-    product = (norm(list_1) * norm(list_2))
+    product = norm(list_1) * norm(list_2)
     if product == 0:
         return 0.0
     cos_sim = dot(list_1, list_2) / product
@@ -93,6 +96,3 @@ if __name__ == "__main__":
     embedding2 = embeddings_model.get_embedding("Goodbye, world!")
     similarity = similarity_search(embedding1, embedding2)
     print(f"Similarity: {similarity}")
-    
-    
-    

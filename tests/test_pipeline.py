@@ -15,9 +15,11 @@ class DummyLLM:
     def generate(self, prompt):
         return self.response
 
+
 # Dummy create_llm function that returns our DummyLLM.
 def dummy_create_llm(model):
     return DummyLLM(dummy_create_llm.response)
+
 
 @pytest.fixture
 def mock_llm(monkeypatch):
@@ -43,9 +45,9 @@ def test_pipeline(mock_llm):
     test_document = {
         "text": "This is a test document.",
         "document_name": "test_document",
-        "category": 'Miscellaneous',
+        "category": "Miscellaneous",
         "embedding": [0.1, 0.2, 0.3],
-        "document_id": "test_id"
+        "document_id": "test_id",
     }
     db.post_context(**test_document)
 
@@ -55,7 +57,7 @@ def test_pipeline(mock_llm):
             description="Improve health",
             status="start",
             userId="user123",
-            subtaskProgress=[]
+            subtaskProgress=[],
         )
     ]
 
@@ -65,11 +67,8 @@ def test_pipeline(mock_llm):
         progress=progress,
         user_actions=["Not implemented"],
         NPC=100,
-        chatLog=[
-            Message(role="user", content="Why does salmon swim upstream?")
-        ]
+        chatLog=[Message(role="user", content="Why does salmon swim upstream?")],
     )
-
 
     # Set the response for the mock LLM
     DummyLLM.response = "This is a mock response."
@@ -77,13 +76,15 @@ def test_pipeline(mock_llm):
     assert response is not None
     assert len(response) > 0
     assert isinstance(response, dict) and "choices" in response
-   
-    
+
+
 def test_valid_response_name(monkeypatch):
     # Set the response for the mock LLM
     DummyLLM.response = 'name: "John Doe"'
+
     def create_mock_llm(model):
         return DummyLLM(DummyLLM.response)
+
     monkeypatch.setattr("src.pipeline.create_llm", create_mock_llm)
     answer = "My name is John Doe"
     target = "name"
@@ -95,8 +96,10 @@ def test_valid_response_name(monkeypatch):
 def test_valid_response_user_mode(monkeypatch):
     # Set the response for the mock LLM
     DummyLLM.response = 'user_mode: "beginner"'
+
     def create_mock_llm(model):
         return DummyLLM(DummyLLM.response)
+
     monkeypatch.setattr("src.pipeline.create_llm", create_mock_llm)
     answer = "I am not experienced with VR"
     target = "user_mode"
@@ -108,8 +111,10 @@ def test_valid_response_user_mode(monkeypatch):
 def test_none_response(monkeypatch):
     # Set the response for the mock LLM
     DummyLLM.response = None
+
     def create_mock_llm(model):
         return DummyLLM(DummyLLM.response)
+
     monkeypatch.setattr("src.pipeline.create_llm", create_mock_llm)
     answer = "I am not experienced with VR"
     target = "user_mode"
@@ -121,8 +126,10 @@ def test_none_response(monkeypatch):
 def test_empty_response(monkeypatch):
     # Set the response for the mock LLM
     DummyLLM.response = ""
+
     def create_mock_llm(model):
         return DummyLLM(DummyLLM.response)
+
     monkeypatch.setattr("src.pipeline.create_llm", create_mock_llm)
     answer = "I am not experienced with VR"
     target = "user_mode"

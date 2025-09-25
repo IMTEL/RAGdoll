@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
 
+
 class DocumentCategory(Enum):
     # Other categories
     BEHAVIORAL_CONTEXT = "Behavioral Context"
@@ -18,23 +19,24 @@ class DocumentCategory(Enum):
     CONVERSATIONAL_ASSETS = "Conversational Assets"
     TRAINING_DATA = "Training Data"
     MISCELLANEOUS = "Miscellaneous"
-    
+
     # Scene categories from Blue Sector
     FISH_FEEDING = "FishFeeding"
     LABORATORY = "Laboratory"
-    FISH_FACTORY = "FishFactory" 
+    FISH_FACTORY = "FishFactory"
     FISH_WELFARE = "FishWelfare"
     FISH_MAINTENANCE = "FishMaintenance"
     OCEAN = "Ocean"
 
+
 @router.post("/upload/")
 async def upload_document(
-    file: UploadFile = File(...), 
-    category: Optional[DocumentCategory] = DocumentCategory.GENERAL_INFORMATION
+    file: UploadFile = File(...),
+    category: Optional[DocumentCategory] = DocumentCategory.GENERAL_INFORMATION,
 ):
     """
     API to receive a document, process it, and store it.
-    
+
     Args:
         file: The uploaded document file (txt, md)
         category: The document category from the DocumentCategory enum
@@ -53,14 +55,16 @@ async def upload_document(
 
         # Delete temporary file
         os.remove(file_location)
-        
 
         logging.info(f"Uploaded file: {file.filename}, Category: {category.value}")
 
         if success:
-            return {"message": "File uploaded and processed successfully", "category": category.value}
+            return {
+                "message": "File uploaded and processed successfully",
+                "category": category.value,
+            }
         else:
             raise HTTPException(status_code=500, detail="Failed to process file")
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

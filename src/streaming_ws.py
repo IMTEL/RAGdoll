@@ -44,10 +44,11 @@ from src.LLM import create_llm
 # ──────────────────────────────────────────────────────────────────────────
 import whisper
 
-_MODEL = Config().whisper_model     # already GPU‑aware in existing code
-_SAMPLE_RATE = 16_000               # Unity should down‑sample if needed
-_CHUNK_S    = 1.0                   # seconds of audio per decode step
+_MODEL = Config().whisper_model  # already GPU‑aware in existing code
+_SAMPLE_RATE = 16_000  # Unity should down‑sample if needed
+_CHUNK_S = 1.0  # seconds of audio per decode step
 _CHUNK_BYTES = int(_SAMPLE_RATE * _CHUNK_S) * 2  # 16‑bit = 2 bytes
+
 
 class WhisperStreamer:
     """Feed raw PCM chunks; yields partial transcripts every *_CHUNK_S* seconds."""
@@ -65,13 +66,16 @@ class WhisperStreamer:
         audio_np = np.frombuffer(slice_bytes, np.int16).astype(np.float32) / 32768.0
         mel = whisper.log_mel_spectrogram(audio_np).to(_MODEL.device)
         opts = whisper.DecodingOptions(language="no", without_timestamps=True)
-        dec  = whisper.decode(_MODEL, mel, opts)
+        dec = whisper.decode(_MODEL, mel, opts)
         return dec.text.strip()
+
 
 # ──────────────────────────────────────────────────────────────────────────
 # LLM streaming helper (OpenAI today; easy to swap via factory)
 # ──────────────────────────────────────────────────────────────────────────
-async def stream_chat_completion(prompt: str, model: str = "openai") -> AsyncGenerator[str, None]:
+async def stream_chat_completion(
+    prompt: str, model: str = "openai"
+) -> AsyncGenerator[str, None]:
     llm = create_llm(model)
     if hasattr(llm, "client"):  # Only OpenAI_LLM exposes raw client today
         messages = [
@@ -90,6 +94,7 @@ async def stream_chat_completion(prompt: str, model: str = "openai") -> AsyncGen
     else:  # fallback – no streaming available; send once
         yield llm.generate(prompt)
 
+
 # ──────────────────────────────────────────────────────────────────────────
 # WebSocket endpoint
 # ──────────────────────────────────────────────────────────────────────────
@@ -105,8 +110,10 @@ class ConnectionManager:
         if websocket in self.active:
             self.active.remove(websocket)
 
+
 manager = ConnectionManager()
-router  = APIRouter()
+router = APIRouter()
+
 
 @router.websocket("/ws/chat")
 async def chat_stream(websocket: WebSocket):
@@ -125,10 +132,14 @@ async def chat_stream(websocket: WebSocket):
             if message["type"] == "websocket.receive" and "bytes" in message:
                 partial = transcriber.feed(message["bytes"] or b"")
                 if partial:
-                    await websocket.send_text(json.dumps({
-                        "type": "transcript_partial",
-                        "data": partial,
-                    }))
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "transcript_partial",
+                                "data": partial,
+                            }
+                        )
+                    )
                     final_transcript = partial  # keep updating – last one is full text
 
             # 2️ control / JSON frames
@@ -136,7 +147,9 @@ async def chat_stream(websocket: WebSocket):
                 try:
                     data = json.loads(message["text"])
                 except json.JSONDecodeError:
-                    await websocket.send_text(json.dumps({"type": "error", "data": "Malformed JSON"}))
+                    await websocket.send_text(
+                        json.dumps({"type": "error", "data": "Malformed JSON"})
+                    )
                     continue
 
                 if data.get("type") == "silence":
@@ -145,14 +158,22 @@ async def chat_stream(websocket: WebSocket):
                         partial = transcriber.feed(b"")
                         if partial:
                             final_transcript = partial
-                    await websocket.send_text(json.dumps({
-                        "type": "transcript_final",
-                        "data": final_transcript,
-                    }))
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "transcript_final",
+                                "data": final_transcript,
+                            }
+                        )
+                    )
 
                     # Kick off RAG/LLM in background so that we can stream tokens
                     if pending_command_json is not None:
-                        asyncio.create_task(_handle_llm(websocket, final_transcript, pending_command_json))
+                        asyncio.create_task(
+                            _handle_llm(
+                                websocket, final_transcript, pending_command_json
+                            )
+                        )
                         pending_command_json = None
 
                 elif data.get("type") == "command":
@@ -164,15 +185,20 @@ async def chat_stream(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+
 async def _handle_llm(websocket: WebSocket, transcript: str, command_json: str):
     """Runs RAG + LLM, pushes token stream back to client."""
     try:
         command: Command = command_from_json(command_json, question=transcript)
-        prompt_obj     = assemble_prompt(command)  # returns dict with .response key
+        prompt_obj = assemble_prompt(command)  # returns dict with .response key
         async for tok in stream_chat_completion(prompt_obj["response"], model="openai"):
-            await websocket.send_text(json.dumps({
-                "type": "llm_token",
-                "data": tok,
-            }))
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "llm_token",
+                        "data": tok,
+                    }
+                )
+            )
     except Exception as exc:  # pragma: no cover – best‑effort error path
         await websocket.send_text(json.dumps({"type": "error", "data": str(exc)}))
