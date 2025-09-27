@@ -1,18 +1,17 @@
 from abc import ABC, abstractmethod
-from pymongo import MongoClient
-import logging
 
-from src.rag_service.context import Context
-from src.rag_service.embeddings import similarity_search 
+from pymongo import MongoClient
+
 from src.config import Config
+from src.rag_service.context import Context
+from src.rag_service.embeddings import similarity_search
+
 
 config = Config()
 
 
 class Database(ABC):
-    """
-    Abstract class for Connecting to a Database
-    """
+    """Abstract class for Connecting to a Database"""
 
     @classmethod
     def __instancecheck__(cls, instance: any) -> bool:
@@ -22,14 +21,10 @@ class Database(ABC):
     def __subclasscheck__(cls, subclass: any) -> bool:
         return (
             hasattr(subclass, "get_context") and callable(subclass.get_context)
-        ) and (
-            hasattr(subclass, "post_context") and callable(subclass.post_context)
-        )
-        
+        ) and (hasattr(subclass, "post_context") and callable(subclass.post_context))
+
     @abstractmethod
-    def get_context_by_category(self,
-        category: str
-        )-> list[Context]:
+    def get_context_by_category(self, category: str) -> list[Context]:
         """Fetches context solely based on what context associated with the given category
 
         Args:
@@ -38,16 +33,10 @@ class Database(ABC):
         Returns:
             list[Context]: context
         """
-        pass
-        
-        
+
     @abstractmethod
-    def get_context(self, 
-        document_name: str, 
-        embedding: list[float]
-    ) -> list[Context]:
-        """
-        Get context from database
+    def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
+        """Get context from database
 
         Args:
             embedding (list[float])
@@ -56,8 +45,7 @@ class Database(ABC):
         Returns:
             list[Context]: The context related to the question
         """
-        pass
-    
+
     @abstractmethod
     def post_context(
         self,
@@ -67,8 +55,7 @@ class Database(ABC):
         embedding: list[float],
         document_id: str,
     ) -> bool:
-        """
-        Post the curriculum to the database
+        """Post the curriculum to the database
 
         Args:
             text (str): The text to be posted
@@ -80,27 +67,23 @@ class Database(ABC):
         Returns:
             bool: if the context was posted
         """
-    
-        pass
-    
+
     @abstractmethod
     def is_reachable(self) -> bool:
-        """
-        Check if database is reachable
+        """Check if database is reachable
 
         Returns:
             bool: reachable
         """
-        pass
-    
-    
+
+
 class MongoDB(Database):
     def __init__(self):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_COLLECTION]
         self.similarity_threshold = 0.5
-        
+
     def get_context_by_category(self, category: str) -> list[Context]:
         if not category:
             raise ValueError("Category cannot be None or empty")
@@ -109,18 +92,17 @@ class MongoDB(Database):
         query = {
             "$search": {
                 "index": "category",
-                "text": {
-                    "path": "category",
-                    "query": category
-                }
+                "text": {"path": "category", "query": category},
             }
         }
 
         # Execute the aggregate pipeline
-        documents = self.collection.aggregate([
-            query,
-            {"$limit": 50},  # optional: limit the number of documents returned
-        ])
+        documents = self.collection.aggregate(
+            [
+                query,
+                {"$limit": 50},  # optional: limit the number of documents returned
+            ]
+        )
 
         # Convert cursor to a list
         documents = list(documents)
@@ -145,21 +127,15 @@ class MongoDB(Database):
             raise ValueError("NPC cannot be None")
 
         # Example using MongoDB Atlas Search with an index named "NPC":
-        query = {
-            "$search": {
-                "index": "NPC",
-                "text": {
-                    "path": "NPC",
-                    "query": NPC
-                }
-            }
-        }
+        query = {"$search": {"index": "NPC", "text": {"path": "NPC", "query": NPC}}}
 
         # Execute the aggregate pipeline
-        documents = self.collection.aggregate([
-            query,
-            {"$limit": 50},  # optional: limit the number of documents returned
-        ])
+        documents = self.collection.aggregate(
+            [
+                query,
+                {"$limit": 50},  # optional: limit the number of documents returned
+            ]
+        )
 
         # Convert cursor to a list
         documents = list(documents)
@@ -172,25 +148,25 @@ class MongoDB(Database):
                 Context(
                     text=doc["text"],
                     document_name=doc["documentName"],
-                    category=doc.get("category", f"NPC_{doc['NPC']}"),  # Convert old NPC to category format
+                    category=doc.get(
+                        "category", f"NPC_{doc['NPC']}"
+                    ),  # Convert old NPC to category format
                 )
             )
 
         return results
-
 
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
         if not embedding:
             raise ValueError("Embedding cannot be None")
 
         query = {
-                
             "$vectorSearch": {
                 "index": "embeddings",
                 "path": "embedding",
                 "queryVector": embedding,
                 "numCandidates": 30,
-                "limit": 3
+                "limit": 3,
             }
         }
 
@@ -215,7 +191,9 @@ class MongoDB(Database):
                     Context(
                         text=document["text"],
                         document_name=document["documentName"],
-                        category=document.get("category", f"NPC_{document.get('NPC', 'Unknown')}"),  # Handle both old and new formats
+                        category=document.get(
+                            "category", f"NPC_{document.get('NPC', 'Unknown')}"
+                        ),  # Handle both old and new formats
                     )
                 )
 
@@ -231,13 +209,13 @@ class MongoDB(Database):
     ) -> bool:
         if not text:
             raise ValueError("text cannot be None")
-        
+
         if not category:
             raise ValueError("Category cannot be None or empty")
-        
+
         if not document_name:
             raise ValueError("Document name cannot be None")
-        
+
         if not embedding:
             raise ValueError("Embedding cannot be None")
 
@@ -269,8 +247,7 @@ class MongoDB(Database):
 
 
 class MockDatabase(Database):
-    """
-    A mock database for testing purposes, storing data in memory.
+    """A mock database for testing purposes, storing data in memory.
     Singleton implementation to ensure only one instance exists.
     """
 
@@ -285,16 +262,16 @@ class MockDatabase(Database):
 
     def __init__(self):
         # Initialize only once (avoiding resetting on subsequent calls)
-        if not hasattr(self, "initialized"): 
+        if not hasattr(self, "initialized"):
             self.data = []  # In-memory storage for mock data
             self.similarity_threshold = 0.7
             self.initialized = True
             self.collection = self  # collection attribute for compatibility
-    
+
     def get_context_by_category(self, category: str) -> list[Context]:
         if not category:
             raise ValueError("Category cannot be None or empty")
-        
+
         results = []
         for document in self.data:
             if document.get("category") == category:
@@ -306,12 +283,12 @@ class MockDatabase(Database):
                     )
                 )
         return results
-        
+
     # For backward compatibility
     def get_context_from_NPC(self, NPC: int) -> list[Context]:
         if not NPC:
             raise ValueError("NPC cannot be None")
-        
+
         results = []
         for document in self.data:
             if document.get("NPC") == NPC:
@@ -323,7 +300,7 @@ class MockDatabase(Database):
                     )
                 )
         return results
-        
+
     def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
         if not embedding:
             raise ValueError("Embedding cannot be None")
@@ -332,7 +309,6 @@ class MockDatabase(Database):
 
         # Filter documents based on similarity and document_name
         for document in self.data:
-
             similarity = 0.9
             if similarity > self.similarity_threshold:
                 doc_name = document.get("documentName", "default_document_name")
@@ -340,10 +316,12 @@ class MockDatabase(Database):
                     Context(
                         text=document["text"],
                         document_name=doc_name,
-                        category=document.get("category", f"NPC_{document.get('NPC', 'Unknown')}"),
+                        category=document.get(
+                            "category", f"NPC_{document.get('NPC', 'Unknown')}"
+                        ),
                     )
                 )
-        return results 
+        return results
 
     def post_context(
         self,
@@ -376,17 +354,17 @@ class MockDatabase(Database):
 
     def is_reachable(self) -> bool:
         return True
-    
+
 
 class LocalMockDatabase(Database):
     def __init__(self):
         self.data = []
         self.similarity_threshold = 0.7
-    
+
     def get_context_by_category(self, category: str) -> list[Context]:
         if not category:
             raise ValueError("Category cannot be None or empty")
-        
+
         results = []
         for document in self.data:
             if document.get("category") == category:
@@ -414,7 +392,9 @@ class LocalMockDatabase(Database):
                         Context(
                             text=document["text"],
                             document_name=document["documentName"],
-                            category=document.get("category", f"NPC_{document.get('NPC', 'Unknown')}"),
+                            category=document.get(
+                                "category", f"NPC_{document.get('NPC', 'Unknown')}"
+                            ),
                         )
                     )
         return results
@@ -447,15 +427,14 @@ class LocalMockDatabase(Database):
 
 
 def get_database() -> Database:
-    """
-    Get the database to use
+    """Get the database to use
 
     Returns:
         Database: The database to use
     """
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
-            return MockDatabase()  
+            return MockDatabase()
         case "mongodb":
             return MongoDB()
         case "local_mock":

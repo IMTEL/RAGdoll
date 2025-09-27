@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, ValidationError
 
 from src.models.message import Message

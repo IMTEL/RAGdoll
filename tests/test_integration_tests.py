@@ -111,8 +111,7 @@ def test_get_context_from_NPC_no_results():
 
 @pytest.mark.integration
 def test_comparison_between_embedding_providers():
-    """Compare results from both OpenAI and Google embedding models.
-    """
+    """Compare results from both OpenAI and Google embedding models."""
     openai_model = create_embeddings_model("openai")
     google_model = create_embeddings_model("google")
 
@@ -132,8 +131,7 @@ def test_comparison_between_embedding_providers():
 
 @pytest.mark.integration
 def test_google_embedding_similarity():
-    """Test that similarity works with Google embeddings.
-    """
+    """Test that similarity works with Google embeddings."""
     model = create_embeddings_model("google")
 
     # Generate embedding for two similar texts

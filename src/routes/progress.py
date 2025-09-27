@@ -14,8 +14,7 @@ router = APIRouter()
 
 @router.post("/api/progress/initializeTasks")
 def receive_hierarchy(taskHierarchy: ListProgressData):
-    """Initializes a list of tasks with their subtasks and steps.
-    """
+    """Initializes a list of tasks with their subtasks and steps."""
     try:
         for task in taskHierarchy.items:
             progressLog.append(task.model_dump())
@@ -27,8 +26,7 @@ def receive_hierarchy(taskHierarchy: ListProgressData):
 
 @router.post("/api/progress/updateTask")
 def receive_progress(progress: ProgressData):
-    """Handles task progress updates (started/complete) and stores them.
-    """
+    """Handles task progress updates (started/complete) and stores them."""
     if progress.status == "started" or progress.status == "pending":
         # Check for existing incomplete task to update
         for entry in progressLog:

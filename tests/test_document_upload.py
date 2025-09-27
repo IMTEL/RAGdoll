@@ -1,4 +1,3 @@
-
 # KEEP THIS TEST DISABLED. The actual tests for document upload is test_file_upload.py
 
 # UNCOMMENT THE FOLLOWING CODE AND REPLACE THE PLACEHOLDER VALUES WITH YOUR

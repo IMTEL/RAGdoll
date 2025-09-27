@@ -29,8 +29,7 @@ def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
 
 @pytest.mark.unit
 def test_create_prompt():
-    """Test that create_prompt correctly appends additional context.
-    """
+    """Test that create_prompt correctly appends additional context."""
     # Instantiate an LLM instance. (No API call is made here.)
     llm = OpenAI_LLM()
     base_prompt = "Explain the significance of Python."
@@ -44,8 +43,7 @@ def test_create_prompt():
 
 @pytest.fixture
 def patched_llm(monkeypatch):
-    """Fixture to return an OpenAI_LLM instance with the API call patched to avoid spending tokens.
-    """
+    """Fixture to return an OpenAI_LLM instance with the API call patched to avoid spending tokens."""
     llm = OpenAI_LLM()
     # Patch the chat.completions.create method so that it returns our fake response.
     monkeypatch.setattr(llm.client.chat.completions, "create", fake_completions_create)
@@ -54,8 +52,7 @@ def patched_llm(monkeypatch):
 
 @pytest.mark.unit
 def test_generate_with_patched_llm(patched_llm):
-    """Test that generate returns the fake response from the patched API call.
-    """
+    """Test that generate returns the fake response from the patched API call."""
     test_prompt = "Dummy prompt"
     response = patched_llm.generate(test_prompt)
     assert response == "Test response", (
@@ -65,8 +62,7 @@ def test_generate_with_patched_llm(patched_llm):
 
 @pytest.mark.unit
 def test_create_llm_valid():
-    """Test that create_llm returns an instance of OpenAI_LLM when provided 'openai'.
-    """
+    """Test that create_llm returns an instance of OpenAI_LLM when provided 'openai'."""
     llm_instance = create_llm("openai")
     assert isinstance(llm_instance, OpenAI_LLM), (
         "create_llm('openai') should return an OpenAI_LLM instance"
@@ -75,8 +71,7 @@ def test_create_llm_valid():
 
 @pytest.mark.unit
 def test_create_llm_invalid():
-    """Test that create_llm raises a ValueError when an unsupported LLM is specified.
-    """
+    """Test that create_llm raises a ValueError when an unsupported LLM is specified."""
     with pytest.raises(ValueError) as exc_info:
         create_llm("unsupported")
     assert "not supported" in str(exc_info.value), (

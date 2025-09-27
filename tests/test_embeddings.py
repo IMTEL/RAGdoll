@@ -1,4 +1,3 @@
-
 import pytest
 
 from src.rag_service.embeddings import (
@@ -55,8 +54,7 @@ def test_openai_get_embedding():
 
 @pytest.mark.unit
 def test_similarity_search_identical_texts():
-    """Test that two identical texts produce embeddings with a high similarity score.
-    """
+    """Test that two identical texts produce embeddings with a high similarity score."""
     model = create_embeddings_model()
 
     text = "OpenAI is powering the next generation of AI applications."
@@ -91,8 +89,7 @@ def test_similarity_search_different_texts():
 
 @pytest.mark.unit
 def test_similarity_search_zero_vector():
-    """Test that similarity_search returns 0.0 if either embedding is all zeros.
-    """
+    """Test that similarity_search returns 0.0 if either embedding is all zeros."""
     zero_vector = [0.0] * 768  # typical embedding size for OpenAI
     nonzero_vector = [0.1] * 768
 
@@ -102,16 +99,14 @@ def test_similarity_search_zero_vector():
 
 @pytest.mark.integration
 def test_create_embeddings_model_google():
-    """Test that you can create and recieve a GoogleEmbedding, which implements EmbeddingsModel.
-    """
+    """Test that you can create and recieve a GoogleEmbedding, which implements EmbeddingsModel."""
     model = create_embeddings_model("google")
     assert isinstance(model, GoogleEmbedding), "Should be a GoogleEmbedding instance"
 
 
 @pytest.mark.integration
 def test_google_embedding_get_embedding():
-    """Test that the GoogleEmbedding model can generate embeddings.
-    """
+    """Test that the GoogleEmbedding model can generate embeddings."""
     model = create_embeddings_model("google")
     test_text = "This is a test sentence."
 

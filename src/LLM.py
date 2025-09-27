@@ -9,8 +9,7 @@ from src.config import Config
 
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
-        """Send the prompt to the LLM and return the generated response.
-        """
+        """Send the prompt to the LLM and return the generated response."""
 
 
 class Idun_LLM(LLM):
@@ -31,16 +30,14 @@ class Idun_LLM(LLM):
 
 class OpenAI_LLM(LLM):
     def __init__(self):
-        """Initializes the LLM facade using the provided configuration.
-        """
+        """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = self.config.GPT_MODEL
         # Instantiate the client using the new OpenAI interface.
         self.client = OpenAI(api_key=self.config.API_KEY)
 
     def generate(self, prompt: str) -> str:
-        """Uses the new API client interface to generate a response.
-        """
+        """Uses the new API client interface to generate a response."""
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
@@ -53,8 +50,7 @@ class OpenAI_LLM(LLM):
 
 class Gemini_LLM(LLM):
     def __init__(self):
-        """Initializes the LLM facade using the provided configuration.
-        """
+        """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = self.config.GEMINI_MODEL
 
@@ -62,8 +58,7 @@ class Gemini_LLM(LLM):
         self.client = genai.GenerativeModel(self.model)
 
     def generate(self, prompt: str) -> str:
-        """Uses the Google Generative AI client to generate a response
-        """
+        """Uses the Google Generative AI client to generate a response"""
         response = self.client.generate_content(prompt)
         return response.text.strip()
 

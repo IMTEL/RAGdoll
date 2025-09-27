@@ -6,8 +6,7 @@ from src.rag_service.dao import MockDatabase, get_database
 
 
 class FakeCollection:
-    """A fake collection to simulate MongoDB's aggregate() and insert_one() methods.
-    """
+    """A fake collection to simulate MongoDB's aggregate() and insert_one() methods."""
 
     def __init__(self, data=None):
         self.data = data if data is not None else []
@@ -48,8 +47,7 @@ def mock_db():
 
 
 def test_post_context_invalid_params(mock_db):
-    """Test that post_context raises a ValueError when required parameters are missing or invalid.
-    """
+    """Test that post_context raises a ValueError when required parameters are missing or invalid."""
     # Empty text should trigger a ValueError
     with pytest.raises(ValueError) as exc_info:
         mock_db.post_context(
@@ -63,8 +61,7 @@ def test_post_context_invalid_params(mock_db):
 
 
 def test_is_reachable(mock_db):
-    """Test that is_reachable returns True for the mock database.
-    """
+    """Test that is_reachable returns True for the mock database."""
     assert mock_db.is_reachable() is True
 
 
@@ -72,8 +69,7 @@ def test_is_reachable(mock_db):
     "src.rag_service.dao.similarity_search", return_value=0.8
 )  # Mock the similarity_search to return 0.8
 def test_get_context_by_category(similarity_search_mock, mock_db):
-    """Test that get_context_by_category returns contexts with the specified category.
-    """
+    """Test that get_context_by_category returns contexts with the specified category."""
     # Add test data directly to the fake collection
     test_category = "FishFeeding"
     document = {

@@ -20,7 +20,7 @@ def test_embeddings():
     sim1_2 = similarity_search(embedding1, embedding2)
     sim1_3 = similarity_search(embedding1, embedding3)
 
-    print(f"Google Embedding Test")
+    print("Google Embedding Test")
     print(f"Embedding dimensions: {len(embedding1)}")
     print(f"Similarity between related texts: {sim1_2}")
     print(f"Similarity between unrelated texts: {sim1_3}")
@@ -34,7 +34,7 @@ def test_embeddings():
     openai_sim1_2 = similarity_search(openai_embedding1, openai_embedding2)
     openai_sim1_3 = similarity_search(openai_embedding1, openai_embedding3)
 
-    print(f"\nOpenAI Embedding Test")
+    print("\nOpenAI Embedding Test")
     print(f"Embedding dimensions: {len(openai_embedding1)}")
     print(f"Similarity between related texts: {openai_sim1_2}")
     print(f"Similarity between unrelated texts: {openai_sim1_3}")
