@@ -187,4 +187,43 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     }
 
 
+def assemble_simple_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
+    """Assembles a simple prompt for testing purposes."""
 
+    user_message = command.chatLog[-1].content if command.chatLog else "No user message"
+
+    prompt = f"""
+    The previous chat history is: {command.chatLog[:-1] if len(command.chatLog) > 1 else 'No previous messages'}
+    You are a helpful assistant. The user says: {user_message}
+    Provide a short and clear response.
+    """
+
+    print(f"Dummy Prompt sent to LLM:\n{prompt}")
+    llm_response = create_llm(model).generate(prompt)
+
+
+    return {
+        "id": str(uuid.uuid4()),
+        "created": int(time.time()),
+        "model": "dummy-model",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": llm_response,
+                    "function_call": None
+                },
+                "logprobs": None,
+                "finish_reason": "stop"
+            }
+        ],
+        "usage": {},
+        "system_fingerprint": "v1-system",  # placeholder
+        "context_used": [],
+        "metadata": {
+            "response_length": 25,
+        },
+        "response": llm_response,
+        "function_call": None
+    }
