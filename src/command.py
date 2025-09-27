@@ -5,7 +5,7 @@ from src.models.progress import ProgressData
 
 
 class Command(BaseModel):
-    """Message from the VR application about the current state. This is an loose implementation of the command pattern"""
+    """Message from the VR application about the current state. This is an loose implementation of the command pattern."""
 
     scene_name: str
     user_information: list[str]

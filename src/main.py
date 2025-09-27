@@ -68,7 +68,7 @@ app.include_router(upload.router)
 
 @app.get("/")
 def hello_world():
-    """Hello World
+    """Hello World.
 
     Returns:
         message: Hello World from FastAPI!
@@ -78,7 +78,7 @@ def hello_world():
 
 @app.get("/ping")
 def ping():
-    """Ping
+    """Ping.
 
     Returns:
         status: Pong
@@ -88,7 +88,7 @@ def ping():
 
 @app.post("/ask")
 async def ask(request: Request):
-    """Ask
+    """Ask.
 
     Accepts a byte array input and returns a response.
 

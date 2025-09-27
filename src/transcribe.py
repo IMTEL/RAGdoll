@@ -54,7 +54,7 @@ def transcribe_from_upload(file: UploadFile) -> str:
     return result.text
 
 
-def transcribe_audio(file: UploadFile, language: str = None) -> dict:
+def transcribe_audio(file: UploadFile, language: str | None = None) -> dict:
     """Transcribe an audio file with specified language.
 
     Args:

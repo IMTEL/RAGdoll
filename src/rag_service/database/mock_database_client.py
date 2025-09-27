@@ -23,13 +23,13 @@ embedding_model = create_embeddings_model()
 
 
 def upload_document(file_path, category="General Information"):
-    """Upload a document to the mock database"""
+    """Upload a document to the mock database."""
     success = process_file_and_store(file_path, category)
     return success
 
 
 def list_documents():
-    """List all documents in the mock database"""
+    """List all documents in the mock database."""
     db = get_database()
     if not hasattr(db, "data"):
         logger.error("Database doesn't have data attribute. Is it a MockDatabase?")
@@ -53,7 +53,7 @@ def list_documents():
 
 
 def get_document_by_id(document_id):
-    """Get a document by its ID"""
+    """Get a document by its ID."""
     db = get_database()
     if not hasattr(db, "data"):
         logger.error("Database doesn't have data attribute. Is it a MockDatabase?")
@@ -66,7 +66,7 @@ def get_document_by_id(document_id):
 
 
 def get_document_by_name(document_name):
-    """Get documents by name"""
+    """Get documents by name."""
     db = get_database()
     if not hasattr(db, "data"):
         logger.error("Database doesn't have data attribute. Is it a MockDatabase?")

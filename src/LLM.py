@@ -58,7 +58,7 @@ class Gemini_LLM(LLM):
         self.client = genai.GenerativeModel(self.model)
 
     def generate(self, prompt: str) -> str:
-        """Uses the Google Generative AI client to generate a response"""
+        """Uses the Google Generative AI client to generate a response."""
         response = self.client.generate_content(prompt)
         return response.text.strip()
 

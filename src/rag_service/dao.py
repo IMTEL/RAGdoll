@@ -11,7 +11,7 @@ config = Config()
 
 
 class Database(ABC):
-    """Abstract class for Connecting to a Database"""
+    """Abstract class for Connecting to a Database."""
 
     @classmethod
     def __instancecheck__(cls, instance: any) -> bool:
@@ -25,7 +25,7 @@ class Database(ABC):
 
     @abstractmethod
     def get_context_by_category(self, category: str) -> list[Context]:
-        """Fetches context solely based on what context associated with the given category
+        """Fetches context solely based on what context associated with the given category.
 
         Args:
             category (str): Document category
@@ -36,7 +36,7 @@ class Database(ABC):
 
     @abstractmethod
     def get_context(self, document_name: str, embedding: list[float]) -> list[Context]:
-        """Get context from database
+        """Get context from database.
 
         Args:
             embedding (list[float])
@@ -55,7 +55,7 @@ class Database(ABC):
         embedding: list[float],
         document_id: str,
     ) -> bool:
-        """Post the curriculum to the database
+        """Post the curriculum to the database.
 
         Args:
             text (str): The text to be posted
@@ -70,7 +70,7 @@ class Database(ABC):
 
     @abstractmethod
     def is_reachable(self) -> bool:
-        """Check if database is reachable
+        """Check if database is reachable.
 
         Returns:
             bool: reachable
@@ -427,7 +427,7 @@ class LocalMockDatabase(Database):
 
 
 def get_database() -> Database:
-    """Get the database to use
+    """Get the database to use.
 
     Returns:
         Database: The database to use
