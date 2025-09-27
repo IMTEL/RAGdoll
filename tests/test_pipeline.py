@@ -3,7 +3,7 @@ import pytest
 from src.command import Command
 from src.models.message import Message
 from src.models.progress import ProgressData
-from src.pipeline import assemble_prompt, getAnswerFromUser
+from src.pipeline import assemble_prompt, get_answer_from_user
 from src.rag_service.dao import MockDatabase, get_database
 
 
@@ -87,7 +87,7 @@ def test_valid_response_name(monkeypatch):
     answer = "My name is John Doe"
     target = "name"
     question = "What is your name?"
-    result = getAnswerFromUser(answer, target, question)
+    result = get_answer_from_user(answer, target, question)
     assert result == 'name: "John Doe"'
 
 
@@ -102,7 +102,7 @@ def test_valid_response_user_mode(monkeypatch):
     answer = "I am not experienced with VR"
     target = "user_mode"
     question = "How do you rate your VR experience?"
-    result = getAnswerFromUser(answer, target, question)
+    result = get_answer_from_user(answer, target, question)
     assert result == 'user_mode: "beginner"'
 
 
@@ -117,7 +117,7 @@ def test_none_response(monkeypatch):
     answer = "I am not experienced with VR"
     target = "user_mode"
     question = "How do you rate your VR experience?"
-    result = getAnswerFromUser(answer, target, question)
+    result = get_answer_from_user(answer, target, question)
     assert result == "No response from the language model."
 
 
@@ -132,5 +132,5 @@ def test_empty_response(monkeypatch):
     answer = "I am not experienced with VR"
     target = "user_mode"
     question = "How do you rate your VR experience?"
-    result = getAnswerFromUser(answer, target, question)
+    result = get_answer_from_user(answer, target, question)
     assert result == "Empty response from the language model."

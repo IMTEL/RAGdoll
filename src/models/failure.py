@@ -7,4 +7,4 @@ class FailureData(BaseModel):
     errorCode: str
     description: str
     userId: str | None = None  # Optional
-    receivedAt: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    received_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

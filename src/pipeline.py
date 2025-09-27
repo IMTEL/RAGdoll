@@ -8,7 +8,9 @@ from src.rag_service.dao import get_database
 from src.rag_service.embeddings import create_embeddings_model
 
 
-def getAnswerFromUser(answer: str, target: str, question: str, model="gemini") -> str:
+def get_answer_from_user(
+    answer: str, target: str, question: str, model="gemini"
+) -> str:
     """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
     prompt = ""
     if target == "name":
