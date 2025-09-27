@@ -25,6 +25,7 @@ class FakeCollection:
 @pytest.fixture
 def mock_db():
     """Fixture that returns a MockDatabase instance.
+
     If get_database() returns a non-mock instance, skip the tests.
     """
     db = get_database()
