@@ -11,9 +11,7 @@ from src.rag_service.embeddings import (
 
 @pytest.mark.unit
 def test_create_embeddings_model_openai():
-    """Test that create_embeddings_model('openai') returns an instance
-    of OpenAIEmbedding, which implements EmbeddingsModel.
-    """
+    """Test that create_embeddings_model('openai') returns an instance of OpenAIEmbedding, which implements EmbeddingsModel."""
     model = create_embeddings_model("openai")
     assert isinstance(model, EmbeddingsModel), (
         "Should return a subclass of EmbeddingsModel"
@@ -23,9 +21,7 @@ def test_create_embeddings_model_openai():
 
 @pytest.mark.unit
 def test_create_embeddings_model_unsupported_raises():
-    """Test that create_embeddings_model with an unsupported string
-    raises a ValueError.
-    """
+    """Test that create_embeddings_model with an unsupported string raises a ValueError."""
     with pytest.raises(ValueError) as exc_info:
         create_embeddings_model("some-unsupported-model")
 
@@ -36,9 +32,7 @@ def test_create_embeddings_model_unsupported_raises():
 
 @pytest.mark.integration
 def test_openai_get_embedding():
-    """Test that we can call get_embedding on a piece of text
-    and receive a list of floats with nonzero length.
-    """
+    """Test that we can call get_embedding on a piece of text and receive a list of floats with nonzero length."""
     model = create_embeddings_model()
     test_text = "Hello, world!"
 
@@ -69,9 +63,7 @@ def test_similarity_search_identical_texts():
 
 @pytest.mark.unit
 def test_similarity_search_different_texts():
-    """Test that two very different texts produce embeddings
-    with a lower similarity score (though exact threshold may vary).
-    """
+    """Test that two very different texts produce embeddings with a lower similarity score (though exact threshold may vary)."""
     model = create_embeddings_model()
 
     embedding1 = model.get_embedding("The Eiffel Tower is in Paris.")
