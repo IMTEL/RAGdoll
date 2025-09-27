@@ -13,9 +13,7 @@ from src.rag_service.embeddings import (
 
 @pytest.mark.integration
 def test_database_is_reachable():
-    """Test the is_reachable method to ensure
-    we can connect to MongoDB or use the mock DB.
-    """
+    """Test the is_reachable method to ensure we can connect to MongoDB or use the mock DB."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
@@ -23,16 +21,14 @@ def test_database_is_reachable():
 
 
 @pytest.mark.integration
-def test_post_context_and_retrieve_by_NPC():
-    """Test post_context, then verify that get_context_from_NPC
-    can retrieve the inserted document.
-    """
+def test_post_context_and_retrieve_by_npc():
+    """Test post_context, then verify that get_context_from_NPC can retrieve the inserted document."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     test_text = "Test text for NPC"
     test_document_name = "TestDocNPC!"
-    test_NPC = "123"
+    test_npc = "123"
     test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
@@ -41,33 +37,31 @@ def test_post_context_and_retrieve_by_NPC():
         text=test_text,
         document_name=test_document_name,
         embedding=test_embedding,
-        NPC=test_NPC,
+        NPC=test_npc,
         document_id=test_id,
     )
     time.sleep(1)
     assert post_result is True, "post_context should return True"
 
     # Retrieve the context by NPC
-    retrieved_contexts = db.get_context_from_NPC(test_NPC)
+    retrieved_contexts = db.get_context_from_NPC(test_npc)
     assert len(retrieved_contexts) > 0, "Should retrieve at least one context"
     # Check that the first context matches what we posted
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert str(context.NPC) == test_NPC, "NPC should match"
+    assert str(context.NPC) == test_npc, "NPC should match"
 
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_embedding():
-    """Test post_context, then verify get_context returns the document
-    when the similarity is above the threshold.
-    """
+    """Test post_context, then verify get_context returns the document when the similarity is above the threshold."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     test_text = "Embedding-based retrieval text"
     test_document_name = "EmbeddingDoc"
-    test_NPC = "999"
+    test_npc = "999"
     test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
@@ -75,7 +69,7 @@ def test_post_context_and_retrieve_by_embedding():
     post_result = db.post_context(
         text=test_text,
         document_name=test_document_name,
-        NPC=test_NPC,
+        NPC=test_npc,
         embedding=test_embedding,
         document_id=test_id,
     )
@@ -88,7 +82,7 @@ def test_post_context_and_retrieve_by_embedding():
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert str(context.NPC) == str(test_NPC), "NPC should match"
+    assert str(context.NPC) == str(test_npc), "NPC should match"
 
 
 @pytest.mark.integration
