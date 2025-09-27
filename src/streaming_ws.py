@@ -27,22 +27,21 @@ simple counters inside the JSON payload.
 
 import asyncio
 import json
-import time
-from collections import defaultdict
-from typing import AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
 
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-
-from src.command import command_from_json, Command
-from src.pipeline import assemble_prompt
-from src.config import Config
-from src.LLM import create_llm
 
 # ──────────────────────────────────────────────────────────────────────────
 # Whisper streaming helper (very light‑weight, 1–2 s latency)
 # ──────────────────────────────────────────────────────────────────────────
 import whisper
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from src.command import Command, command_from_json
+from src.config import Config
+from src.LLM import create_llm
+from src.pipeline import assemble_prompt
+
 
 _MODEL = Config().whisper_model  # already GPU‑aware in existing code
 _SAMPLE_RATE = 16_000  # Unity should down‑sample if needed
@@ -56,7 +55,7 @@ class WhisperStreamer:
     def __init__(self) -> None:
         self._buf = bytearray()
 
-    def feed(self, pcm_bytes: bytes) -> Optional[str]:
+    def feed(self, pcm_bytes: bytes) -> str | None:
         self._buf.extend(pcm_bytes)
         if len(self._buf) < _CHUNK_BYTES:
             return None
@@ -100,7 +99,7 @@ async def stream_chat_completion(
 # ──────────────────────────────────────────────────────────────────────────
 class ConnectionManager:
     def __init__(self):
-        self.active: List[WebSocket] = []
+        self.active: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -118,11 +117,10 @@ router = APIRouter()
 @router.websocket("/ws/chat")
 async def chat_stream(websocket: WebSocket):
     """Main bidirectional stream used by Unity clients."""
-
     await manager.connect(websocket)
     transcriber = WhisperStreamer()
     final_transcript: str = ""
-    pending_command_json: Optional[str] = None
+    pending_command_json: str | None = None
 
     try:
         while True:

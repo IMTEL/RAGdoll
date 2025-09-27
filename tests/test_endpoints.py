@@ -1,16 +1,17 @@
 # test_app.py
 
-import json
 import io
-import pytest
-from fastapi.testclient import TestClient
-from fastapi import FastAPI, File, UploadFile, Form
+import json
 import os
-from starlette.datastructures import UploadFile
 from difflib import SequenceMatcher
 
-from src.transcribe import transcribe_from_upload
+import pytest
+from fastapi import UploadFile
+from fastapi.testclient import TestClient
+from starlette.datastructures import UploadFile
+
 from src.main import app
+from src.transcribe import transcribe_from_upload
 
 
 client = TestClient(app)

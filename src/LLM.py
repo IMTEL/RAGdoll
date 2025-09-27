@@ -1,16 +1,16 @@
 from typing import Protocol
-from openai import OpenAI
-import requests
+
 import google.generativeai as genai
+import requests
+from openai import OpenAI
+
 from src.config import Config
 
 
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
+        """Send the prompt to the LLM and return the generated response.
         """
-        Send the prompt to the LLM and return the generated response.
-        """
-        pass
 
 
 class Idun_LLM(LLM):
@@ -31,8 +31,7 @@ class Idun_LLM(LLM):
 
 class OpenAI_LLM(LLM):
     def __init__(self):
-        """
-        Initializes the LLM facade using the provided configuration.
+        """Initializes the LLM facade using the provided configuration.
         """
         self.config = Config()
         self.model = self.config.GPT_MODEL
@@ -40,8 +39,7 @@ class OpenAI_LLM(LLM):
         self.client = OpenAI(api_key=self.config.API_KEY)
 
     def generate(self, prompt: str) -> str:
-        """
-        Uses the new API client interface to generate a response.
+        """Uses the new API client interface to generate a response.
         """
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -55,8 +53,7 @@ class OpenAI_LLM(LLM):
 
 class Gemini_LLM(LLM):
     def __init__(self):
-        """
-        Initializes the LLM facade using the provided configuration.
+        """Initializes the LLM facade using the provided configuration.
         """
         self.config = Config()
         self.model = self.config.GEMINI_MODEL
@@ -65,8 +62,7 @@ class Gemini_LLM(LLM):
         self.client = genai.GenerativeModel(self.model)
 
     def generate(self, prompt: str) -> str:
-        """
-        Uses the Google Generative AI client to generate a response
+        """Uses the Google Generative AI client to generate a response
         """
         response = self.client.generate_content(prompt)
         return response.text.strip()
@@ -78,8 +74,7 @@ class MockLLM(LLM):
 
 
 def create_llm(llm: str = "idun") -> LLM:
-    """
-    Factory for creating LLM instances.
+    """Factory for creating LLM instances.
 
     Args:
         llm (str, optional): Select LLM. Defaults to "openai".

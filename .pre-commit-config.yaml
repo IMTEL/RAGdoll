@@ -18,9 +18,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.4
     hooks:
-      # Run the linter.
-      - id: ruff
-        entry: pdm lint --force-exclude
-      #   Run the formatter.
+      # # Run the linter.
+      # - id: ruff
+      #   entry: uv run ruff check --fix --force-exclude
+      # Run the formatter.
       - id: ruff-format
-        entry: pdm format --force-exclude
+        entry: uv run ruff format --force-exclude
+

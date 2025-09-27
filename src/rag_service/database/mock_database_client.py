@@ -1,8 +1,8 @@
+import argparse
+import logging
 import os
 import sys
-import argparse
-import uuid
-import logging
+
 
 # Add the project root to Python's path
 PROJECT_ROOT = os.path.abspath(
@@ -10,10 +10,10 @@ PROJECT_ROOT = os.path.abspath(
 )
 sys.path.append(PROJECT_ROOT)
 
-from src.config import Config
-from src.rag_service.dao import get_database, MockDatabase
-from src.rag_service.embeddings import create_embeddings_model
 from src.context_upload import process_file_and_store
+from src.rag_service.dao import get_database
+from src.rag_service.embeddings import create_embeddings_model
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
-import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import mock_open, patch
+
 from src.context_upload import compute_embedding, process_file_and_store
 
 

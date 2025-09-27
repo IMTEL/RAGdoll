@@ -1,9 +1,8 @@
-import json
-from pydantic import BaseModel
-from pydantic import ValidationError
-from typing import Optional
-from src.models.progress import ProgressData
+
+from pydantic import BaseModel, ValidationError
+
 from src.models.message import Message
+from src.models.progress import ProgressData
 
 
 class Command(BaseModel):
@@ -33,7 +32,7 @@ def prompt_to_json(prompt: Prompt) -> str:
     return prompt.model_dump_json()
 
 
-def command_from_json(json_str: str) -> Optional[Command]:
+def command_from_json(json_str: str) -> Command | None:
     """Parses a JSON string into a Command object.
 
     Args:
@@ -51,8 +50,8 @@ def command_from_json(json_str: str) -> Optional[Command]:
 
 
 def command_from_json_transcribeVersion(
-    json_str: str, question: Optional[str] = None
-) -> Optional[Command]:
+    json_str: str, question: str | None = None
+) -> Command | None:
     """Parses a JSON string into a Command object.
 
     Args:

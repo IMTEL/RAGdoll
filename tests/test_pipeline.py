@@ -1,10 +1,10 @@
 import pytest
 
 from src.command import Command
-from src.pipeline import assemble_prompt, create_llm, getAnswerFromUser
-from src.rag_service.dao import MockDatabase, get_database
 from src.models.message import Message
 from src.models.progress import ProgressData
+from src.pipeline import assemble_prompt, getAnswerFromUser
+from src.rag_service.dao import MockDatabase, get_database
 
 
 # Dummy language model for testing.
@@ -23,9 +23,7 @@ def dummy_create_llm(model):
 
 @pytest.fixture
 def mock_llm(monkeypatch):
-    """
-    Fixture to mock the create_llm function and return a DummyLLM instance.
-    """
+    """Fixture to mock the create_llm function and return a DummyLLM instance."""
     # Initialize the response attribute
     DummyLLM.response = None
 

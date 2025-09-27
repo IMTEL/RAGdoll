@@ -1,14 +1,17 @@
-from flask import Flask, request, jsonify
-import whisper
-import numpy as np
-from fastapi import UploadFile, HTTPException
-import tempfile
+import io
 import logging
-import io, math, numpy as np, soundfile as sf
-from scipy.signal import resample_poly  # pip install scipy soundfile
+import math
 import os
 
+import numpy as np
+import soundfile as sf
+import whisper
+from fastapi import UploadFile
+from flask import Flask
+from scipy.signal import resample_poly  # pip install scipy soundfile
+
 from src.config import Config
+
 
 model = Config().whisper_model
 
@@ -34,11 +37,11 @@ def load_audio_from_upload(file) -> np.ndarray:
             audio = resample_poly(audio, TARGET_SR // g, sr // g).astype("float32")
         return audio
     except sf.SoundFileError as e:
-        logging.error(f"SoundFile error when processing audio: {str(e)}")
-        raise ValueError(f"Invalid audio file format: {str(e)}")
+        logging.error(f"SoundFile error when processing audio: {e!s}")
+        raise ValueError(f"Invalid audio file format: {e!s}")
     except Exception as e:
-        logging.error(f"Error loading audio: {str(e)}")
-        raise ValueError(f"Failed to process audio file: {str(e)}")
+        logging.error(f"Error loading audio: {e!s}")
+        raise ValueError(f"Failed to process audio file: {e!s}")
 
 
 def transcribe_from_upload(file: UploadFile) -> str:
@@ -52,8 +55,7 @@ def transcribe_from_upload(file: UploadFile) -> str:
 
 
 def transcribe_audio(file: UploadFile, language: str = None) -> dict:
-    """
-    Transcribe an audio file with specified language.
+    """Transcribe an audio file with specified language.
 
     Args:
         file (UploadFile): The audio file to transcribe
@@ -107,13 +109,12 @@ def transcribe_audio(file: UploadFile, language: str = None) -> dict:
         return {"success": False, "error": str(e)}
     except Exception as e:
         # Handle other errors
-        logging.error(f"Transcription error: {str(e)}")
-        return {"success": False, "error": f"Failed to transcribe audio: {str(e)}"}
+        logging.error(f"Transcription error: {e!s}")
+        return {"success": False, "error": f"Failed to transcribe audio: {e!s}"}
 
 
 def transcribe(audio):
-    """
-    Transcribe an audio file using Whisper model.
+    """Transcribe an audio file using Whisper model.
 
     Args:
         audio (str): Path to the audio file.

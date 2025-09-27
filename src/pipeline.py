@@ -1,11 +1,11 @@
-import uuid
 import time
+import uuid
 
-from src.command import Command, Prompt, prompt_to_json
-from src.rag_service.dao import get_database
+from src.command import Command
 from src.config import Config
+from src.LLM import create_llm
+from src.rag_service.dao import get_database
 from src.rag_service.embeddings import create_embeddings_model
-from src.LLM import LLM, create_llm
 
 
 def getAnswerFromUser(answer: str, target: str, question: str, model="gemini") -> str:
@@ -49,7 +49,6 @@ def getAnswerFromUser(answer: str, target: str, question: str, model="gemini") -
 
 def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
-
     # to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
 
     # to_embed: str = str(command.chatLog[-1].content)

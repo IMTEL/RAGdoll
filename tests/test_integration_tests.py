@@ -1,26 +1,19 @@
 import time
-import pytest
 from uuid import uuid4
-import sys
-import os
-from typing import Any
+
+import pytest
 
 from src.config import Config
 from src.rag_service.dao import get_database
-from src.rag_service.context import Context
 from src.rag_service.embeddings import (
     create_embeddings_model,
     similarity_search,
-    EmbeddingsModel,
-    OpenAIEmbedding,
 )
-from src.LLM import OpenAI_LLM, create_llm
 
 
 @pytest.mark.integration
 def test_database_is_reachable():
-    """
-    Test the is_reachable method to ensure
+    """Test the is_reachable method to ensure
     we can connect to MongoDB or use the mock DB.
     """
     if Config().ENV != "dev":
@@ -31,8 +24,7 @@ def test_database_is_reachable():
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_NPC():
-    """
-    Test post_context, then verify that get_context_from_NPC
+    """Test post_context, then verify that get_context_from_NPC
     can retrieve the inserted document.
     """
     if Config().ENV != "dev":
@@ -67,8 +59,7 @@ def test_post_context_and_retrieve_by_NPC():
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_embedding():
-    """
-    Test post_context, then verify get_context returns the document
+    """Test post_context, then verify get_context returns the document
     when the similarity is above the threshold.
     """
     if Config().ENV != "dev":
@@ -102,8 +93,7 @@ def test_post_context_and_retrieve_by_embedding():
 
 @pytest.mark.integration
 def test_get_context_from_NPC_no_results():
-    """
-    Test get_context_from_NPC with an NPC that doesn't exist
+    """Test get_context_from_NPC with an NPC that doesn't exist
     to confirm it raises a ValueError (as per your code).
     """
     if Config().ENV != "dev":
@@ -121,8 +111,7 @@ def test_get_context_from_NPC_no_results():
 
 @pytest.mark.integration
 def test_comparison_between_embedding_providers():
-    """
-    Compare results from both OpenAI and Google embedding models.
+    """Compare results from both OpenAI and Google embedding models.
     """
     openai_model = create_embeddings_model("openai")
     google_model = create_embeddings_model("google")
@@ -143,8 +132,7 @@ def test_comparison_between_embedding_providers():
 
 @pytest.mark.integration
 def test_google_embedding_similarity():
-    """
-    Test that similarity works with Google embeddings.
+    """Test that similarity works with Google embeddings.
     """
     model = create_embeddings_model("google")
 

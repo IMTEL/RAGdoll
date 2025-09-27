@@ -1,10 +1,11 @@
-import os
 import logging
+import os
 from enum import Enum
-from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
 from src.context_upload import process_file_and_store
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,10 +33,9 @@ class DocumentCategory(Enum):
 @router.post("/upload/")
 async def upload_document(
     file: UploadFile = File(...),
-    category: Optional[DocumentCategory] = DocumentCategory.GENERAL_INFORMATION,
+    category: DocumentCategory | None = DocumentCategory.GENERAL_INFORMATION,
 ):
-    """
-    API to receive a document, process it, and store it.
+    """API to receive a document, process it, and store it.
 
     Args:
         file: The uploaded document file (txt, md)

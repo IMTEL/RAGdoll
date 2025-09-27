@@ -1,8 +1,7 @@
-import math
 from abc import ABC, abstractmethod
-import openai
-import numpy as np
+
 import google.generativeai as genai
+import openai
 from numpy import dot
 from numpy.linalg import norm
 
@@ -12,8 +11,7 @@ from src.config import Config
 class EmbeddingsModel(ABC):
     @abstractmethod
     def get_embedding(self, text: str) -> list[float]:
-        """
-        Get the embedding of a text.
+        """Get the embedding of a text.
 
         Args:
             text (str): The text to embed
@@ -21,7 +19,6 @@ class EmbeddingsModel(ABC):
         Returns:
             list[float]: The embedding of the text
         """
-        pass
 
 
 class OpenAIEmbedding(EmbeddingsModel):

@@ -36,7 +36,7 @@ extend-ignore = [
     "D106",   # missing docstring in public nested class
     "D107",   # missing docstring in __init__
     "N812",   # lowercase imported as non lowercase
-    "TCH002", # move third-party into a type-checking block
+    "TC002", # move third-party into a type-checking block
     "F722",   # jaxtyping
 ]
 

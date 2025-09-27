@@ -1,5 +1,5 @@
+
 from pydantic import BaseModel
-from typing import List
 
 
 class RAGPostModel(BaseModel):
@@ -7,4 +7,4 @@ class RAGPostModel(BaseModel):
     document_id: str
     document_name: str
     NPC: int
-    embedding: List[float]
+    embedding: list[float]

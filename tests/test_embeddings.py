@@ -1,27 +1,18 @@
-import time
-import pytest
-from uuid import uuid4
-import sys
-import os
-from typing import Any
 
-from src.config import Config
-from src.rag_service.dao import get_database
-from src.rag_service.context import Context
+import pytest
+
 from src.rag_service.embeddings import (
+    EmbeddingsModel,
+    GoogleEmbedding,
+    OpenAIEmbedding,
     create_embeddings_model,
     similarity_search,
-    EmbeddingsModel,
-    OpenAIEmbedding,
-    GoogleEmbedding,
 )
-from src.LLM import OpenAI_LLM, create_llm
 
 
 @pytest.mark.unit
 def test_create_embeddings_model_openai():
-    """
-    Test that create_embeddings_model('openai') returns an instance
+    """Test that create_embeddings_model('openai') returns an instance
     of OpenAIEmbedding, which implements EmbeddingsModel.
     """
     model = create_embeddings_model("openai")
@@ -33,8 +24,7 @@ def test_create_embeddings_model_openai():
 
 @pytest.mark.unit
 def test_create_embeddings_model_unsupported_raises():
-    """
-    Test that create_embeddings_model with an unsupported string
+    """Test that create_embeddings_model with an unsupported string
     raises a ValueError.
     """
     with pytest.raises(ValueError) as exc_info:
@@ -47,8 +37,7 @@ def test_create_embeddings_model_unsupported_raises():
 
 @pytest.mark.integration
 def test_openai_get_embedding():
-    """
-    Test that we can call get_embedding on a piece of text
+    """Test that we can call get_embedding on a piece of text
     and receive a list of floats with nonzero length.
     """
     model = create_embeddings_model()
@@ -66,8 +55,7 @@ def test_openai_get_embedding():
 
 @pytest.mark.unit
 def test_similarity_search_identical_texts():
-    """
-    Test that two identical texts produce embeddings with a high similarity score.
+    """Test that two identical texts produce embeddings with a high similarity score.
     """
     model = create_embeddings_model()
 
@@ -83,8 +71,7 @@ def test_similarity_search_identical_texts():
 
 @pytest.mark.unit
 def test_similarity_search_different_texts():
-    """
-    Test that two very different texts produce embeddings
+    """Test that two very different texts produce embeddings
     with a lower similarity score (though exact threshold may vary).
     """
     model = create_embeddings_model()
@@ -104,8 +91,7 @@ def test_similarity_search_different_texts():
 
 @pytest.mark.unit
 def test_similarity_search_zero_vector():
-    """
-    Test that similarity_search returns 0.0 if either embedding is all zeros.
+    """Test that similarity_search returns 0.0 if either embedding is all zeros.
     """
     zero_vector = [0.0] * 768  # typical embedding size for OpenAI
     nonzero_vector = [0.1] * 768
@@ -116,8 +102,7 @@ def test_similarity_search_zero_vector():
 
 @pytest.mark.integration
 def test_create_embeddings_model_google():
-    """
-    Test that you can create and recieve a GoogleEmbedding, which implements EmbeddingsModel.
+    """Test that you can create and recieve a GoogleEmbedding, which implements EmbeddingsModel.
     """
     model = create_embeddings_model("google")
     assert isinstance(model, GoogleEmbedding), "Should be a GoogleEmbedding instance"
@@ -125,8 +110,7 @@ def test_create_embeddings_model_google():
 
 @pytest.mark.integration
 def test_google_embedding_get_embedding():
-    """
-    Test that the GoogleEmbedding model can generate embeddings.
+    """Test that the GoogleEmbedding model can generate embeddings.
     """
     model = create_embeddings_model("google")
     test_text = "This is a test sentence."

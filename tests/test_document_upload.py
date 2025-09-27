@@ -1,10 +1,3 @@
-import os
-import logging
-import uuid
-import pytest
-from src.context_upload import compute_embedding
-from src.context_upload import process_file_and_store
-from unittest.mock import patch
 
 # KEEP THIS TEST DISABLED. The actual tests for document upload is test_file_upload.py
 

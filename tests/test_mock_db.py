@@ -1,12 +1,13 @@
 import os
+
 import pytest
 
 from src.config import Config
 from src.rag_service.database.mock_database_client import (
-    upload_document,
-    list_documents,
     get_document_by_id,
     get_document_by_name,
+    list_documents,
+    upload_document,
 )
 
 

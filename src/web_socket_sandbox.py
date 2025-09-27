@@ -1,17 +1,15 @@
-from typing import Dict
+
+import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-import uvicorn
-
 
 from src.LLM import create_llm
-from src.config import Config
 
 
 # WebSocket manager
 class WebSocketManager:
     def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
+        self.active_connections: dict[str, WebSocket] = {}
 
     async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()

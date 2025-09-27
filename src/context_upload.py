@@ -1,11 +1,11 @@
+import logging
 import os
 import uuid
-import logging
 
 from src.config import Config
-from src.rag_service.context import Context
-from src.rag_service.embeddings import create_embeddings_model
 from src.rag_service.dao import get_database
+from src.rag_service.embeddings import create_embeddings_model
+
 
 # Load configuration and initialize the SentenceTransformer model.
 config = Config()
@@ -13,8 +13,7 @@ embedding_model = create_embeddings_model()
 
 
 def compute_embedding(text: str) -> list[float]:
-    """
-    Computes an embedding for the given text using a SentenceTransformer model.
+    """Computes an embedding for the given text using a SentenceTransformer model.
 
     Args:
         text (str): The text to embed.
@@ -27,8 +26,7 @@ def compute_embedding(text: str) -> list[float]:
 
 
 def process_file_and_store(file_path: str, category: str) -> bool:
-    """
-    Processes a .txt or .md file, extracts its text, computes its embedding, and
+    """Processes a .txt or .md file, extracts its text, computes its embedding, and
     stores the data in the database.
 
     Args:
@@ -54,11 +52,11 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     # Extract the file's text content.
     # TODO: Handle different encodings more gracefully.
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             text = f.read()
     except UnicodeDecodeError:
         try:
-            with open(file_path, "r", encoding="latin-1") as f:
+            with open(file_path, encoding="latin-1") as f:
                 text = f.read()
         except Exception as e:
             logging.error(f"Error reading file '{file_path}': {e}")

@@ -1,6 +1,8 @@
 import os
-from dotenv import load_dotenv
+
 import whisper
+from dotenv import load_dotenv
+
 
 load_dotenv()
 

@@ -1,16 +1,16 @@
-from fastapi import FastAPI, Body, Request, Query
-from fastapi.responses import JSONResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from src.routes import progress, debug, upload
-from fastapi import FastAPI, File, UploadFile, Form
-import uvicorn
-import sys
 import os
-from tempfile import NamedTemporaryFile
+import sys
+
+import uvicorn
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.command import Command, command_from_json, command_from_json_transcribeVersion
 from src.pipeline import assemble_prompt
-from src.transcribe import transcribe_from_upload, transcribe_audio
+from src.routes import debug, progress, upload
+from src.transcribe import transcribe_audio, transcribe_from_upload
+
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -44,7 +44,7 @@ else:
 async def read_test_ui():
     html_file_path = os.path.join(static_dir, "index.html")
     if os.path.exists(html_file_path):
-        with open(html_file_path, "r", encoding="utf-8") as f:
+        with open(html_file_path, encoding="utf-8") as f:
             return HTMLResponse(content=f.read(), status_code=200)
     error_message = f"<h1>Error: Test UI HTML file not found.</h1><p>Expected location: {html_file_path}</p>"
     if not os.path.isdir(static_dir):
@@ -117,7 +117,7 @@ async def ask(request: Request):
         )
     except Exception as e:
         return JSONResponse(
-            content={"message": f"Error processing request: {str(e)}"}, status_code=500
+            content={"message": f"Error processing request: {e!s}"}, status_code=500
         )
 
 
@@ -125,8 +125,7 @@ async def ask(request: Request):
 async def transcribe_endpoint(
     audio: UploadFile = File(...), language: str = Form(None)
 ):
-    """
-    Transcribe an audio file to text.
+    """Transcribe an audio file to text.
 
     Parameters:
     - audio: The audio file (WAV format recommended)
@@ -145,8 +144,7 @@ async def transcribe_endpoint(
 
 @app.post("/askTranscribe")
 async def askTranscribe(audio: UploadFile = File(...), data: str = Form(...)):
-    """
-    Transcribes an audio file and processes a command.
+    """Transcribes an audio file and processes a command.
     """
     transcribed = transcribe_from_upload(audio)
 

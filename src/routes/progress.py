@@ -1,12 +1,12 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, HTTPException
-from typing import List
-from datetime import datetime, timezone
 
-from src.models.progress import ProgressData, ListProgressData
-
+from src.models.progress import ListProgressData, ProgressData
 
 # In-memory log to store progress data
 from src.utils.global_logs import progressLog
+
 
 # Define a router for progress-related endpoints
 router = APIRouter()
@@ -14,8 +14,7 @@ router = APIRouter()
 
 @router.post("/api/progress/initializeTasks")
 def receive_hierarchy(taskHierarchy: ListProgressData):
-    """
-    Initializes a list of tasks with their subtasks and steps.
+    """Initializes a list of tasks with their subtasks and steps.
     """
     try:
         for task in taskHierarchy.items:
@@ -28,8 +27,7 @@ def receive_hierarchy(taskHierarchy: ListProgressData):
 
 @router.post("/api/progress/updateTask")
 def receive_progress(progress: ProgressData):
-    """
-    Handles task progress updates (started/complete) and stores them.
+    """Handles task progress updates (started/complete) and stores them.
     """
     if progress.status == "started" or progress.status == "pending":
         # Check for existing incomplete task to update
@@ -38,14 +36,14 @@ def receive_progress(progress: ProgressData):
                 entry.update(
                     {
                         "subtaskProgress": progress.subtaskProgress,
-                        "startedAt": datetime.now(timezone.utc),
+                        "startedAt": datetime.now(UTC),
                     }
                 )
                 return {"message": "Progress updated", "data": entry}
 
         # New task entry
         new_entry = progress.model_dump()
-        new_entry["startedAt"] = datetime.now(timezone.utc)
+        new_entry["startedAt"] = datetime.now(UTC)
         progressLog.append(new_entry)
         return {"message": "Progress received", "data": new_entry}
 
@@ -56,7 +54,7 @@ def receive_progress(progress: ProgressData):
                 entry.update(
                     {
                         "subtaskProgress": progress.subtaskProgress,
-                        "completedAt": datetime.now(timezone.utc),
+                        "completedAt": datetime.now(UTC),
                         "status": "complete",
                     }
                 )

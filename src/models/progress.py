@@ -1,6 +1,6 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+
+from pydantic import BaseModel
 
 
 class StepProgressDTO(BaseModel):
@@ -13,18 +13,18 @@ class SubtaskProgressDTO(BaseModel):
     subtaskName: str
     description: str
     completed: bool
-    stepProgress: List[StepProgressDTO]
+    stepProgress: list[StepProgressDTO]
 
 
 class ProgressData(BaseModel):
     taskName: str
     description: str
     status: str  # "started" or "complete"
-    userId: Optional[str] = None
-    subtaskProgress: List[SubtaskProgressDTO]
-    startedAt: Optional[datetime] = None
-    completedAt: Optional[datetime] = None
+    userId: str | None = None
+    subtaskProgress: list[SubtaskProgressDTO]
+    startedAt: datetime | None = None
+    completedAt: datetime | None = None
 
 
 class ListProgressData(BaseModel):
-    items: List[ProgressData]
+    items: list[ProgressData]
