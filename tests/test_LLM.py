@@ -21,9 +21,7 @@ class FakeResponse:
 
 
 def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
-    """Fake function to simulate OpenAI API call.
-    It ignores the inputs and returns a fake response.
-    """
+    """Fake function to simulate OpenAI API call. It ignores the inputs and returns a fake response."""
     return FakeResponse("Test response")
 
 
