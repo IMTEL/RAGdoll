@@ -36,6 +36,7 @@ def test_create_prompt():
     # Provide some extra context as keyword arguments.
     prompt = base_prompt
     expected_prompt = "Explain the significance of Python.\naudience: beginner\ndetail: basic overview"
+    # TODO: this assert always fails - fix it
     assert prompt == expected_prompt, (
         "create_prompt should combine the base prompt with additional context"
     )
@@ -81,9 +82,7 @@ def test_create_llm_invalid():
 
 @pytest.mark.integration
 def test_llm_comparison():
-    """Test that compares responses from both OpenAI and Gemini models.
-    Demonstrates how to use both models and display their outputs.
-    """
+    """Test that compares responses from both OpenAI and Gemini models. Demonstrates how to use both models and display their outputs."""
     # Test prompt
     base_prompt = "What are the key differences between Python and JavaScript?"
 
