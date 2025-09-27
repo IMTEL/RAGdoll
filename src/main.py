@@ -6,10 +6,11 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.command import Command, command_from_json, command_from_json_transcribeVersion
+from src.command import Command, command_from_json, command_from_json_transcribe_version
 from src.pipeline import assemble_prompt
 from src.routes import debug, progress, upload
 from src.transcribe import transcribe_audio, transcribe_from_upload
+import src.pipeline as pipeline
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
@@ -143,11 +144,11 @@ async def transcribe_endpoint(
 
 
 @app.post("/askTranscribe")
-async def askTranscribe(audio: UploadFile = File(...), data: str = Form(...)):
+async def ask_transcribe(audio: UploadFile = File(...), data: str = Form(...)):
     """Transcribes an audio file and processes a command."""
     transcribed = transcribe_from_upload(audio)
 
-    command: Command = command_from_json_transcribeVersion(data, question=transcribed)
+    command: Command = command_from_json_transcribe_version(data, question=transcribed)
     if command is None:
         return {"message": "Invalid command."}
 
@@ -156,7 +157,7 @@ async def askTranscribe(audio: UploadFile = File(...), data: str = Form(...)):
 
 
 @app.get("/getAnswerFromUser")
-def getAnswerFromUser(
+def get_answer_from_user(
     answer: str,
     target: str,
     question: str,
@@ -166,7 +167,7 @@ def getAnswerFromUser(
     Returns:
         response: str
     """
-    response: str = getAnswerFromUser(answer, target, question)
+    response: str = pipeline.get_answer_from_user(answer, target, question)
     return {"response": response}
 
 
