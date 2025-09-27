@@ -7,7 +7,7 @@ from src.context_upload import compute_embedding, process_file_and_store
 def test_compute_embedding_calls_model(mock_model):
     mock_model.get_embedding.return_value = [0.1, 0.2, 0.3]
     result = compute_embedding("hello world")
-    assert result != None
+    assert result is not None
     assert result == [0.1, 0.2, 0.3]
     mock_model.get_embedding.assert_called_once_with("hello world")
 
