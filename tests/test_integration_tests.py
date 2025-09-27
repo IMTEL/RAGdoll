@@ -92,19 +92,17 @@ def test_post_context_and_retrieve_by_embedding():
 
 
 @pytest.mark.integration
-def test_get_context_from_NPC_no_results():
-    """Test get_context_from_NPC with an NPC that doesn't exist
-    to confirm it raises a ValueError (as per your code).
-    """
+def test_get_context_from_npc_no_results():
+    """Test get_context_from_NPC with an NPC that doesn't exist to confirm it raises a ValueError (as per your code)."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
-    non_existent_NPC = "999999"
+    non_existent_npc = "999999"
 
     with pytest.raises(ValueError) as exc_info:
-        db.get_context_from_NPC(non_existent_NPC)
+        db.get_context_from_NPC(non_existent_npc)
 
-    assert f"No documents found for NPC: {non_existent_NPC}" in str(exc_info.value), (
+    assert f"No documents found for NPC: {non_existent_npc}" in str(exc_info.value), (
         "Should raise ValueError if NPC not found"
     )
 
