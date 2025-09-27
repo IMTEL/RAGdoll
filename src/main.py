@@ -3,13 +3,14 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from src.routes import progress, debug, upload
 from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import sys
 import os
 from tempfile import NamedTemporaryFile
 
 from src.command import Command, command_from_json, command_from_json_transcribeVersion
-from src.pipeline import assemble_prompt
+from src.pipeline import assemble_prompt, assemble_simple_prompt
 from src.transcribe import transcribe_from_upload, transcribe_audio
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
@@ -18,6 +19,14 @@ app = FastAPI(
     description="Generate prompts with context and passing them to LLM.",
     version="1.0.0",
 
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Mount static files directory
@@ -106,6 +115,35 @@ async def ask(request: Request):
         return JSONResponse(content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."}, status_code=400)
     except Exception as e:
         return JSONResponse(content={"message": f"Error processing request: {str(e)}"}, status_code=500)
+
+
+@app.post("/ask-simple")
+async def ask_simple(request: Request):
+    """Ask a simple question.
+    
+    Accepts a byte array input and returns a response.
+
+    Returns:
+        response: str
+    """
+    try:
+        body_bytes = await request.body()
+        
+        data = body_bytes.decode('utf-8')
+
+        command = command_from_json(data)
+
+        if command is None:
+            return JSONResponse(content={"message": "Invalid command format."}, status_code=400)
+        
+        response = assemble_simple_prompt(command)
+        return response
+    
+    except UnicodeDecodeError:
+        return JSONResponse(content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."}, status_code=400)
+    except Exception as e:
+        return JSONResponse(content={"message": f"Error processing request: {str(e)}"}, status_code=500)
+
 
 @app.post("/transcribe")
 async def transcribe_endpoint(
