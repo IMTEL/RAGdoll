@@ -38,10 +38,10 @@ def load_audio_from_upload(file) -> np.ndarray:
         return audio
     except sf.SoundFileError as e:
         logging.error(f"SoundFile error when processing audio: {e!s}")
-        raise ValueError(f"Invalid audio file format: {e!s}")
+        raise ValueError(f"Invalid audio file format.") from e
     except Exception as e:
         logging.error(f"Error loading audio: {e!s}")
-        raise ValueError(f"Failed to process audio file: {e!s}")
+        raise ValueError(f"Failed to process audio file.") from e
 
 
 def transcribe_from_upload(file: UploadFile) -> str:
