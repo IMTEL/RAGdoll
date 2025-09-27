@@ -1,25 +1,26 @@
-"""streaming_ws.py
------------------
-Adds full‑duplex WebSocket streaming to the chat‑service for:
-    •  client → server   : raw PCM audio (+ control JSON frames)
-    •  server → client   : partial transcripts, final transcript, token‑stream from the LLM, (future) TTS audio.
+"""Real-time, bidirectional WebSocket streaming for audio, transcripts, and LLM token responses in the chat service.
 
-The module is 100 % self‑contained: simply `import` and `include_router(router)` in **src/main.py** and rebuild
+-----------------
+Adds full-duplex WebSocket streaming to the chat-service for:
+    •  client → server   : raw PCM audio (+ control JSON frames)
+    •  server → client   : partial transcripts, final transcript, token-stream from the LLM, (future) TTS audio.
+
+The module is 100% self-contained: simply `import` and `include_router(router)` in **src/main.py** and rebuild
 Docker to enable streaming.
 
 Protocol (all messages share the same WebSocket):
 ─────────────────────────────────────────────────
-bytes      – 16 kHz, 16‑bit little‑endian mono PCM audio
-text/JSON  – {"type": "<event>", ...}
+bytes      - 16 kHz, 16-bit little-endian mono PCM audio
+text/JSON  - {"type": "<event>", ...}
     client→server events
-        • silence            – VR client detected end‑of‑utterance
-        • command            – Full serialized `Command` object for RAG/LLM
+        • silence            - VR client detected end-of-utterance
+        • command            - Full serialized `Command` object for RAG/LLM
     server→client events
-        • transcript_partial – incremental Whisper output
-        • transcript_final   – final Whisper output (after `silence`)
-        • llm_token          – single token from the LLM stream
-        • error              – unexpected problems
-        • tts_chunk          – *(future)* base64/wav audio matching the `llm_token`
+        • transcript_partial - incremental Whisper output
+        • transcript_final   - final Whisper output (after `silence`)
+        • llm_token          - single token from the LLM stream
+        • error              - unexpected problems
+        • tts_chunk          - *(future)* base64/wav audio matching the `llm_token`
 
 Unity clients can keep a single socket open per NPC and multiplex speech turns with
 simple counters inside the JSON payload.
@@ -32,7 +33,7 @@ from collections.abc import AsyncGenerator
 import numpy as np
 
 # ──────────────────────────────────────────────────────────────────────────
-# Whisper streaming helper (very light‑weight, 1–2 s latency)
+# Whisper streaming helper (very light-weight, 1-2 s latency)
 # ──────────────────────────────────────────────────────────────────────────
 import whisper
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -43,10 +44,10 @@ from src.LLM import create_llm
 from src.pipeline import assemble_prompt
 
 
-_MODEL = Config().whisper_model  # already GPU‑aware in existing code
-_SAMPLE_RATE = 16_000  # Unity should down‑sample if needed
+_MODEL = Config().whisper_model  # already GPU-aware in existing code
+_SAMPLE_RATE = 16_000  # Unity should down-sample if needed
 _CHUNK_S = 1.0  # seconds of audio per decode step
-_CHUNK_BYTES = int(_SAMPLE_RATE * _CHUNK_S) * 2  # 16‑bit = 2 bytes
+_CHUNK_BYTES = int(_SAMPLE_RATE * _CHUNK_S) * 2  # 16-bit = 2 bytes
 
 
 class WhisperStreamer:
@@ -90,7 +91,7 @@ async def stream_chat_completion(
             delta = chunk.choices[0].delta
             if delta and delta.content:
                 yield delta.content
-    else:  # fallback – no streaming available; send once
+    else:  # fallback - no streaming available; send once
         yield llm.generate(prompt)
 
 
@@ -138,7 +139,7 @@ async def chat_stream(websocket: WebSocket):
                             }
                         )
                     )
-                    final_transcript = partial  # keep updating – last one is full text
+                    final_transcript = partial  # keep updating - last one is full text
 
             # 2️ control / JSON frames
             elif "text" in message:
@@ -151,7 +152,7 @@ async def chat_stream(websocket: WebSocket):
                     continue
 
                 if data.get("type") == "silence":
-                    # ─ End‑of‑utterance: flush any remaining audio immediately ─
+                    # End-of-utterance: flush any remaining audio immediately
                     if transcriber._buf:
                         partial = transcriber.feed(b"")
                         if partial:
@@ -198,5 +199,5 @@ async def _handle_llm(websocket: WebSocket, transcript: str, command_json: str):
                     }
                 )
             )
-    except Exception as exc:  # pragma: no cover – best‑effort error path
+    except Exception as exc:  # pragma: no cover - best-effort error path
         await websocket.send_text(json.dumps({"type": "error", "data": str(exc)}))
