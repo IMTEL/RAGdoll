@@ -1,3 +1,3 @@
 # Global in-memory logs
-progressLog = []  # Stores progress data
-failureLog = []  # Stores failure data
+progress_log = []  # Stores progress data
+failure_log = []  # Stores failure data
