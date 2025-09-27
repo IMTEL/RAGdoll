@@ -48,7 +48,7 @@ def command_from_json(json_str: str) -> Command | None:
         return None
 
 
-def command_from_json_transcribeVersion(
+def command_from_json_transcribe_version(
     json_str: str, question: str | None = None
 ) -> Command | None:
     """Parses a JSON string into a Command object.
