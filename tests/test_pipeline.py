@@ -1,7 +1,7 @@
 import pytest
 
 from src.command import Command
-from src.pipeline import assemble_prompt, create_llm, getAnswerFromUser
+from src.pipeline import assemble_prompt, llm_factory, getAnswerFromUser
 from src.rag_service.dao import MockDatabase, get_database
 from src.models.message import Message
 from src.models.progress import ProgressData

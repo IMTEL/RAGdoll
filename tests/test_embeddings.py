@@ -15,7 +15,7 @@ from src.rag_service.embeddings import (
     OpenAIEmbedding,
     GoogleEmbedding,
 )
-from src.LLM import OpenAI_LLM, create_llm
+from src.LLM import OpenAI_LLM, llm_factory
 
 
 @pytest.mark.unit

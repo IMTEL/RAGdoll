@@ -6,7 +6,7 @@ from src.command import Command, Prompt, prompt_to_json
 from src.rag_service.dao import get_database
 from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model
-from src.LLM import LLM, create_llm
+from src.LLM import llm_factory, llm_factory, LLMConfig
 
 
 def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini") -> str:
@@ -39,7 +39,7 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini")
     # har de hatt praksis tidligere i et relevant felt? 
     # interests?
     
-    language_model = create_llm(model)
+    language_model = llm_factory(model)
     response = language_model.generate(prompt)
     if response is None:
         return "No response from the language model."
@@ -57,7 +57,6 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     #to_embed: str = str(command.chatLog[-1].content)
     to_embed: str = str(command.chatLog[-1].content) if command.chatLog else "No user message"
 
-    
     db = get_database()
     embedding_model = create_embeddings_model()
     embeddings: list[float] = embedding_model.get_embedding(to_embed)
@@ -134,7 +133,9 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
 
     print(f"Prompt sent to LLM:\n{prompt}")
 
-    language_model = create_llm(model)
+    # TODO: Temoprary, make a new system for local testing, use data from database in production
+    llm_config = LLMConfig(provider=config.LLM_PROVIDER, model=config.LLM_MODEL, api_key=config.LLM_API_KEY)
+    language_model = llm_factory(llm_config)
     response = language_model.generate(prompt)
     
     # Parse the response for function calls

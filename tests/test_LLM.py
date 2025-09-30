@@ -8,7 +8,7 @@ from typing import Any
 
 from src.config import Config
 from src.rag_service.embeddings import create_embeddings_model, GoogleEmbedding, similarity_search
-from src.LLM import OpenAI_LLM, create_llm
+from src.LLM import OpenAI_LLM, llm_factory
 
 
 # === Test LLM ===
@@ -72,7 +72,7 @@ def test_create_llm_valid():
     """
     Test that create_llm returns an instance of OpenAI_LLM when provided 'openai'.
     """
-    llm_instance = create_llm("openai")
+    llm_instance = llm_factory("openai")
     assert isinstance(llm_instance, OpenAI_LLM), "create_llm('openai') should return an OpenAI_LLM instance"
 
 
@@ -82,7 +82,7 @@ def test_create_llm_invalid():
     Test that create_llm raises a ValueError when an unsupported LLM is specified.
     """
     with pytest.raises(ValueError) as exc_info:
-        create_llm("unsupported")
+        llm_factory("unsupported")
     assert "not supported" in str(exc_info.value), "create_llm should raise ValueError for unsupported LLMs"
 
 
@@ -96,8 +96,8 @@ def test_llm_comparison():
     base_prompt = "What are the key differences between Python and JavaScript?"
     
     # Create instances of both LLM types
-    openai_llm = create_llm("openai")
-    gemini_llm = create_llm("gemini")
+    openai_llm = llm_factory("openai")
+    gemini_llm = llm_factory("gemini")
     
     # Generate prompts with the same context
     context = {"audience": "beginners", "max_length": "brief"}

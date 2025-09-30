@@ -37,7 +37,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from src.command import command_from_json, Command
 from src.pipeline import assemble_prompt
 from src.config import Config
-from src.LLM import create_llm
+from src.LLM import llm_factory
 
 # ──────────────────────────────────────────────────────────────────────────
 # Whisper streaming helper (very light‑weight, 1–2 s latency)
@@ -72,7 +72,7 @@ class WhisperStreamer:
 # LLM streaming helper (OpenAI today; easy to swap via factory)
 # ──────────────────────────────────────────────────────────────────────────
 async def stream_chat_completion(prompt: str, model: str = "openai") -> AsyncGenerator[str, None]:
-    llm = create_llm(model)
+    llm = llm_factory(model)
     if hasattr(llm, "client"):  # Only OpenAI_LLM exposes raw client today
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},

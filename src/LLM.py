@@ -3,6 +3,15 @@ from openai import OpenAI
 import requests
 import google.generativeai as genai
 from src.config import Config 
+from dataclasses import dataclass
+
+
+@dataclass
+class LLMConfig:
+    provider : str
+    api_key: str
+    model: str
+
 
 class LLM(Protocol):
 
@@ -14,10 +23,10 @@ class LLM(Protocol):
 
 
 class Idun_LLM(LLM):
-    def __init__(self):
-        self.model = Config().IDUN_MODEL
+    def __init__(self, model : str, api_key : str):
+        self.model = model
+        self.api_key = api_key
         self.url = Config().IDUN_API_URL
-        self.token = Config().IDUN_API_KEY
 
     def generate(self, prompt: str) -> str:
         
@@ -38,12 +47,12 @@ class Idun_LLM(LLM):
         return response.json()['choices'][0]['message']['content'].strip()
 
 class OpenAI_LLM(LLM):
-    def __init__(self):
+    def __init__(self, model : str, api_key : str):
         """
         Initializes the LLM facade using the provided configuration.
         """
-        self.config = Config()
-        self.model = self.config.GPT_MODEL
+        self.model = model
+        self.api_key = api_key
         # Instantiate the client using the new OpenAI interface.
         self.client = OpenAI(api_key=self.config.API_KEY)
 
@@ -63,12 +72,12 @@ class OpenAI_LLM(LLM):
 
 
 class Gemini_LLM(LLM):
-    def __init__(self):
+    def __init__(self, model : str, api_key : str):
         """
         Initializes the LLM facade using the provided configuration.
         """
-        self.config = Config()
-        self.model = self.config.GEMINI_MODEL
+        self.api_key = api_key
+        self.model = self.model
 
         genai.configure(api_key=self.config.GEMINI_API_KEY)
         self.client = genai.GenerativeModel(self.model)
@@ -81,12 +90,15 @@ class Gemini_LLM(LLM):
         return response.text.strip()
     
 class MockLLM(LLM):
+
+    def __init__(self, model: str, api_key: str) -> None:
+        pass
     
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
-    
-    
-def create_llm(llm: str = "idun") -> LLM:
+
+
+def llm_factory(config : LLMConfig) -> LLM:
     """
     Factory for creating LLM instances.
 
@@ -99,21 +111,21 @@ def create_llm(llm: str = "idun") -> LLM:
     Returns:
         LLM: The specified LLM instance.
     """
-    match llm.lower():
+    match config.provider.lower():
         case "idun":
-            return Idun_LLM()
+            return Idun_LLM(config.model, config.api_key)
         case "openai":
-            return OpenAI_LLM()
+            return OpenAI_LLM(config.model, config.api_key)
         case "gemini":
-            return Gemini_LLM()
+            return Gemini_LLM(config.model, config.api_key)
         case "mock":
-            return MockLLM()
+            return MockLLM(config.model, config.api_key)
         case _:
-            raise ValueError(f"LLM {llm} not supported")
+            raise ValueError(f"LLM {config.provider} not supported")
         
         
 if __name__ == "__main__":
-    llm = create_llm("idun")
+    llm = llm_factory("idun")
     while True:
         prompt = input("Enter your prompt: ")
         response = llm.generate(prompt)

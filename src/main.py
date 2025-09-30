@@ -59,7 +59,6 @@ app.include_router(debug.router)
 # Upload router
 app.include_router(upload.router)
 
-
 @app.get("/")
 def hello_world():
     """Hello World
@@ -161,6 +160,8 @@ def getAnswerFromUser(
     """
     response: str = getAnswerFromUser(answer, target, question)
     return {"response": response}
+
+
 
 
 if __name__ == "__main__": 

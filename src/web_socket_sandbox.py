@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import uvicorn
 
 
-from src.LLM import create_llm
+from src.LLM import llm_factory
 from src.config import Config
 
 # WebSocket manager
@@ -64,7 +64,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             if event_type == "user_prompt":
                 req = UserPromptRequest(**data) # Unpacks message into UserPromptRequest
                 model = "gemeni"
-                language_model = create_llm(model)
+                language_model = llm_factory(model)
                 ai_response = await language_model.generate(req.data.prompt)
 
     except WebSocketDisconnect:
