@@ -36,7 +36,7 @@ extend-ignore = [
     "D106",   # missing docstring in public nested class
     "D107",   # missing docstring in __init__
     "N812",   # lowercase imported as non lowercase
-    "TC002", # move third-party into a type-checking block
+    "TC002",  # move third-party into a type-checking block
     "F722",   # jaxtyping
 ]
 
@@ -49,3 +49,8 @@ known-first-party = ["tests"]
 
 [lint.pydocstyle]
 convention = "google"
+
+[per-file-ignores]
+# Ignore N999 only for the root directory
+# N999 = Naming convention for class/function/variable name is not followed
+"__init__.py" = ["N999"]
