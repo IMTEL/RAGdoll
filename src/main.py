@@ -6,11 +6,11 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+import src.pipeline as pipeline
 from src.command import Command, command_from_json, command_from_json_transcribe_version
 from src.pipeline import assemble_prompt
 from src.routes import debug, progress, upload
 from src.transcribe import transcribe_audio, transcribe_from_upload
-import src.pipeline as pipeline
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
