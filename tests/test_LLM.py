@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from src.LLM import OpenAI_LLM, create_llm
+from src.llm import OpenAI_LLM, create_llm
 
 
 # === Test LLM ===

@@ -40,7 +40,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from src.command import Command, command_from_json
 from src.config import Config
-from src.LLM import create_llm
+from src.llm import create_llm
 from src.pipeline import assemble_prompt
 
 

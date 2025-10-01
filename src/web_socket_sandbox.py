@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from src.LLM import create_llm
+from src.llm import create_llm
 
 
 # WebSocket manager

@@ -3,7 +3,7 @@ import uuid
 
 from src.command import Command
 from src.config import Config
-from src.LLM import create_llm
+from src.llm import create_llm
 from src.rag_service.dao import get_database
 from src.rag_service.embeddings import create_embeddings_model
 
