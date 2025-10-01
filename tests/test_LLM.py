@@ -29,7 +29,7 @@ def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
 def test_create_prompt():
     """Test that create_prompt correctly appends additional context."""
     # Instantiate an LLM instance. (No API call is made here.)
-    llm = OpenAI_LLM()
+    OpenAI_LLM()
     base_prompt = "Explain the significance of Python."
     # Provide some extra context as keyword arguments.
     prompt = base_prompt
