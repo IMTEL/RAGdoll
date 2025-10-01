@@ -67,4 +67,4 @@ async def upload_document(
             raise HTTPException(status_code=500, detail="Failed to process file")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

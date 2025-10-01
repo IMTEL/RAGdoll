@@ -21,7 +21,7 @@ def receive_hierarchy(taskHierarchy: ListProgressData):
         return {"message": "Tasks initialized", "data": taskHierarchy}
     except Exception as e:
         print(f"Error processing task hierarchy: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/api/progress/updateTask")
