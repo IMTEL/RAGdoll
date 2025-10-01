@@ -124,7 +124,8 @@ async def ask(request: Request):
 
 @app.post("/transcribe")
 async def transcribe_endpoint(
-    audio: UploadFile = File(...), language: str = Form(None)
+    audio: UploadFile = File(...),  # noqa: B008
+    language: str = Form(None),
 ):
     """Transcribe an audio file to text.
 
@@ -144,7 +145,10 @@ async def transcribe_endpoint(
 
 
 @app.post("/askTranscribe")
-async def ask_transcribe(audio: UploadFile = File(...), data: str = Form(...)):
+async def ask_transcribe(
+    audio: UploadFile = File(...),  # noqa: B008
+    data: str = Form(...),
+):
     """Transcribes an audio file and processes a command."""
     transcribed = transcribe_from_upload(audio)
 

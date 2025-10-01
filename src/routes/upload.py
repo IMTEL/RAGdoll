@@ -32,7 +32,7 @@ class DocumentCategory(Enum):
 
 @router.post("/upload/")
 async def upload_document(
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
     category: DocumentCategory | None = DocumentCategory.GENERAL_INFORMATION,
 ):
     """API to receive a document, process it, and store it.
