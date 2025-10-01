@@ -13,12 +13,12 @@ router = APIRouter()
 
 
 @router.post("/api/progress/initializeTasks")
-def receive_hierarchy(taskHierarchy: ListProgressData):
+def receive_hierarchy(task_hierarchy: ListProgressData):
     """Initializes a list of tasks with their subtasks and steps."""
     try:
-        for task in taskHierarchy.items:
+        for task in task_hierarchy.items:
             progress_log.append(task.model_dump())
-        return {"message": "Tasks initialized", "data": taskHierarchy}
+        return {"message": "Tasks initialized", "data": task_hierarchy}
     except Exception as e:
         print(f"Error processing task hierarchy: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
