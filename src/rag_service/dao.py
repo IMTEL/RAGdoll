@@ -122,12 +122,12 @@ class MongoDB(Database):
         return results
 
     # For backward compatibility
-    def get_context_from_npc(self, NPC: int) -> list[Context]:
-        if not NPC:
+    def get_context_from_npc(self, npc: int) -> list[Context]:
+        if not npc:
             raise ValueError("NPC cannot be None")
 
         # Example using MongoDB Atlas Search with an index named "NPC":
-        query = {"$search": {"index": "NPC", "text": {"path": "NPC", "query": NPC}}}
+        query = {"$search": {"index": "NPC", "text": {"path": "NPC", "query": npc}}}
 
         # Execute the aggregate pipeline
         documents = self.collection.aggregate(
@@ -140,7 +140,7 @@ class MongoDB(Database):
         # Convert cursor to a list
         documents = list(documents)
         if not documents:
-            raise ValueError(f"No documents found for NPC: {NPC}")
+            raise ValueError(f"No documents found for NPC: {npc}")
 
         results = []
         for doc in documents:
@@ -285,18 +285,18 @@ class MockDatabase(Database):
         return results
 
     # For backward compatibility
-    def get_context_from_npc(self, NPC: int) -> list[Context]:
-        if not NPC:
+    def get_context_from_npc(self, npc: int) -> list[Context]:
+        if not npc:
             raise ValueError("NPC cannot be None")
 
         results = []
         for document in self.data:
-            if document.get("NPC") == NPC:
+            if document.get("NPC") == npc:
                 results.append(
                     Context(
                         text=document["text"],
                         document_name=document["documentName"],
-                        category=document.get("category", f"NPC_{NPC}"),
+                        category=document.get("category", f"NPC_{npc}"),
                     )
                 )
         return results
