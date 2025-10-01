@@ -3,16 +3,16 @@ import logging
 import os
 import sys
 
+from src.context_upload import process_file_and_store
+from src.rag_service.dao import get_database
+from src.rag_service.embeddings import create_embeddings_model
+
 
 # Add the project root to Python's path
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")
 )
 sys.path.append(PROJECT_ROOT)
-
-from src.context_upload import process_file_and_store
-from src.rag_service.dao import get_database
-from src.rag_service.embeddings import create_embeddings_model
 
 
 logging.basicConfig(level=logging.INFO)
