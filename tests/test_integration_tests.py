@@ -22,7 +22,7 @@ def test_database_is_reachable():
 
 @pytest.mark.integration
 def test_post_context_and_retrieve_by_npc():
-    """Test post_context, then verify that get_context_from_NPC can retrieve the inserted document."""
+    """Test post_context, then verify that get_context_from_npc can retrieve the inserted document."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
@@ -44,7 +44,7 @@ def test_post_context_and_retrieve_by_npc():
     assert post_result is True, "post_context should return True"
 
     # Retrieve the context by NPC
-    retrieved_contexts = db.get_context_from_NPC(test_npc)
+    retrieved_contexts = db.get_context_from_npc(test_npc)
     assert len(retrieved_contexts) > 0, "Should retrieve at least one context"
     # Check that the first context matches what we posted
     context = retrieved_contexts[0]
@@ -87,14 +87,14 @@ def test_post_context_and_retrieve_by_embedding():
 
 @pytest.mark.integration
 def test_get_context_from_npc_no_results():
-    """Test get_context_from_NPC with an NPC that doesn't exist to confirm it raises a ValueError (as per your code)."""
+    """Test get_context_from_npc with an NPC that doesn't exist to confirm it raises a ValueError (as per your code)."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
     db = get_database()
     non_existent_npc = "999999"
 
     with pytest.raises(ValueError) as exc_info:
-        db.get_context_from_NPC(non_existent_npc)
+        db.get_context_from_npc(non_existent_npc)
 
     assert f"No documents found for NPC: {non_existent_npc}" in str(exc_info.value), (
         "Should raise ValueError if NPC not found"

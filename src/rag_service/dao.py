@@ -122,7 +122,7 @@ class MongoDB(Database):
         return results
 
     # For backward compatibility
-    def get_context_from_NPC(self, NPC: int) -> list[Context]:
+    def get_context_from_npc(self, NPC: int) -> list[Context]:
         if not NPC:
             raise ValueError("NPC cannot be None")
 
@@ -285,7 +285,7 @@ class MockDatabase(Database):
         return results
 
     # For backward compatibility
-    def get_context_from_NPC(self, NPC: int) -> list[Context]:
+    def get_context_from_npc(self, NPC: int) -> list[Context]:
         if not NPC:
             raise ValueError("NPC cannot be None")
 
