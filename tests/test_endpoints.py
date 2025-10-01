@@ -8,7 +8,6 @@ from difflib import SequenceMatcher
 import pytest
 from fastapi import UploadFile
 from fastapi.testclient import TestClient
-from starlette.datastructures import UploadFile
 
 from src.main import app
 from src.transcribe import transcribe_from_upload
