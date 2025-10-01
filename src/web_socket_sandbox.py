@@ -65,7 +65,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 )  # Unpacks message into UserPromptRequest
                 model = "gemeni"
                 language_model = create_llm(model)
-                ai_response = await language_model.generate(req.data.prompt)
+                await language_model.generate(req.data.prompt)
+                # TODO: The response of the LLM should be sent back to the client
 
     except WebSocketDisconnect:
         ws_manager.disconnect(session_id)
