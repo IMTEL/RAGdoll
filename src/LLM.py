@@ -12,7 +12,7 @@ class LLM(Protocol):
         """Send the prompt to the LLM and return the generated response."""
 
 
-class Idun_LLM(LLM):
+class IdunLLM(LLM):
     def __init__(self):
         self.model = Config().IDUN_MODEL
         self.url = Config().IDUN_API_URL
@@ -28,7 +28,7 @@ class Idun_LLM(LLM):
         return response.json()["choices"][0]["message"]["content"].strip()
 
 
-class OpenAI_LLM(LLM):
+class OpenAILLM(LLM):
     def __init__(self):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
@@ -48,7 +48,7 @@ class OpenAI_LLM(LLM):
         return response.choices[0].message.content.strip()
 
 
-class Gemini_LLM(LLM):
+class GeminiLLM(LLM):
     def __init__(self):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
@@ -82,11 +82,11 @@ def create_llm(llm: str = "idun") -> LLM:
     """
     match llm.lower():
         case "idun":
-            return Idun_LLM()
+            return IdunLLM()
         case "openai":
-            return OpenAI_LLM()
+            return OpenAILLM()
         case "gemini":
-            return Gemini_LLM()
+            return GeminiLLM()
         case "mock":
             return MockLLM()
         case _:

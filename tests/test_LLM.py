@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from src.llm import OpenAI_LLM, create_llm
+from src.llm import OpenAILLM, create_llm
 
 
 # === Test LLM ===
@@ -29,7 +29,7 @@ def fake_completions_create(*, model: str, messages: Any) -> FakeResponse:
 def test_create_prompt():
     """Test that create_prompt correctly appends additional context."""
     # Instantiate an LLM instance. (No API call is made here.)
-    OpenAI_LLM()
+    OpenAILLM()
     base_prompt = "Explain the significance of Python."
     # Provide some extra context as keyword arguments.
     prompt = base_prompt
@@ -43,7 +43,7 @@ def test_create_prompt():
 @pytest.fixture
 def patched_llm(monkeypatch):
     """Fixture to return an OpenAI_LLM instance with the API call patched to avoid spending tokens."""
-    llm = OpenAI_LLM()
+    llm = OpenAILLM()
     # Patch the chat.completions.create method so that it returns our fake response.
     monkeypatch.setattr(llm.client.chat.completions, "create", fake_completions_create)
     return llm
@@ -63,7 +63,7 @@ def test_generate_with_patched_llm(patched_llm):
 def test_create_llm_valid():
     """Test that create_llm returns an instance of OpenAI_LLM when provided 'openai'."""
     llm_instance = create_llm("openai")
-    assert isinstance(llm_instance, OpenAI_LLM), (
+    assert isinstance(llm_instance, OpenAILLM), (
         "create_llm('openai') should return an OpenAI_LLM instance"
     )
 
