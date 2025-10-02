@@ -51,6 +51,5 @@ known-first-party = ["tests"]
 convention = "google"
 
 [lint.per-file-ignores]
-# Ignore N999 only for the root directory
 # N999 = Naming convention for class/function/variable name is not followed
 "__init__.py" = ["N999"]
