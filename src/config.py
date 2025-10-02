@@ -29,10 +29,10 @@ class Config:
             self.whisper_model = whisper.load_model("base").to(
                 "cuda"
             )  # TODO: load model on ping or keep container warm
-        except:
+        except Exception:
             try:
                 self.whisper_model = whisper.load_model("base")
-            except:
+            except Exception:
                 self.whisper_model = None
 
         if self.ENV == "dev":  # TODO: change this to 'dev' when ready
