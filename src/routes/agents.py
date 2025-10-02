@@ -1,11 +1,18 @@
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
+from typing import List
 
-from src.models.agent import Agent
-from src.rag_service.repositories import get_agent_repository
+from src.auth_service.access_service import AccessServiceConfig, access_service_factory
+from src.config import Config
+from src.models.accesstoken import AccessKey
+from ..models.agent import Agent, AgentRead
+from ..rag_service.agent_dao import get_agent_database
+from bson import ObjectId
 
-
+config = Config()
 router = APIRouter()
-agent_db = get_agent_repository()  # Repository for agent storage
+agent_db = get_agent_database()  # your DAO
+access_service = access_service_factory(AccessServiceConfig(config.ACCESS_SERVICE,agent_db))
 
 
 # Create a new agent
@@ -53,3 +60,20 @@ def get_agent(agent_id: str):
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
     return agent
+
+@router.post("/agents/new-accesskey", response_model=AccessKey)
+def new_access_key(name: str, expiery_date : datetime, agent_id : str):
+    try:
+        return access_service.generate_accesstoken(name,expiery_date,agent_id)
+    except e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error : {e}")
+
+
+@router.get("/agents/revoke-accesskey")
+def revoke_access_key(access_key: str):
+    try:
+        return access_service.revoke_key(access_key)
+    except e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error : {e}")
+    
+
