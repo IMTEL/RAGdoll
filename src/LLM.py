@@ -80,11 +80,20 @@ class OpenAI_LLM(LLM):
         )
         return response.choices[0].message.content.strip()
     
+    
     @staticmethod
     def get_models() -> list[str]:
         client = OpenAI()
         models = client.models.list()
-        return [Model("openai",item["id"],False,None) for item in models.data]
+        # Openai provides no Api for getting only language models
+        # We filter for gpt models which does not contain the selected keywords
+        EXCLUDE_KEYWORDS = ["embedding", "moderation", "tts", "whisper", "preview","audio"]
+        language_models = [
+            item for item in models.data
+            if item.id.startswith("gpt-")
+            and not any(kw in item.id for kw in EXCLUDE_KEYWORDS)
+        ]
+        return [Model("openai",item.id,False,None) for item in language_models]
 
 class Gemini_LLM(LLM):
     def __init__(self):
@@ -106,9 +115,9 @@ class Gemini_LLM(LLM):
 
     @staticmethod
     def get_models() -> list[str]:
-        client = genai.Client()
-        models = client.models.list()
-        return [Model("openai",item["name"],False,None) for item in models]
+        models = genai.list_models()
+        print(models)
+        return [Model("gemini",item.name,False,None) for item in models]
 
 
     
@@ -118,8 +127,7 @@ class MockLLM(LLM):
         return f"Mocked response for prompt: {prompt}"
 
 def get_models():
-    # return [OpenAI_LLM.get_models(),Gemini_LLM.get_models(),Idun_LLM.get_models()] 
-    return [Model("hi","hi",False,None) ]
+    return (OpenAI_LLM.get_models() + Gemini_LLM.get_models() + Idun_LLM.get_models())
     
 def create_llm(llm: str = "idun") -> LLM:
     """

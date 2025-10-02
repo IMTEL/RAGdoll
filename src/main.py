@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Body, Request, Query
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from src.routes import progress, debug, upload, agentconfig
 from fastapi import FastAPI, File, UploadFile, Form
 import uvicorn
