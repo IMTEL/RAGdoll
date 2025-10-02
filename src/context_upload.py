@@ -26,8 +26,7 @@ def compute_embedding(text: str) -> list[float]:
 
 
 def process_file_and_store(file_path: str, category: str) -> bool:
-    """Processes a .txt or .md file, extracts its text, computes its embedding, and
-    stores the data in the database.
+    """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
     Args:
         file_path (str): Path to the text or markdown file.
