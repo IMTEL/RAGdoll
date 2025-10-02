@@ -4,26 +4,26 @@ from pydantic import BaseModel
 
 
 class StepProgressDTO(BaseModel):
-    stepName: str
-    repetitionNumber: int
+    step_name: str
+    repetition_number: int
     completed: bool
 
 
 class SubtaskProgressDTO(BaseModel):
-    subtaskName: str
+    subtask_name: str
     description: str
     completed: bool
-    stepProgress: list[StepProgressDTO]
+    step_progress: list[StepProgressDTO]
 
 
 class ProgressData(BaseModel):
-    taskName: str
+    task_name: str
     description: str
     status: str  # "started" or "complete"
-    userId: str | None = None
-    subtaskProgress: list[SubtaskProgressDTO]
-    startedAt: datetime | None = None
-    completedAt: datetime | None = None
+    user_id: str | None = None
+    subtask_progress: list[SubtaskProgressDTO]
+    started_at: datetime | None = None
+    completet_at: datetime | None = None
 
 
 class ListProgressData(BaseModel):

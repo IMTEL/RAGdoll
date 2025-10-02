@@ -77,8 +77,8 @@ def test_get_context_by_category(similarity_search_mock, mock_db):
         "text": "Test text for FishFeeding scene",
         "category": "FishFeeding",
         "embedding": [0.1, 0.1, 0.3],
-        "documentId": "test_id_1",
-        "documentName": "TestDoc1",
+        "document_id": "test_id_1",
+        "document_name": "TestDoc1",
     }
     if mock_db.__class__ is not MockDatabase:
         pytest.skip("Not using MockDatabase; skipping DAO unit tests")

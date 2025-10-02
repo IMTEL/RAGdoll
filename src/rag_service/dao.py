@@ -114,7 +114,7 @@ class MongoDB(Database):
             results.append(
                 Context(
                     text=doc["text"],
-                    document_name=doc["documentName"],
+                    document_name=doc["document_name"],
                     category=doc["category"],
                 )
             )
@@ -126,8 +126,8 @@ class MongoDB(Database):
         if not npc:
             raise ValueError("NPC cannot be None")
 
-        # Example using MongoDB Atlas Search with an index named "NPC":
-        query = {"$search": {"index": "NPC", "text": {"path": "NPC", "query": npc}}}
+        # Example using MongoDB Atlas Search with an index named "npc":
+        query = {"$search": {"index": "npc", "text": {"path": "npc", "query": npc}}}
 
         # Execute the aggregate pipeline
         documents = self.collection.aggregate(
@@ -147,9 +147,9 @@ class MongoDB(Database):
             results.append(
                 Context(
                     text=doc["text"],
-                    document_name=doc["documentName"],
+                    document_name=doc["document_name"],
                     category=doc.get(
-                        "category", f"NPC_{doc['NPC']}"
+                        "category", f"npc_{doc['npc']}"
                     ),  # Convert old NPC to category format
                 )
             )
@@ -190,9 +190,9 @@ class MongoDB(Database):
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["documentName"],
+                        document_name=document["document_name"],
                         category=document.get(
-                            "category", f"NPC_{document.get('NPC', 'Unknown')}"
+                            "category", f"npc_{document.get('npc', 'Unknown')}"
                         ),  # Handle both old and new formats
                     )
                 )
@@ -224,10 +224,10 @@ class MongoDB(Database):
             self.collection.insert_one(
                 {
                     "text": text,
-                    "documentName": document_name,
+                    "document_name": document_name,
                     "category": category,  # Using category instead of NPC
                     "embedding": embedding,
-                    "documentId": document_id,
+                    "document_id": document_id,
                 }
             )
             return True
@@ -278,7 +278,7 @@ class MockDatabase(Database):
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["documentName"],
+                        document_name=document["document_name"],
                         category=document["category"],
                     )
                 )
@@ -291,12 +291,12 @@ class MockDatabase(Database):
 
         results = []
         for document in self.data:
-            if document.get("NPC") == npc:
+            if document.get("npc") == npc:
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["documentName"],
-                        category=document.get("category", f"NPC_{npc}"),
+                        document_name=document["document_name"],
+                        category=document.get("category", f"npc_{npc}"),
                     )
                 )
         return results
@@ -311,13 +311,13 @@ class MockDatabase(Database):
         for document in self.data:
             similarity = 0.9
             if similarity > self.similarity_threshold:
-                doc_name = document.get("documentName", "default_document_name")
+                doc_name = document.get("document_name", "default_document_name")
                 results.append(
                     Context(
                         text=document["text"],
                         document_name=doc_name,
                         category=document.get(
-                            "category", f"NPC_{document.get('NPC', 'Unknown')}"
+                            "category", f"npc_{document.get('npc', 'Unknown')}"
                         ),
                     )
                 )
@@ -344,10 +344,10 @@ class MockDatabase(Database):
         self.data.append(
             {
                 "text": text,
-                "documentName": document_name,
+                "document_name": document_name,
                 "category": category,
                 "embedding": embedding,
-                "documentId": document_id,
+                "document_id": document_id,
             }
         )
         return True
@@ -371,7 +371,7 @@ class LocalMockDatabase(Database):
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["documentName"],
+                        document_name=document["document_name"],
                         category=document["category"],
                     )
                 )
@@ -385,15 +385,15 @@ class LocalMockDatabase(Database):
 
         # Filter documents based on similarity and document_name
         for document in self.data:
-            if document["documentName"] == document_name:
+            if document["document_name"] == document_name:
                 similarity = similarity_search(embedding, document["embedding"])
                 if similarity > self.similarity_threshold:
                     results.append(
                         Context(
                             text=document["text"],
-                            document_name=document["documentName"],
+                            document_name=document["document_name"],
                             category=document.get(
-                                "category", f"NPC_{document.get('NPC', 'Unknown')}"
+                                "category", f"npc_{document.get('npc', 'Unknown')}"
                             ),
                         )
                     )
@@ -414,10 +414,10 @@ class LocalMockDatabase(Database):
         self.data.append(
             {
                 "text": text,
-                "documentName": document_name,
+                "document_name": document_name,
                 "category": category,
                 "embedding": embedding,
-                "documentId": document_id,
+                "document_id": document_id,
             }
         )
         return True

@@ -54,7 +54,9 @@ def test_upload_and_get_by_id():
     assert retrieved_doc is not None, (
         f"Failed to retrieve document with ID {document_id}"
     )
-    assert retrieved_doc["documentName"] == os.path.basename(TEST_FILE) or "TestDoc1", (
+    assert (
+        retrieved_doc["document_name"] == os.path.basename(TEST_FILE) or "TestDoc1"
+    ), (
         "Document name mismatch"
     )  # Fixtures may overwrite the test data so we check for both
     assert retrieved_doc["category"] == TEST_CATEGORY or "FishFeeding", (

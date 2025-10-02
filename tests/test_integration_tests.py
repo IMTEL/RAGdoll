@@ -37,7 +37,7 @@ def test_post_context_and_retrieve_by_npc():
         text=test_text,
         document_name=test_document_name,
         embedding=test_embedding,
-        NPC=test_npc,
+        npc=test_npc,
         document_id=test_id,
     )
     time.sleep(1)
@@ -50,7 +50,7 @@ def test_post_context_and_retrieve_by_npc():
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert str(context.NPC) == test_npc, "NPC should match"
+    assert str(context.npc) == test_npc, "NPC should match"
 
 
 @pytest.mark.integration
@@ -69,20 +69,20 @@ def test_post_context_and_retrieve_by_embedding():
     post_result = db.post_context(
         text=test_text,
         document_name=test_document_name,
-        NPC=test_npc,
+        npc=test_npc,
         embedding=test_embedding,
         document_id=test_id,
     )
     time.sleep(1)
     assert post_result is True, "post_context should return True"
 
-    # Retrieve context by (documentId, embedding)
+    # Retrieve context by (document_id, embedding)
     retrieved_contexts = db.get_context(test_id, test_embedding)
     assert len(retrieved_contexts) > 0, "Should retrieve at least one context"
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert str(context.NPC) == str(test_npc), "NPC should match"
+    assert str(context.npc) == str(test_npc), "NPC should match"
 
 
 @pytest.mark.integration

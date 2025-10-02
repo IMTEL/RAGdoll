@@ -51,11 +51,11 @@ def test_pipeline(mock_llm):
 
     progress = [
         ProgressData(
-            taskName="Daily Exercise Routine",
+            task_name="Daily Exercise Routine",
             description="Improve health",
             status="start",
-            userId="user123",
-            subtaskProgress=[],
+            user_id="user123",
+            subtask_progress=[],
         )
     ]
 
@@ -64,8 +64,8 @@ def test_pipeline(mock_llm):
         user_information=["Name: Tobias", "Mode: Beginner"],
         progress=progress,
         user_actions=["Not implemented"],
-        NPC=100,
-        chatLog=[Message(role="user", content="Why does salmon swim upstream?")],
+        npc=100,
+        chat_log=[Message(role="user", content="Why does salmon swim upstream?")],
     )
 
     # Set the response for the mock LLM

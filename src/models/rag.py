@@ -5,5 +5,5 @@ class RAGPostModel(BaseModel):
     text: str
     document_id: str
     document_name: str
-    NPC: int
+    npc: int
     embedding: list[float]

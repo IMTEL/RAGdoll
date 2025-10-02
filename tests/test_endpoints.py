@@ -70,16 +70,18 @@ def test_ask_transcribe_with_real_wav():
                         "user_information": ["User: Tobias", "Mode: Beginner"],
                         "progress": [
                             {
-                                "taskName": "Test Task",
+                                "task_name": "Test Task",
                                 "description": "A description",
                                 "status": "in_progress",
-                                "userId": "test_user",
-                                "subtaskProgress": [],
+                                "user_id": "test_user",
+                                "subtask_progress": [],
                             }
                         ],
                         "user_actions": ["test_action"],
-                        "NPC": 123,
-                        "chatLog": [{"role": "user", "content": "What is this place?"}],
+                        "npc": 123,
+                        "chat_log": [
+                            {"role": "user", "content": "What is this place?"}
+                        ],
                     }
                 )
             },

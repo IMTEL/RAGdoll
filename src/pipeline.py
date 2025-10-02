@@ -53,9 +53,9 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
     # to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
 
-    # to_embed: str = str(command.chatLog[-1].content)
+    # to_embed: str = str(command.chat_log[-1].content)
     to_embed: str = (
-        str(command.chatLog[-1].content) if command.chatLog else "No user message"
+        str(command.chat_log[-1].content) if command.chat_log else "No user message"
     )
 
     db = get_database()
@@ -73,7 +73,7 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
 
-    Earlier chathistory is: {command.chatLog}
+    Earlier chathistory is: {command.chat_log}
     The user is currently in the {command.scene_name} scene. When the user asks a question from {command.scene_name} = ReceptionOutdoor, your name is Rachel. When the user asks a question from {command.scene_name} = Laboratory, your name is Larry.
 
     The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE. IF TWO ANSWERS TO THE SAME QUESTION ARE GIVEN, USE THE LATEST ONE.
@@ -133,7 +133,7 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
             str(base_prompt)
             + "context: NO CONTEXT AVAILABLE "
             + "question: "
-            + str(command.chatLog[-1])
+            + str(command.chat_log[-1])
         )
 
     else:
@@ -142,7 +142,7 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
             + "context: "
             + str(context[0])
             + "question: "
-            + str(command.chatLog[-1])
+            + str(command.chat_log[-1])
         )
 
     print(f"Prompt sent to LLM:\n{prompt}")

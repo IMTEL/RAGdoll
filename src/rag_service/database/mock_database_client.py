@@ -39,10 +39,10 @@ def list_documents():
     for doc in db.data:
         documents.append(
             {
-                "document_id": doc.get("documentId", "N/A"),
-                "document_name": doc.get("documentName", "N/A"),
+                "document_id": doc.get("document_id", "N/A"),
+                "document_name": doc.get("document_name", "N/A"),
                 "category": doc.get(
-                    "category", doc.get("NPC", "N/A")
+                    "category", doc.get("npc", "N/A")
                 ),  # Handle both new and old formats
                 "text_preview": doc.get("text", "")[:50] + "..."
                 if len(doc.get("text", "")) > 50
@@ -60,7 +60,7 @@ def get_document_by_id(document_id):
         return None
 
     for doc in db.data:
-        if doc.get("documentId") == document_id:
+        if doc.get("document_id") == document_id:
             return doc
     return None
 
@@ -74,7 +74,7 @@ def get_document_by_name(document_name):
 
     results = []
     for doc in db.data:
-        if doc.get("documentName") == document_name:
+        if doc.get("document_name") == document_name:
             results.append(doc)
     return results
 
@@ -139,9 +139,9 @@ def main():
         if args.id:
             doc = get_document_by_id(args.id)
             if doc:
-                logger.info(f"Document ID: {doc.get('documentId')}")
-                logger.info(f"Document Name: {doc.get('documentName')}")
-                logger.info(f"Category: {doc.get('category', doc.get('NPC', 'N/A'))}")
+                logger.info(f"Document ID: {doc.get('document_id')}")
+                logger.info(f"Document Name: {doc.get('document_name')}")
+                logger.info(f"Category: {doc.get('category', doc.get('npc', 'N/A'))}")
                 logger.info(f"Text: {doc.get('text')[:500]}...")
             else:
                 logger.error(f"Document with ID {args.id} not found")
@@ -152,9 +152,9 @@ def main():
             if docs:
                 logger.info(f"Found {len(docs)} documents with name {args.name}:")
                 for doc in docs:
-                    logger.info(f"Document ID: {doc.get('documentId')}")
+                    logger.info(f"Document ID: {doc.get('document_id')}")
                     logger.info(
-                        f"Category: {doc.get('category', doc.get('NPC', 'N/A'))}"
+                        f"Category: {doc.get('category', doc.get('npc', 'N/A'))}"
                     )
                     logger.info(f"Text: {doc.get('text')[:500]}...")
                     logger.info("-" * 40)

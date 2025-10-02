@@ -5,4 +5,4 @@ class Context(BaseModel):
     text: str
     document_name: str
     category: str | None = None
-    NPC: int | None = None  # Kept for backward compatibility
+    npc: int | None = None  # Kept for backward compatibility

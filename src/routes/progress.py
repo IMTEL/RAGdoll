@@ -30,34 +30,40 @@ def receive_progress(progress: ProgressData):
     if progress.status == "started" or progress.status == "pending":
         # Check for existing incomplete task to update
         for entry in progress_log:
-            if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
+            if (
+                entry["task_name"] == progress.task_name
+                and entry["completed_at"] is None
+            ):
                 entry.update(
                     {
-                        "subtaskProgress": progress.subtaskProgress,
-                        "startedAt": datetime.now(UTC),
+                        "subtask_progress": progress.subtask_progress,
+                        "started_at": datetime.now(UTC),
                     }
                 )
                 return {"message": "Progress updated", "data": entry}
 
         # New task entry
         new_entry = progress.model_dump()
-        new_entry["startedAt"] = datetime.now(UTC)
+        new_entry["started_at"] = datetime.now(UTC)
         progress_log.append(new_entry)
         return {"message": "Progress received", "data": new_entry}
 
     elif progress.status == "complete":
         # Complete existing task
         for entry in progress_log:
-            if entry["taskName"] == progress.taskName and entry["completedAt"] is None:
+            if (
+                entry["task_name"] == progress.task_name
+                and entry["completed_at"] is None
+            ):
                 entry.update(
                     {
-                        "subtaskProgress": progress.subtaskProgress,
-                        "completedAt": datetime.now(UTC),
+                        "subtask_progress": progress.subtask_progress,
+                        "completed_at": datetime.now(UTC),
                         "status": "complete",
                     }
                 )
                 return {"message": "Task completed", "data": entry}
-        return {"message": f"No active task {progress.taskName} found."}
+        return {"message": f"No active task {progress.task_name} found."}
 
     else:
         raise HTTPException(400, "Status must be 'started' or 'complete'.")

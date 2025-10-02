@@ -11,8 +11,8 @@ class Command(BaseModel):
     user_information: list[str]
     progress: list[ProgressData]
     user_actions: list[str]
-    NPC: int
-    chatLog: list[Message]
+    npc: int
+    chat_log: list[Message]
 
 
 class Prompt(BaseModel):
@@ -63,9 +63,9 @@ def command_from_json_transcribe_version(
         command = Command.model_validate_json(json_str)
 
         if question:
-            command.chatLog.append(Message(role="user", content=question))
+            command.chat_log.append(Message(role="user", content=question))
         else:
-            command.chatLog.append(Message(role="user", content=""))
+            command.chat_log.append(Message(role="user", content=""))
         return command
     except ValidationError as e:
         print("Validation error:", e)

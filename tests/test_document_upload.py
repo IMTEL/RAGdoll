@@ -44,5 +44,5 @@
 #     data = db.data  # Access stored data
 
 #     assert len(data) > 0  # Ensure at least one document was stored
-#     assert data[0]["documentName"] == "bee_movie_script.txt"  # Check stored filename
+#     assert data[0]["document_name"] == "bee_movie_script.txt"  # Check stored filename
 #     assert data[0]["category"] == "General Information"  # Check the category
