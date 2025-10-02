@@ -1,18 +1,14 @@
-
-
-from typing import Dict
+import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-import uvicorn
 
+from src.llm import create_llm
 
-from src.LLM import create_llm
-from src.config import Config
 
 # WebSocket manager
 class WebSocketManager:
     def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
+        self.active_connections: dict[str, WebSocket] = {}
 
     async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
@@ -26,7 +22,7 @@ class WebSocketManager:
     async def send_message(self, session_id: str, message: str):
         if session_id in self.active_connections:
             await self.active_connections[session_id].send_text(message)
-            
+
 
 class UserPromptData(BaseModel):
     prompt: str
@@ -42,12 +38,14 @@ class UserPromptRequest(BaseModel):
 class BaseEventRequest(BaseModel):
     event: str
 
+
 ws_manager = WebSocketManager()
 
 app = FastAPI()
 
- 
+
 active_websockets = {}
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
@@ -62,13 +60,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             print(f"Received event: {event_type}")
             ### User prompt
             if event_type == "user_prompt":
-                req = UserPromptRequest(**data) # Unpacks message into UserPromptRequest
+                req = UserPromptRequest(
+                    **data
+                )  # Unpacks message into UserPromptRequest
                 model = "gemeni"
                 language_model = create_llm(model)
-                ai_response = await language_model.generate(req.data.prompt)
+                await language_model.generate(req.data.prompt)
+                # TODO: The response of the LLM should be sent back to the client
 
     except WebSocketDisconnect:
         ws_manager.disconnect(session_id)
+
 
 #
 # Server Startup

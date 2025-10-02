@@ -1,19 +1,19 @@
+import logging
 import os
 import uuid
-import logging
 
 from src.config import Config
-from src.rag_service.context import Context
-from src.rag_service.embeddings import create_embeddings_model
 from src.rag_service.dao import get_database
+from src.rag_service.embeddings import create_embeddings_model
+
 
 # Load configuration and initialize the SentenceTransformer model.
 config = Config()
 embedding_model = create_embeddings_model()
 
+
 def compute_embedding(text: str) -> list[float]:
-    """
-    Computes an embedding for the given text using a SentenceTransformer model.
+    """Computes an embedding for the given text using a SentenceTransformer model.
 
     Args:
         text (str): The text to embed.
@@ -24,10 +24,9 @@ def compute_embedding(text: str) -> list[float]:
     embeddings = embedding_model.get_embedding(text)
     return embeddings
 
+
 def process_file_and_store(file_path: str, category: str) -> bool:
-    """
-    Processes a .txt or .md file, extracts its text, computes its embedding, and
-    stores the data in the database.
+    """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
     Args:
         file_path (str): Path to the text or markdown file.
@@ -45,17 +44,18 @@ def process_file_and_store(file_path: str, category: str) -> bool:
 
     # Verify file extension is supported.
     _, ext = os.path.splitext(file_path)
-    if ext.lower() not in ['.txt', '.md']:
+    if ext.lower() not in [".txt", ".md"]:
         logging.error("Unsupported file type. Only .txt and .md files are supported.")
         return False
 
     # Extract the file's text content.
+    # TODO: Handle different encodings more gracefully.
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             text = f.read()
     except UnicodeDecodeError:
         try:
-            with open(file_path, 'r', encoding='latin-1') as f:
+            with open(file_path, encoding="latin-1") as f:
                 text = f.read()
         except Exception as e:
             logging.error(f"Error reading file '{file_path}': {e}")
@@ -75,6 +75,7 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     document_name = os.path.basename(file_path)
 
     # Generate a unique document ID.
+    # TODO: Is this really a unique enough ID?
     document_id = str(uuid.uuid4())
 
     # Get the configured database instance.
@@ -87,20 +88,23 @@ def process_file_and_store(file_path: str, category: str) -> bool:
             category=category,  # Using category instead of NPC
             embedding=embedding,
             document_id=document_id,
-            document_name=document_name
+            document_name=document_name,
         )
     except Exception as e:
         logging.error(f"Error posting context to the database: {e}")
         return False
 
     if success:
-        logging.info(f"Successfully stored '{document_name}' into the database with category '{category}'.")
+        logging.info(
+            f"Successfully stored '{document_name}' into the database with category '{category}'."
+        )
     else:
         logging.error(f"Failed to store '{document_name}' into the database.")
 
     return success
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Example usage of the process_file_and_store function.
     file_path = "src.context_files.salmon.txt"
     category = "General Information"  # Changed from NPC to category

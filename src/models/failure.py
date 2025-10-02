@@ -1,10 +1,10 @@
+from datetime import UTC, datetime
+
 from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime, timezone
+
 
 class FailureData(BaseModel):
-    errorCode: str
+    error_code: str
     description: str
-    userId: Optional[str] = None  # Optional
-    receivedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
+    user_id: str | None = None  # Optional
+    received_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

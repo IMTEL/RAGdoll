@@ -1,72 +1,56 @@
 from typing import Protocol
-from openai import OpenAI
-import requests
+
 import google.generativeai as genai
-from src.config import Config 
+import requests
+from openai import OpenAI
+
+from src.config import Config
+
 
 class LLM(Protocol):
-
     def generate(self, prompt: str) -> str:
-        """
-        Send the prompt to the LLM and return the generated response.
-        """
-        pass
+        """Send the prompt to the LLM and return the generated response."""
 
 
-class Idun_LLM(LLM):
+class IdunLLM(LLM):
     def __init__(self):
         self.model = Config().IDUN_MODEL
         self.url = Config().IDUN_API_URL
         self.token = Config().IDUN_API_KEY
 
     def generate(self, prompt: str) -> str:
-        
         headers = {
-            'Authorization': f'Bearer {self.token}',
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
         }
-        data = {
-        "model": self.model,
-        "messages": [
-            {
-            "role": "user",
-            "content": prompt
-            }
-        ]
-        }
+        data = {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
         response = requests.post(self.url, headers=headers, json=data)
-        return response.json()['choices'][0]['message']['content'].strip()
+        return response.json()["choices"][0]["message"]["content"].strip()
 
-class OpenAI_LLM(LLM):
+
+class OpenAILLM(LLM):
     def __init__(self):
-        """
-        Initializes the LLM facade using the provided configuration.
-        """
+        """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = self.config.GPT_MODEL
         # Instantiate the client using the new OpenAI interface.
         self.client = OpenAI(api_key=self.config.API_KEY)
 
     def generate(self, prompt: str) -> str:
-        """
-        Uses the new API client interface to generate a response.
-        """
+        """Uses the new API client interface to generate a response."""
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
         response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages
+            model=self.model, messages=messages
         )
         return response.choices[0].message.content.strip()
 
 
-class Gemini_LLM(LLM):
+class GeminiLLM(LLM):
     def __init__(self):
-        """
-        Initializes the LLM facade using the provided configuration.
-        """
+        """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = self.config.GEMINI_MODEL
 
@@ -74,21 +58,18 @@ class Gemini_LLM(LLM):
         self.client = genai.GenerativeModel(self.model)
 
     def generate(self, prompt: str) -> str:
-        """
-        Uses the Google Generative AI client to generate a response
-        """
+        """Uses the Google Generative AI client to generate a response."""
         response = self.client.generate_content(prompt)
         return response.text.strip()
-    
+
+
 class MockLLM(LLM):
-    
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
-    
-    
+
+
 def create_llm(llm: str = "idun") -> LLM:
-    """
-    Factory for creating LLM instances.
+    """Factory for creating LLM instances.
 
     Args:
         llm (str, optional): Select LLM. Defaults to "openai".
@@ -101,21 +82,20 @@ def create_llm(llm: str = "idun") -> LLM:
     """
     match llm.lower():
         case "idun":
-            return Idun_LLM()
+            return IdunLLM()
         case "openai":
-            return OpenAI_LLM()
+            return OpenAILLM()
         case "gemini":
-            return Gemini_LLM()
+            return GeminiLLM()
         case "mock":
             return MockLLM()
         case _:
             raise ValueError(f"LLM {llm} not supported")
-        
-        
+
+
 if __name__ == "__main__":
     llm = create_llm("idun")
     while True:
         prompt = input("Enter your prompt: ")
         response = llm.generate(prompt)
         print(response)
-    
