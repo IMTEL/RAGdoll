@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Body, Request, Query
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from src.routes import progress, debug, upload
+from src.routes import progress, debug, upload, agentconfig
 from fastapi import FastAPI, File, UploadFile, Form
 import uvicorn
 import sys
@@ -58,7 +58,10 @@ app.include_router(debug.router)
 # app.include_router(rag.router)
 # Upload router
 app.include_router(upload.router)
-
+# RAG router
+# app.include_router(rag.router)
+# Upload router
+app.include_router(agentconfig.router)
 
 @app.get("/")
 def hello_world():
@@ -161,6 +164,8 @@ def getAnswerFromUser(
     """
     response: str = getAnswerFromUser(answer, target, question)
     return {"response": response}
+
+
 
 
 if __name__ == "__main__": 

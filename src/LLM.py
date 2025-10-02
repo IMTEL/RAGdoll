@@ -1,17 +1,31 @@
+from dataclasses import dataclass
 from typing import Protocol
 from openai import OpenAI
 import requests
 import google.generativeai as genai
 from src.config import Config 
 
-class LLM(Protocol):
 
+@dataclass
+class Model:
+    provider: str
+    name: str
+    GDPR_compliant: bool | None
+    description: str | None
+
+ 
+class LLM(Protocol):
     def generate(self, prompt: str) -> str:
         """
         Send the prompt to the LLM and return the generated response.
         """
         pass
-
+    @staticmethod
+    def get_models() -> list[str]:
+        """
+        Returns the models which can be used by the provider
+        """
+        pass
 
 class Idun_LLM(LLM):
     def __init__(self):
@@ -36,6 +50,11 @@ class Idun_LLM(LLM):
         }
         response = requests.post(self.url, headers=headers, json=data)
         return response.json()['choices'][0]['message']['content'].strip()
+    
+    @staticmethod
+    def get_models() -> list[str]:
+        models = ["Qwen3-Coder-30B-A3B-Instruct","openai/gpt-oss-120b"]
+        return [Model("idun",name,True,None) for name in models]
 
 class OpenAI_LLM(LLM):
     def __init__(self):
@@ -60,7 +79,12 @@ class OpenAI_LLM(LLM):
             messages=messages
         )
         return response.choices[0].message.content.strip()
-
+    
+    @staticmethod
+    def get_models() -> list[str]:
+        client = OpenAI()
+        models = client.models.list()
+        return [Model("openai",item["id"],False,None) for item in models.data]
 
 class Gemini_LLM(LLM):
     def __init__(self):
@@ -79,12 +103,23 @@ class Gemini_LLM(LLM):
         """
         response = self.client.generate_content(prompt)
         return response.text.strip()
+
+    @staticmethod
+    def get_models() -> list[str]:
+        client = genai.Client()
+        models = client.models.list()
+        return [Model("openai",item["name"],False,None) for item in models]
+
+
     
 class MockLLM(LLM):
     
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
-    
+
+def get_models():
+    # return [OpenAI_LLM.get_models(),Gemini_LLM.get_models(),Idun_LLM.get_models()] 
+    return [Model("hi","hi",False,None) ]
     
 def create_llm(llm: str = "idun") -> LLM:
     """
