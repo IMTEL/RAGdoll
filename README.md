@@ -148,35 +148,35 @@ docker compose down
 curl -X POST "http://localhost:8000/api/progress" \
 -H "Content-Type: application/json" \
 -d '{
-  "taskName": "Daily Exercise Routine",
+  "task_name": "Daily Exercise Routine",
   "status": "start",
-  "userId": "user123",
-  "subtaskProgress": [
+  "user_id": "user123",
+  "subtask_progress": [
     {
-      "subtaskName": "Warm Up",
+      "subtask_name": "Warm Up",
       "description": "Prepare muscles for workout",
       "completed": false,
-      "stepProgress": [
+      "step_progress": [
         {
-          "stepName": "Jumping Jacks",
-          "repetitionNumber": 30,
+          "step_name": "Jumping Jacks",
+          "repetition_number": 30,
           "completed": false
         },
         {
-          "stepName": "Arm Circles",
-          "repetitionNumber": 20,
+          "step_name": "Arm Circles",
+          "repetition_number": 20,
           "completed": false
         }
       ]
     },
     {
-      "subtaskName": "Main Workout",
+      "subtask_name": "Main Workout",
       "description": "Intense exercise session",
       "completed": false,
-      "stepProgress": [
+      "step_progress": [
         {
-          "stepName": "Push Ups",
-          "repetitionNumber": 50,
+          "step_name": "Push Ups",
+          "repetition_number": 50,
           "completed": false
         }
       ]
@@ -187,35 +187,35 @@ curl -X POST "http://localhost:8000/api/progress" \
 curl -X POST "http://localhost:8000/api/progress" \
 -H "Content-Type: application/json" \
 -d '{
-  "taskName": "Daily Exercise Routine",
+  "task_name": "Daily Exercise Routine",
   "status": "complete",
-  "userId": "user123",
-  "subtaskProgress": [
+  "user_id": "user123",
+  "subtask_progress": [
     {
-      "subtaskName": "Warm Up",
+      "subtask_name": "Warm Up",
       "description": "Prepare muscles for workout",
       "completed": true,
-      "stepProgress": [
+      "step_progress": [
         {
-          "stepName": "Jumping Jacks",
-          "repetitionNumber": 30,
+          "step_name": "Jumping Jacks",
+          "repetition_number": 30,
           "completed": true
         },
         {
-          "stepName": "Arm Circles",
-          "repetitionNumber": 20,
+          "step_name": "Arm Circles",
+          "repetition_number": 20,
           "completed": true
         }
       ]
     },
     {
-      "subtaskName": "Main Workout",
+      "subtask_name": "Main Workout",
       "description": "Intense exercise session",
       "completed": true,
-      "stepProgress": [
+      "step_progress": [
         {
-          "stepName": "Push Ups",
-          "repetitionNumber": 50,
+          "step_name": "Push Ups",
+          "repetition_number": 50,
           "completed": true
         }
       ]

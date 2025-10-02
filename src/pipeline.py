@@ -1,26 +1,26 @@
-
-import uuid
 import time
+import uuid
 
-from src.command import Command, Prompt, prompt_to_json
-from src.rag_service.dao import get_database
+from src.command import Command
 from src.config import Config
+from src.llm import create_llm
+from src.rag_service.dao import get_database
 from src.rag_service.embeddings import create_embeddings_model
-from src.LLM import LLM, create_llm
 
 
-def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini") -> str:
+def get_answer_from_user(
+    answer: str, target: str, question: str, model="gemini"
+) -> str:
     """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name"."""
     prompt = ""
     if target == "name":
-    
         prompt = """A user has provided the following answer to the question: {question}. 
                         The answer is: {answer}. The question is about the user's {target} You are to ONLY REPLY IN JSON FORMAT like so:
                         target: "some answer"
                         An example of a valid response is for the question "What is your name?" where target is name and answer from user is My name is John Doe is:
                         name: "John Doe"
                     """
-    else :
+    else:
         prompt = """A user has provided the following answer to the question: {question}. 
                         The answer is: {answer}. The question is about the user's {target} You are to ONLY REPLY IN JSON FORMAT like so:
                         target: "some answer"
@@ -36,33 +36,35 @@ def getAnswerFromUser(answer: str, target: str, question: str, model = "gemini")
     # Nettopp ferdig med skole?
     # arbeidsløs en stund
     # har de vært i jobb før?
-    # har de hatt praksis tidligere i et relevant felt? 
+    # har de hatt praksis tidligere i et relevant felt?
     # interests?
-    
+
     language_model = create_llm(model)
     response = language_model.generate(prompt)
     if response is None:
         return "No response from the language model."
     if response == "":
         return "Empty response from the language model."
-    
+
     return response
 
 
 def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     """Assembles a prompt for a large language model and prompt LLM to generate a response."""
-    
-    #to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
-    
-    #to_embed: str = str(command.chatLog[-1].content)
-    to_embed: str = str(command.chatLog[-1].content) if command.chatLog else "No user message"
+    # to_embed: str = str(command.question) + " "+ str(command.progress) + " "+ str(command.user_actions)
 
-    
+    # to_embed: str = str(command.chat_log[-1].content)
+    to_embed: str = (
+        str(command.chat_log[-1].content) if command.chat_log else "No user message"
+    )
+
     db = get_database()
     embedding_model = create_embeddings_model()
     embeddings: list[float] = embedding_model.get_embedding(to_embed)
-    context = db.get_context("hello", embeddings ) # TODO: remove document name from here
-    
+    context = db.get_context(
+        "hello", embeddings
+    )  # TODO: remove document name from here
+
     base_prompt = """
     MANDATORY: 
     If you detect the user needs an action, you MUST guess the appropriate function call using [FUNCTION]function_name|parameter[/FUNCTION].
@@ -71,7 +73,7 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     You are a helpful assistant and guide in the Blue Sector Virtual Reality work training. 
     You are here to help the user with their questions and guide them through the training.
 
-    Earlier chathistory is: {command.chatLog}
+    Earlier chathistory is: {command.chat_log}
     The user is currently in the {command.scene_name} scene. When the user asks a question from {command.scene_name} = ReceptionOutdoor, your name is Rachel. When the user asks a question from {command.scene_name} = Laboratory, your name is Larry.
 
     The information you have obtained on the user is {command.user_information}. ADJUST YOUR ANSWER BASED ON THIS, IF IT IS AVAILABLE. IF TWO ANSWERS TO THE SAME QUESTION ARE GIVEN, USE THE LATEST ONE.
@@ -123,38 +125,52 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
     
     Answer in a SHORT and UNDERSTANDABLE way, NOT exceeding 200 characters.
     """
-    
+
     base_prompt = base_prompt.format(command=command)
     prompt: str = ""
     if context is None or len(context) == 0:
-        prompt += str(base_prompt) + "context: NO CONTEXT AVAILABLE " + "question: " +  str(command.chatLog[-1])
-    
+        prompt += (
+            str(base_prompt)
+            + "context: NO CONTEXT AVAILABLE "
+            + "question: "
+            + str(command.chat_log[-1])
+        )
+
     else:
-        prompt += str(base_prompt) + "context: " + str(context[0])+ "question: "+ str(command.chatLog[-1])
+        prompt += (
+            str(base_prompt)
+            + "context: "
+            + str(context[0])
+            + "question: "
+            + str(command.chat_log[-1])
+        )
 
     print(f"Prompt sent to LLM:\n{prompt}")
 
     language_model = create_llm(model)
     response = language_model.generate(prompt)
-    
+
     # Parse the response for function calls
     function_call = None
     parsed_response = response
 
     import re
-    function_match = re.search(r'\[FUNCTION\](.*?)\|(.*?)\[\/FUNCTION\](.*)', response, re.DOTALL)
+
+    function_match = re.search(
+        r"\[FUNCTION\](.*?)\|(.*?)\[\/FUNCTION\](.*)", response, re.DOTALL
+    )
     if function_match:
         function_name = function_match.group(1).strip()
         function_param = function_match.group(2).strip()
-        
+
         function_tag_text = function_match.group(0)
         parsed_response = response.replace(function_tag_text, "").strip()
 
         function_call = {
             "function_name": function_name,
-            "function_parameters": [function_param]
+            "function_parameters": [function_param],
         }
-    
+
     return {
         "id": str(uuid.uuid4()),
         "created": int(time.time()),
@@ -165,10 +181,10 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
                 "message": {
                     "role": "assistant",
                     "content": parsed_response,
-                    "function_call": function_call
+                    "function_call": function_call,
                 },
                 "logprobs": None,
-                "finish_reason": "stop"
+                "finish_reason": "stop",
             }
         ],
         "usage": {
@@ -183,8 +199,5 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
             # "confidence_score": 0.95
         },
         "response": parsed_response,
-        "function_call": function_call
+        "function_call": function_call,
     }
-
-
-

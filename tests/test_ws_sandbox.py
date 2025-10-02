@@ -30,14 +30,14 @@
 # def test_websocket_disconnect(client, clean_ws_manager):
 #     with client.websocket_connect("/ws/test_session") as websocket:
 #         pass  # Connection closes when exiting context
-    
+
 #     assert "test_session" not in clean_ws_manager.active_connections
 #     assert len(clean_ws_manager.active_connections) == 0
 
 # def test_multiple_connections(client, clean_ws_manager):
 #     with client.websocket_connect("/ws/session1") as ws1, \
 #          client.websocket_connect("/ws/session2") as ws2:
-        
+
 #         assert len(clean_ws_manager.active_connections) == 2
 #         assert "session1" in clean_ws_manager.active_connections
 #         assert "session2" in clean_ws_manager.active_connections
@@ -55,7 +55,7 @@
 #     async with async_client.websocket_connect("/ws/test_session") as websocket:
 #         # This should not raise an error
 #         await clean_ws_manager.send_message("nonexistent_session", "Hello")
-        
+
 #         # Verify connection is still alive
 #         await websocket.send_text("ping")
 #         assert await websocket.receive_text() == "ping"
@@ -65,9 +65,9 @@
 #     mock_llm = mocker.MagicMock()
 #     mock_llm.generate.return_value = "Mocked AI response"
 #     mocker.patch("src.web_socket_sandbox.create_llm", return_value=mock_llm)
-    
+
 #     test_prompt = "What is the meaning of life?"
-    
+
 #     async with async_client.websocket_connect("/ws/test_session") as websocket:
 #         message = {
 #             "event": "user_prompt",
@@ -77,13 +77,13 @@
 #             }
 #         }
 #         await websocket.send_json(message)
-        
+
 #         # Give some time for processing
 #         try:
 #             await websocket.receive_text(timeout=1.0)
 #         except Exception:
 #             pass  # We don't actually expect a response in this mock
-        
+
 #         mock_llm.generate.assert_called_once_with(test_prompt)
 
 # def test_unknown_event(client, clean_ws_manager):

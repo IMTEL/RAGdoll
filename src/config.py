@@ -1,18 +1,21 @@
 import os
-from dotenv import load_dotenv
-import whisper
 
-load_dotenv()  
+import whisper
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 class Config:
-    """Configuration class to manage environment variables and model loading.
-    
-    """
-    def __init__(self, path=".env", gpt_model="gpt-4o-mini", gemini_model="gemini-2.0-flash-lite"):
+    """Configuration class to manage environment variables and model loading."""
+
+    def __init__(
+        self, path=".env", gpt_model="gpt-4o-mini", gemini_model="gemini-2.0-flash-lite"
+    ):
         self.path = path
         self.ENV = os.getenv("ENV", "dev")
-        
+
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", gpt_model)
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", gemini_model)
@@ -21,18 +24,24 @@ class Config:
         self.IDUN_API_URL = os.getenv("IDUN_API_URL", "https://idun-llm")
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "gpt-4o-mini")
-         # Load the model (options: tiny, base, small, medium, large)
+        # Load the model (options: tiny, base, small, medium, large)
         try:
-            self.whisper_model = whisper.load_model("base").to("cuda") # TODO: load model on ping or keep container warm
-        except:
+            self.whisper_model = whisper.load_model("base").to(
+                "cuda"
+            )  # TODO: load model on ping or keep container warm
+        except Exception:
             try:
                 self.whisper_model = whisper.load_model("base")
-            except:
+            except Exception:
                 self.whisper_model = None
-        
-        if self.ENV == 'dev': # TODO: change this to 'dev' when ready
-            self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")
-            self.MONGODB_COLLECTION = os.getenv("MOCK_MONGODB_COLLECTION", "test_collection")
+
+        if self.ENV == "dev":  # TODO: change this to 'dev' when ready
+            self.MONGODB_URI = os.getenv(
+                "MOCK_MONGODB_URI", "mongodb://localhost:27017"
+            )
+            self.MONGODB_COLLECTION = os.getenv(
+                "MOCK_MONGODB_COLLECTION", "test_collection"
+            )
             self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
             self.RAG_DATABASE_SYSTEM = os.getenv("MOCK_RAG_DATABASE_SYSTEM", "mongodb")
         else:
@@ -40,4 +49,3 @@ class Config:
             self.MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "test_collection")
             self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
             self.RAG_DATABASE_SYSTEM = os.getenv("RAG_DATABASE_SYSTEM", "mongodb")
-

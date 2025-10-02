@@ -1,26 +1,30 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class StepProgressDTO(BaseModel):
-    stepName: str
-    repetitionNumber: int
+    step_name: str
+    repetition_number: int
     completed: bool
+
 
 class SubtaskProgressDTO(BaseModel):
-    subtaskName: str
+    subtask_name: str
     description: str
     completed: bool
-    stepProgress: List[StepProgressDTO]
+    step_progress: list[StepProgressDTO]
+
 
 class ProgressData(BaseModel):
-    taskName: str
+    task_name: str
     description: str
     status: str  # "started" or "complete"
-    userId: Optional[str] = None
-    subtaskProgress: List[SubtaskProgressDTO]
-    startedAt: Optional[datetime] = None
-    completedAt: Optional[datetime] = None
+    user_id: str | None = None
+    subtask_progress: list[SubtaskProgressDTO]
+    started_at: datetime | None = None
+    completet_at: datetime | None = None
+
 
 class ListProgressData(BaseModel):
-    items: List[ProgressData]
+    items: list[ProgressData]

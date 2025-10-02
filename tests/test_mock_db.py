@@ -1,12 +1,13 @@
 import os
+
 import pytest
 
-from src.config import Config 
+from src.config import Config
 from src.rag_service.database.mock_database_client import (
-    upload_document,
-    list_documents,
     get_document_by_id,
     get_document_by_name,
+    list_documents,
+    upload_document,
 )
 
 
@@ -31,10 +32,14 @@ def test_upload_and_list():
     assert upload_success, f"Failed to upload {TEST_FILE}"
 
     documents = list_documents()
-    assert len(documents) == len(initial_documents) + 1, "List should contain one more document after upload"
+    assert len(documents) == len(initial_documents) + 1, (
+        "List should contain one more document after upload"
+    )
 
     uploaded_doc = documents[-1]
-    assert uploaded_doc["document_name"] == os.path.basename(TEST_FILE), "Document name mismatch"
+    assert uploaded_doc["document_name"] == os.path.basename(TEST_FILE), (
+        "Document name mismatch"
+    )
     assert uploaded_doc["category"] == TEST_CATEGORY, "Category mismatch"
 
 
@@ -46,9 +51,17 @@ def test_upload_and_get_by_id():
     documents = list_documents()
     document_id = documents[0]["document_id"]
     retrieved_doc = get_document_by_id(document_id)
-    assert retrieved_doc is not None, f"Failed to retrieve document with ID {document_id}"
-    assert retrieved_doc["documentName"] == os.path.basename(TEST_FILE) or "TestDoc1", "Document name mismatch"  # Fixtures may overwrite the test data so we check for both
-    assert retrieved_doc["category"] == TEST_CATEGORY or "FishFeeding", "Category mismatch"                 # Fixtures may overwrite the test data so we check for both
+    assert retrieved_doc is not None, (
+        f"Failed to retrieve document with ID {document_id}"
+    )
+    assert (
+        retrieved_doc["document_name"] == os.path.basename(TEST_FILE) or "TestDoc1"
+    ), (
+        "Document name mismatch"
+    )  # Fixtures may overwrite the test data so we check for both
+    assert retrieved_doc["category"] == TEST_CATEGORY or "FishFeeding", (
+        "Category mismatch"
+    )  # Fixtures may overwrite the test data so we check for both
 
 
 def test_upload_and_get_by_name():
