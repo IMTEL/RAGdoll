@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Protocol
 
 import google.generativeai as genai
@@ -7,10 +8,29 @@ from openai import OpenAI
 from src.config import Config
 
 
+from src.config import Config 
+
+
+@dataclass
+class Model:
+    provider: str
+    name: str
+    GDPR_compliant: bool | None
+    description: str | None
+
+ 
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
-        """Send the prompt to the LLM and return the generated response."""
-
+        """
+        Send the prompt to the LLM and return the generated response.
+        """
+        pass
+    @staticmethod
+    def get_models() -> list[str]:
+        """
+        Returns the models which can be used by the provider
+        """
+        pass
 
 class IdunLLM(LLM):
     def __init__(self):
@@ -25,8 +45,12 @@ class IdunLLM(LLM):
         }
         data = {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
         response = requests.post(self.url, headers=headers, json=data)
-        return response.json()["choices"][0]["message"]["content"].strip()
-
+        return response.json()['choices'][0]['message']['content'].strip()
+    
+    @staticmethod
+    def get_models() -> list[str]:
+        models = ["Qwen3-Coder-30B-A3B-Instruct","openai/gpt-oss-120b"]
+        return [Model("idun",name,True,None) for name in models]
 
 class OpenAILLM(LLM):
     def __init__(self):
@@ -46,7 +70,12 @@ class OpenAILLM(LLM):
             model=self.model, messages=messages
         )
         return response.choices[0].message.content.strip()
-
+    
+    @staticmethod
+    def get_models() -> list[str]:
+        client = OpenAI()
+        models = client.models.list()
+        return [Model("openai",item["id"],False,None) for item in models.data]
 
 class GeminiLLM(LLM):
     def __init__(self):
@@ -62,12 +91,22 @@ class GeminiLLM(LLM):
         response = self.client.generate_content(prompt)
         return response.text.strip()
 
+    @staticmethod
+    def get_models() -> list[str]:
+        client = genai.Client()
+        models = client.models.list()
+        return [Model("openai",item["name"],False,None) for item in models]
 
+
+    
 class MockLLM(LLM):
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
 
-
+def get_models():
+    # return [OpenAI_LLM.get_models(),Gemini_LLM.get_models(),Idun_LLM.get_models()] 
+    return [Model("hi","hi",False,None) ]
+    
 def create_llm(llm: str = "idun") -> LLM:
     """Factory for creating LLM instances.
 
