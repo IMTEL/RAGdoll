@@ -39,8 +39,8 @@ class Database(ABC):
         """Get context from database.
 
         Args:
-            embedding (list[float])
-            document_name (str)
+            document_name (str): Name of the document
+            embedding (list[float]): The embedding
 
         Returns:
             list[Context]: The context related to the question
@@ -248,6 +248,7 @@ class MongoDB(Database):
 
 class MockDatabase(Database):
     """A mock database for testing purposes, storing data in memory.
+
     Singleton implementation to ensure only one instance exists.
     """
 
