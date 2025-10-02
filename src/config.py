@@ -24,6 +24,7 @@ class Config:
         self.IDUN_API_URL = os.getenv("IDUN_API_URL", "https://idun-llm")
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "gpt-4o-mini")
+
         # Load the model (options: tiny, base, small, medium, large)
         try:
             self.whisper_model = whisper.load_model("base").to(
@@ -49,3 +50,4 @@ class Config:
             self.MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "test_collection")
             self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
             self.RAG_DATABASE_SYSTEM = os.getenv("RAG_DATABASE_SYSTEM", "mongodb")
+            self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "dummy")
