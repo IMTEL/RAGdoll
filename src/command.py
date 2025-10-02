@@ -55,6 +55,7 @@ def command_from_json_transcribe_version(
 
     Args:
         json_str (str): The JSON string representing a Command.
+        question (str | None): An optional question to append to the chat log.
 
     Returns:
         Optional[Command]: The Command object if parsing is successful, otherwise None.
