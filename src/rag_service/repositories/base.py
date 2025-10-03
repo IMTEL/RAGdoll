@@ -87,22 +87,33 @@ class AgentRepository(ABC):
     """
 
     @abstractmethod
-    def create_agent(self, agent: Agent) -> dict:
+    def create_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration.
 
         Args:
             agent (Agent): The agent object to persist
 
         Returns:
-            dict: The stored agent as a dictionary (may include backend-specific fields)
+            Agent: The stored agent object
         """
 
     @abstractmethod
-    def get_agents(self) -> list[dict]:
+    def get_agents(self) -> list[Agent]:
         """Retrieve all stored agent configurations.
 
         Returns:
-            list[dict]: List of all agent configurations as dictionaries
+            list[Agent]: List of all agent configurations
+        """
+
+    @abstractmethod
+    def get_agent_by_id(self, agent_id: str) -> Agent | None:
+        """Retrieve a specific agent by ID.
+
+        Args:
+            agent_id (str): The unique identifier of the agent
+
+        Returns:
+            Agent | None: The agent if found, None otherwise
         """
 
     @abstractmethod
