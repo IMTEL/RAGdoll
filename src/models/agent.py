@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from .role import Role
+from src.models.role import Role
 
 
 class Agent(BaseModel):
