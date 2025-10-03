@@ -39,12 +39,12 @@ import whisper
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from src.command import Command, command_from_json
-from src.config import Config
 from src.llm import create_llm
 from src.pipeline import assemble_prompt
+from src.whisper_model import get_whisper_model
 
 
-_MODEL = Config().whisper_model  # already GPU-aware in existing code
+_MODEL = get_whisper_model()
 _SAMPLE_RATE = 16_000  # Unity should down-sample if needed
 _CHUNK_S = 1.0  # seconds of audio per decode step
 _CHUNK_BYTES = int(_SAMPLE_RATE * _CHUNK_S) * 2  # 16-bit = 2 bytes

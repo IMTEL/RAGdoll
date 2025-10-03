@@ -1,6 +1,5 @@
 import os
 
-import whisper
 from dotenv import load_dotenv
 
 
@@ -25,15 +24,6 @@ class Config:
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "gpt-4o-mini")
         # Load the model (options: tiny, base, small, medium, large)
-        try:
-            self.whisper_model = whisper.load_model("base").to(
-                "cuda"
-            )  # TODO: load model on ping or keep container warm
-        except Exception:
-            try:
-                self.whisper_model = whisper.load_model("base")
-            except Exception:
-                self.whisper_model = None
 
         if self.ENV == "dev":  # TODO: change this to 'dev' when ready
             self.MONGODB_URI = os.getenv(
