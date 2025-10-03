@@ -16,10 +16,8 @@ from src.rag_service.repositories.mongodb_context_repository import (
     MongoDBContextRepository,
 )
 
-
 # Backward compatibility - old names
 get_database = get_context_repository
-get_agent_database = get_agent_repository
 
 __all__ = [
     "AgentRepository",
@@ -28,9 +26,7 @@ __all__ = [
     "MongoDBAgentRepository",
     # MongoDB implementations
     "MongoDBContextRepository",
-    "get_agent_database",  # backward compatibility
     "get_agent_repository",
     # Factory functions
     "get_context_repository",
-    "get_database",  # backward compatibility
 ]
