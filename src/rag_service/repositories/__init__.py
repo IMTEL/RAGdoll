@@ -22,15 +22,15 @@ get_database = get_context_repository
 get_agent_database = get_agent_repository
 
 __all__ = [
+    "AgentRepository",
     # Base classes
     "ContextRepository",
-    "AgentRepository",
-    # Factory functions
-    "get_context_repository",
-    "get_agent_repository",
-    "get_database",  # backward compatibility
-    "get_agent_database",  # backward compatibility
+    "MongoDBAgentRepository",
     # MongoDB implementations
     "MongoDBContextRepository",
-    "MongoDBAgentRepository",
+    "get_agent_database",  # backward compatibility
+    "get_agent_repository",
+    # Factory functions
+    "get_context_repository",
+    "get_database",  # backward compatibility
 ]
