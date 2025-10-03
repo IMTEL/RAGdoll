@@ -15,7 +15,7 @@ class Agent(BaseModel):
     llm_api_key: str
     access_key: list[str]  # str for now, but may need to change later
     retrieval_method: str
-    embedding_model: str  # idk if will be in agent
+    embedding_model: str  # TODO: will this be in agent?
     status: str
     response_format: str
     lastUpdated: str
@@ -34,7 +34,7 @@ class AgentRead(BaseModel):
     llm_api_key: str
     access_key: list[str]  # str for now, but may need to change later
     retrieval_method: str
-    embedding_model: str  # idk if will be in agent
+    embedding_model: str  # TODO: will this be in agent?
     status: str
     response_format: str
     lastUpdated: str
