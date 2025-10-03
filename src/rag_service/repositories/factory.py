@@ -39,11 +39,6 @@ def get_context_repository() -> ContextRepository:
             return MockContextRepository()
         case "mongodb":
             return MongoDBContextRepository()
-        case "local_mock":
-            # Import here to avoid circular dependency
-            from tests.mocks.mock_context_repository import LocalMockContextRepository
-
-            return LocalMockContextRepository()
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "

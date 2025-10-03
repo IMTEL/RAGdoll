@@ -16,6 +16,7 @@ from src.rag_service.repositories.mongodb_context_repository import (
     MongoDBContextRepository,
 )
 
+
 # Backward compatibility - old names
 get_database = get_context_repository
 
