@@ -5,7 +5,6 @@ of real database repositories without requiring actual database connections.
 """
 
 from src.rag_service.context import Context
-from src.rag_service.embeddings import similarity_search
 from src.rag_service.repositories.base import ContextRepository
 
 
@@ -47,7 +46,7 @@ class MockContextRepository(ContextRepository):
             ValueError: If category is None or empty
         """
         if not category:
-            raise ValueError("Category cannot be None or empty")
+            raise ValueError("Category cannot be empty")
 
         results = []
         for document in self.data:
@@ -57,33 +56,6 @@ class MockContextRepository(ContextRepository):
                         text=document["text"],
                         document_name=document["document_name"],
                         category=document["category"],
-                    )
-                )
-        return results
-
-    def get_context_from_npc(self, npc: int) -> list[Context]:
-        """Legacy method for backward compatibility with NPC-based queries.
-
-        Args:
-            npc (int): The NPC identifier
-
-        Returns:
-            list[Context]: Contexts associated with the NPC
-
-        Raises:
-            ValueError: If npc is None
-        """
-        if not npc:
-            raise ValueError("NPC cannot be None")
-
-        results = []
-        for document in self.data:
-            if document.get("npc") == npc:
-                results.append(
-                    Context(
-                        text=document["text"],
-                        document_name=document["document_name"],
-                        category=document.get("category", f"npc_{npc}"),
                     )
                 )
         return results
@@ -148,14 +120,12 @@ class MockContextRepository(ContextRepository):
         Raises:
             ValueError: If any required field is None or empty
         """
-        if not text:
-            raise ValueError("text cannot be None")
         if not document_id:
-            raise ValueError("document_id cannot be None")
+            raise ValueError("document_id cannot be empty")
         if not category:
-            raise ValueError("Category cannot be None or empty")
+            raise ValueError("Category cannot be empty")
         if not embedding:
-            raise ValueError("embedding cannot be None")
+            raise ValueError("embedding cannot be empty")
 
         self.data.append(
             {
