@@ -1,5 +1,7 @@
 """Mock implementation of AgentRepository for testing."""
 
+from copy import deepcopy
+
 from src.models.agent import Agent
 from src.rag_service.repositories.base import AgentRepository
 
@@ -8,33 +10,61 @@ class MockAgentRepository(AgentRepository):
     """In-memory mock implementation of AgentRepository for testing.
 
     Stores agent configurations in memory without requiring database connections.
+    Uses singleton pattern to ensure tests can clear shared state.
     """
 
-    def __init__(self):
-        """Initialize empty agent storage."""
-        self.agents = []
+    _instance = None
+    _initialized = False
 
-    def create_agent(self, agent: Agent) -> dict:
+    def __new__(cls):
+        """Ensure only one instance exists (singleton pattern)."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """Initialize empty agent storage (only once for singleton)."""
+        if not MockAgentRepository._initialized:
+            self.agents: list[Agent] = []
+            MockAgentRepository._initialized = True
+
+    def create_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in memory.
 
         Args:
             agent (Agent): The agent to store
 
         Returns:
-            dict: The stored agent with a generated _id
+            Agent: A deep copy of the stored agent object
         """
-        agent_dict = agent.model_dump()
-        agent_dict["_id"] = str(len(self.agents) + 1)
-        self.agents.append(agent_dict)
-        return agent_dict
+        # Store a deep copy to prevent external mutations
+        self.agents.append(deepcopy(agent))
+        return deepcopy(agent)
 
-    def get_agents(self) -> list[dict]:
+    def get_agents(self) -> list[Agent]:
         """Retrieve all stored agent configurations.
 
         Returns:
-            list[dict]: All agents stored in memory
+            list[Agent]: Deep copies of all agents stored in memory
         """
-        return self.agents
+        return [deepcopy(agent) for agent in self.agents]
+
+    def get_agent_by_id(self, agent_id: str) -> Agent | None:
+        """Retrieve a specific agent by index (using id as index).
+
+        Args:
+            agent_id (str): The agent index as string
+
+        Returns:
+            Agent | None: A deep copy of the agent if found, None otherwise
+        """
+        try:
+            index = int(agent_id)
+            if 0 <= index < len(self.agents):
+                return deepcopy(self.agents[index])
+            return None
+        except (ValueError, IndexError):
+            return None
 
     def is_reachable(self) -> bool:
         """Check if repository is reachable.
