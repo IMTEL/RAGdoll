@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from ..models.agent import Agent, AgentRead
-from ..rag_service.agent_dao import get_agent_database
+from src.models.agent import Agent, AgentRead
+from src.rag_service.agent_dao import get_agent_database
 
 
 router = APIRouter()
