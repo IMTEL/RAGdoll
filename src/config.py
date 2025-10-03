@@ -24,17 +24,31 @@ class Config:
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
-        if self.ENV == "dev":  # TODO: change this to 'dev' when ready
-            self.MONGODB_URI = os.getenv(
-                "MOCK_MONGODB_URI", "mongodb://localhost:27017"
-            )
-            self.MONGODB_COLLECTION = os.getenv(
-                "MOCK_MONGODB_COLLECTION", "test_collection"
-            )
-            self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
-            self.RAG_DATABASE_SYSTEM = os.getenv("MOCK_RAG_DATABASE_SYSTEM", "mongodb")
-        else:
-            self.MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-            self.MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "test_collection")
-            self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
-            self.RAG_DATABASE_SYSTEM = os.getenv("RAG_DATABASE_SYSTEM", "mongodb")
+        self.MONGODB_URI = os.getenv(
+            get_mock_or_real_env("MONGODB_URI"), "mongodb://localhost:27017"
+        )
+        self.MONGODB_COLLECTION = os.getenv(
+            get_mock_or_real_env("MONGODB_COLLECTION"), "test_collection"
+        )
+        self.MONGODB_DATABASE = os.getenv(
+            get_mock_or_real_env("MONGODB_DATABASE"), "test_database"
+        )
+        self.RAG_DATABASE_SYSTEM = os.getenv(
+            get_mock_or_real_env("RAG_DATABASE_SYSTEM"), "mongodb"
+        )
+
+
+def get_mock_or_real_env(env_var: str) -> str:
+    """Determine whether to use mock or real database based on environment variable.
+
+    Args:
+        env_var (str): The environment variable to check.
+
+    Returns:
+        str: "MOCK_" + env_var if in dev mode, else env_var.
+    """
+    env = os.getenv("ENV", "dev")
+    if env == "dev":
+        return "MOCK_" + env_var
+
+    return env_var
