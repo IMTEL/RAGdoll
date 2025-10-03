@@ -18,7 +18,7 @@ class MockContextRepository(ContextRepository):
     _instance = None  # Singleton instance
     _initialized = False  # Track initialization status
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls):
         """Ensure only one instance exists (singleton pattern)."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
