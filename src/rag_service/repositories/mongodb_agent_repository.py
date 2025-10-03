@@ -1,5 +1,6 @@
 """MongoDB implementation for agent storage."""
 
+from bson import ObjectId
 from pymongo import MongoClient
 
 from src.config import Config
@@ -22,30 +23,50 @@ class MongoDBAgentRepository(AgentRepository):
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db["agents"]
 
-    def create_agent(self, agent: Agent) -> dict:
+    def create_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in MongoDB.
 
         Args:
             agent (Agent): The agent to store
 
         Returns:
-            dict: The stored agent including MongoDB's _id
+            Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
-        result = self.collection.insert_one(agent_dict)
-        agent_dict["_id"] = str(result.inserted_id)
-        return agent_dict
+        self.collection.insert_one(agent_dict)
+        return agent
 
-    def get_agents(self) -> list[dict]:
+    def get_agents(self) -> list[Agent]:
         """Retrieve all agent configurations from MongoDB.
 
         Returns:
-            list[dict]: All stored agents with string-converted _id fields
+            list[Agent]: All stored agents as Agent objects
         """
         agents = list(self.collection.find())
-        for agent in agents:
-            agent["_id"] = str(agent["_id"])
-        return agents
+        result = []
+        for agent_doc in agents:
+            # Remove MongoDB's _id before creating Agent object
+            agent_doc.pop("_id", None)
+            result.append(Agent(**agent_doc))
+        return result
+
+    def get_agent_by_id(self, agent_id: str) -> Agent | None:
+        """Retrieve a specific agent by ID.
+
+        Args:
+            agent_id (str): The MongoDB ObjectId as a string
+
+        Returns:
+            Agent | None: The agent if found, None otherwise
+        """
+        try:
+            agent_doc = self.collection.find_one({"_id": ObjectId(agent_id)})
+            if agent_doc:
+                agent_doc.pop("_id", None)
+                return Agent(**agent_doc)
+            return None
+        except Exception:
+            return None
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.
