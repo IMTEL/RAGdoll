@@ -1,0 +1,298 @@
+"""Mock implementation of ContextRepository for testing.
+
+This module provides in-memory mock implementations that mimic the behavior
+of real database repositories without requiring actual database connections.
+"""
+
+from src.rag_service.context import Context
+from src.rag_service.embeddings import similarity_search
+from src.rag_service.repositories.base import ContextRepository
+
+
+class MockContextRepository(ContextRepository):
+    """In-memory singleton implementation of ContextRepository for testing.
+
+    This mock repository stores all data in memory and persists across
+    instances using the singleton pattern.
+    """
+
+    _instance = None  # Singleton instance
+    _initialized = False  # Track initialization status
+
+    def __new__(cls, *args, **kwargs):
+        """Ensure only one instance exists (singleton pattern)."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """Initialize the mock repository (only once)."""
+        # Prevent reinitialization
+        if not MockContextRepository._initialized:
+            self.data = []  # In-memory storage
+            self.similarity_threshold = 0.7
+            self.collection = self  # For compatibility with code expecting .collection
+            MockContextRepository._initialized = True
+
+    def get_context_by_category(self, category: str) -> list[Context]:
+        """Retrieve all contexts matching a category.
+
+        Args:
+            category (str): The category to filter by
+
+        Returns:
+            list[Context]: All contexts with matching category
+
+        Raises:
+            ValueError: If category is None or empty
+        """
+        if not category:
+            raise ValueError("Category cannot be None or empty")
+
+        results = []
+        for document in self.data:
+            if document.get("category") == category:
+                results.append(
+                    Context(
+                        text=document["text"],
+                        document_name=document["document_name"],
+                        category=document["category"],
+                    )
+                )
+        return results
+
+    def get_context_from_npc(self, npc: int) -> list[Context]:
+        """Legacy method for backward compatibility with NPC-based queries.
+
+        Args:
+            npc (int): The NPC identifier
+
+        Returns:
+            list[Context]: Contexts associated with the NPC
+
+        Raises:
+            ValueError: If npc is None
+        """
+        if not npc:
+            raise ValueError("NPC cannot be None")
+
+        results = []
+        for document in self.data:
+            if document.get("npc") == npc:
+                results.append(
+                    Context(
+                        text=document["text"],
+                        document_name=document["document_name"],
+                        category=document.get("category", f"npc_{npc}"),
+                    )
+                )
+        return results
+
+    def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
+        """Retrieve contexts using mock similarity search.
+
+        Note: This mock implementation uses a fixed high similarity score
+        for simplicity in testing.
+
+        Args:
+            document_id (str): Document identifier (not used in mock)
+            embedding (list[float]): Query embedding vector
+
+        Returns:
+            list[Context]: All contexts above similarity threshold
+
+        Raises:
+            ValueError: If embedding is None
+        """
+        if not embedding:
+            raise ValueError("Embedding cannot be None")
+
+        results = []
+
+        for document in self.data:
+            # Mock similarity - returns high value for testing
+            similarity = 0.9
+            if similarity > self.similarity_threshold:
+                doc_name = document.get("document_name", "default_document_name")
+                results.append(
+                    Context(
+                        text=document["text"],
+                        document_name=doc_name,
+                        category=document.get(
+                            "category", f"npc_{document.get('npc', 'Unknown')}"
+                        ),
+                    )
+                )
+        return results
+
+    def post_context(
+        self,
+        text: str,
+        document_name: str,
+        category: str,
+        embedding: list[float],
+        document_id: str,
+    ) -> bool:
+        """Store a new context in memory.
+
+        Args:
+            text (str): The text content
+            document_name (str): Name of the source document
+            category (str): Document category
+            embedding (list[float]): Vector embedding
+            document_id (str): Unique identifier
+
+        Returns:
+            bool: Always True for successful storage
+
+        Raises:
+            ValueError: If any required field is None or empty
+        """
+        if not text:
+            raise ValueError("text cannot be None")
+        if not document_id:
+            raise ValueError("document_id cannot be None")
+        if not category:
+            raise ValueError("Category cannot be None or empty")
+        if not embedding:
+            raise ValueError("embedding cannot be None")
+
+        self.data.append(
+            {
+                "text": text,
+                "document_name": document_name,
+                "category": category,
+                "embedding": embedding,
+                "document_id": document_id,
+            }
+        )
+        return True
+
+    def is_reachable(self) -> bool:
+        """Check if repository is reachable.
+
+        Returns:
+            bool: Always True for in-memory storage
+        """
+        return True
+
+    def clear(self):
+        """Clear all stored data. Useful for test cleanup."""
+        self.data.clear()
+
+
+class LocalMockContextRepository(ContextRepository):
+    """Non-singleton in-memory implementation for isolated testing.
+
+    Unlike MockContextRepository, each instance has its own data storage.
+    """
+
+    def __init__(self):
+        """Initialize a new isolated mock repository."""
+        self.data = []
+        self.similarity_threshold = 0.7
+
+    def get_context_by_category(self, category: str) -> list[Context]:
+        """Retrieve all contexts matching a category.
+
+        Args:
+            category (str): The category to filter by
+
+        Returns:
+            list[Context]: All contexts with matching category
+
+        Raises:
+            ValueError: If category is None or empty
+        """
+        if not category:
+            raise ValueError("Category cannot be None or empty")
+
+        results = []
+        for document in self.data:
+            if document.get("category") == category:
+                results.append(
+                    Context(
+                        text=document["text"],
+                        document_name=document["document_name"],
+                        category=document["category"],
+                    )
+                )
+        return results
+
+    def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
+        """Retrieve contexts using actual similarity calculations.
+
+        Args:
+            document_id (str): Document identifier to filter by
+            embedding (list[float]): Query embedding vector
+
+        Returns:
+            list[Context]: Contexts above similarity threshold
+
+        Raises:
+            ValueError: If embedding is None
+        """
+        if not embedding:
+            raise ValueError("Embedding cannot be None")
+
+        results = []
+
+        for document in self.data:
+            if document["document_id"] == document_id:
+                similarity = similarity_search(embedding, document["embedding"])
+                if similarity > self.similarity_threshold:
+                    results.append(
+                        Context(
+                            text=document["text"],
+                            document_name=document["document_name"],
+                            category=document.get(
+                                "category", f"npc_{document.get('npc', 'Unknown')}"
+                            ),
+                        )
+                    )
+        return results
+
+    def post_context(
+        self,
+        text: str,
+        document_name: str,
+        category: str,
+        embedding: list[float],
+        document_id: str,
+    ) -> bool:
+        """Store a new context in memory.
+
+        Args:
+            text (str): The text content
+            document_name (str): Name of the source document
+            category (str): Document category
+            embedding (list[float]): Vector embedding
+            document_id (str): Unique identifier
+
+        Returns:
+            bool: Always True for successful storage
+
+        Raises:
+            ValueError: If any required field is None or empty
+        """
+        if not text or not document_id or not category or not embedding:
+            raise ValueError("All parameters are required and must be valid")
+
+        self.data.append(
+            {
+                "text": text,
+                "document_name": document_name,
+                "category": category,
+                "embedding": embedding,
+                "document_id": document_id,
+            }
+        )
+        return True
+
+    def is_reachable(self) -> bool:
+        """Check if repository is reachable.
+
+        Returns:
+            bool: Always True for in-memory storage
+        """
+        return True

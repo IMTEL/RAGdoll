@@ -2,7 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.rag_service.dao import MockDatabase, get_database
+from src.rag_service.repositories import get_context_repository
+from tests.mocks import MockContextRepository
 
 
 class FakeCollection:
@@ -24,14 +25,14 @@ class FakeCollection:
 
 @pytest.fixture
 def mock_db():
-    """Fixture that returns a MockDatabase instance.
+    """Fixture that returns a MockContextRepository instance.
 
-    If get_database() returns a non-mock instance, skip the tests.
+    If get_context_repository() returns a non-mock instance, skip the tests.
     """
-    db = get_database()
-    if not isinstance(db, MockDatabase):
+    db = get_context_repository()
+    if not isinstance(db, MockContextRepository):
         pytest.skip(
-            "Skipping tests because get_database() did not return a MockDatabase instance"
+            "Skipping tests because get_context_repository() did not return a MockContextRepository instance"
         )
 
     # Create a new FakeCollection with empty data
@@ -80,8 +81,8 @@ def test_get_context_by_category(similarity_search_mock, mock_db):
         "document_id": "test_id_1",
         "document_name": "TestDoc1",
     }
-    if mock_db.__class__ is not MockDatabase:
-        pytest.skip("Not using MockDatabase; skipping DAO unit tests")
+    if mock_db.__class__ is not MockContextRepository:
+        pytest.skip("Not using MockContextRepository; skipping DAO unit tests")
     mock_db.data.append(document)
 
     # Try to retrieve by category - this should work now with our fake collection

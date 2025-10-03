@@ -4,11 +4,11 @@ from uuid import uuid4
 import pytest
 
 from src.config import Config
-from src.rag_service.dao import get_database
 from src.rag_service.embeddings import (
     create_embeddings_model,
     similarity_search,
 )
+from src.rag_service.repositories import get_context_repository
 
 
 @pytest.mark.integration
@@ -16,7 +16,7 @@ def test_database_is_reachable():
     """Test the is_reachable method to ensure we can connect to MongoDB or use the mock DB."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_database()
+    db = get_context_repository()
     assert db.is_reachable() is True, "Database should be reachable"
 
 
@@ -25,10 +25,10 @@ def test_post_context_and_retrieve_by_npc():
     """Test post_context, then verify that get_context_from_npc can retrieve the inserted document."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_database()
-    test_text = "Test text for NPC"
-    test_document_name = "TestDocNPC!"
-    test_npc = "123"
+    db = get_context_repository()
+    test_text = "Test text for category"
+    test_document_name = "TestDocCategory!"
+    test_category = "test_category_123"
     test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
@@ -37,20 +37,20 @@ def test_post_context_and_retrieve_by_npc():
         text=test_text,
         document_name=test_document_name,
         embedding=test_embedding,
-        npc=test_npc,
+        category=test_category,
         document_id=test_id,
     )
     time.sleep(1)
     assert post_result is True, "post_context should return True"
 
-    # Retrieve the context by NPC
-    retrieved_contexts = db.get_context_from_npc(test_npc)
+    # Retrieve the context by category
+    retrieved_contexts = db.get_context_by_category(test_category)
     assert len(retrieved_contexts) > 0, "Should retrieve at least one context"
     # Check that the first context matches what we posted
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert str(context.npc) == test_npc, "NPC should match"
+    assert context.category == test_category, "Category should match"
 
 
 @pytest.mark.integration
@@ -58,10 +58,10 @@ def test_post_context_and_retrieve_by_embedding():
     """Test post_context, then verify get_context returns the document when the similarity is above the threshold."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_database()
+    db = get_context_repository()
     test_text = "Embedding-based retrieval text"
     test_document_name = "EmbeddingDoc"
-    test_npc = "999"
+    test_category = "test_category"
     test_embedding = [0.1] * 768
     test_id = str(uuid4())
 
@@ -69,7 +69,7 @@ def test_post_context_and_retrieve_by_embedding():
     post_result = db.post_context(
         text=test_text,
         document_name=test_document_name,
-        npc=test_npc,
+        category=test_category,
         embedding=test_embedding,
         document_id=test_id,
     )
@@ -82,23 +82,23 @@ def test_post_context_and_retrieve_by_embedding():
     context = retrieved_contexts[0]
     assert context.text == test_text, "Text should match the posted text"
     assert context.document_name == test_document_name, "Document name should match"
-    assert str(context.npc) == str(test_npc), "NPC should match"
+    assert context.category == test_category, "Category should match"
 
 
 @pytest.mark.integration
 def test_get_context_from_npc_no_results():
-    """Test get_context_from_npc with an NPC that doesn't exist to confirm it raises a ValueError (as per your code)."""
+    """Test get_context_by_category with a category that doesn't exist to confirm it raises a ValueError."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_database()
-    non_existent_npc = "999999"
+    db = get_context_repository()
+    non_existent_category = "NonExistentCategory999999"
 
     with pytest.raises(ValueError) as exc_info:
-        db.get_context_from_npc(non_existent_npc)
+        db.get_context_by_category(non_existent_category)
 
-    assert f"No documents found for NPC: {non_existent_npc}" in str(exc_info.value), (
-        "Should raise ValueError if NPC not found"
-    )
+    assert f"No documents found for category: {non_existent_category}" in str(
+        exc_info.value
+    ), "Should raise ValueError if category not found"
 
 
 @pytest.mark.integration

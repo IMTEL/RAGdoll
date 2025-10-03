@@ -4,8 +4,8 @@ import uuid
 from src.command import Command
 from src.config import Config
 from src.llm import create_llm
-from src.rag_service.dao import get_database
 from src.rag_service.embeddings import create_embeddings_model
+from src.rag_service.repositories import get_context_repository
 
 
 def get_answer_from_user(
@@ -58,7 +58,7 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict[str]:
         str(command.chat_log[-1].content) if command.chat_log else "No user message"
     )
 
-    db = get_database()
+    db = get_context_repository()
     embedding_model = create_embeddings_model()
     embeddings: list[float] = embedding_model.get_embedding(to_embed)
     context = db.get_context(

@@ -1,11 +1,11 @@
 from fastapi import APIRouter
 
 from src.models.agent import Agent, AgentRead
-from src.rag_service.agent_dao import get_agent_database
+from src.rag_service.repositories import get_agent_repository
 
 
 router = APIRouter()
-agent_db = get_agent_database()  # your DAO
+agent_db = get_agent_repository()  # Repository for agent storage
 
 
 # Serialize MongoDB _id → id

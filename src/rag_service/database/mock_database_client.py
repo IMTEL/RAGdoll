@@ -4,8 +4,8 @@ import os
 import sys
 
 from src.context_upload import process_file_and_store
-from src.rag_service.dao import get_database
 from src.rag_service.embeddings import create_embeddings_model
+from src.rag_service.repositories import get_context_repository
 
 
 # Add the project root to Python's path
@@ -30,7 +30,7 @@ def upload_document(file_path, category="General Information"):
 
 def list_documents():
     """List all documents in the mock database."""
-    db = get_database()
+    db = get_context_repository()
     if not hasattr(db, "data"):
         logger.error("Database doesn't have data attribute. Is it a MockDatabase?")
         return []
@@ -54,7 +54,7 @@ def list_documents():
 
 def get_document_by_id(document_id):
     """Get a document by its ID."""
-    db = get_database()
+    db = get_context_repository()
     if not hasattr(db, "data"):
         logger.error("Database doesn't have data attribute. Is it a MockDatabase?")
         return None
@@ -67,7 +67,7 @@ def get_document_by_id(document_id):
 
 def get_document_by_name(document_name):
     """Get documents by name."""
-    db = get_database()
+    db = get_context_repository()
     if not hasattr(db, "data"):
         logger.error("Database doesn't have data attribute. Is it a MockDatabase?")
         return []
