@@ -3,15 +3,14 @@ import sys
 
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from tempfile import NamedTemporaryFile
 
 import src.pipeline as pipeline
 from src.command import Command, command_from_json, command_from_json_transcribe_version
 from src.pipeline import assemble_prompt
-from src.routes import debug, progress, upload, agents
+from src.routes import agents, debug, progress, upload
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
@@ -29,7 +28,9 @@ app = FastAPI(
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[config_api_url],  # Frontend URL(s), static rn for testing, but need env variable later
+    allow_origins=[
+        config_api_url
+    ],  # Frontend URL(s), static rn for testing, but need env variable later
     allow_credentials=True,
     allow_methods=["*"],  # Allow GET, POST, PUT, DELETE, etc.
     allow_headers=["*"],  # Allow all headers

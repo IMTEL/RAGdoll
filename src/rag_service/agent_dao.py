@@ -1,23 +1,23 @@
 from abc import ABC, abstractmethod
+
 from pymongo import MongoClient
 
-from typing import List
 from src.config import Config
 from src.models.agent import Agent
 
+
 config = Config()
 
+
 class AgentDatabase(ABC):
-    """
-    Abstract base class for agent storage backends.
+    """Abstract base class for agent storage backends.
 
     Subclasses must implement methods for creating and retrieving agents.
     """
 
     @abstractmethod
     def create_agent(self, agent: Agent) -> dict:
-        """
-        Store a new agent in the backend.
+        """Store a new agent in the backend.
 
         Args:
             agent (Agent): The agent to store.
@@ -25,21 +25,18 @@ class AgentDatabase(ABC):
         Returns:
             dict: The stored agent as a dictionary (may include backend-specific fields).
         """
-        pass
 
     @abstractmethod
-    def get_agents(self) -> List[dict]:
-        """
-        Retrieve all agents from the backend.
+    def get_agents(self) -> list[dict]:
+        """Retrieve all agents from the backend.
 
         Returns:
             List[dict]: A list of agent dictionaries.
         """
-        pass
+
 
 class MongoAgentDatabase(AgentDatabase):
-    """
-    MongoDB implementation of AgentDatabase.
+    """MongoDB implementation of AgentDatabase.
     Stores agents in the 'agents' collection.
     """
 
@@ -54,16 +51,15 @@ class MongoAgentDatabase(AgentDatabase):
         agent_dict["_id"] = str(result.inserted_id)
         return agent_dict
 
-    def get_agents(self) -> List[dict]:
+    def get_agents(self) -> list[dict]:
         agents = list(self.collection.find())
         for agent in agents:
             agent["_id"] = str(agent["_id"])
         return agents
 
+
 class MockAgentDatabase(AgentDatabase):
-    """
-    In-memory mock implementation of AgentDatabase for testing purposes.
-    """
+    """In-memory mock implementation of AgentDatabase for testing purposes."""
 
     def __init__(self):
         self.agents = []
@@ -74,13 +70,13 @@ class MockAgentDatabase(AgentDatabase):
         self.agents.append(agent_dict)
         return agent_dict
 
-    def get_agents(self) -> List[dict]:
+    def get_agents(self) -> list[dict]:
         return self.agents
+
 
 class LocalMockAgentDatabase(AgentDatabase):
-    """
-    Local in-memory mock implementation of AgentDatabase for isolated testing.
-    """
+    """Local in-memory mock implementation of AgentDatabase for isolated testing."""
+
     def __init__(self):
         self.agents = []
 
@@ -90,17 +86,16 @@ class LocalMockAgentDatabase(AgentDatabase):
         self.agents.append(agent_dict)
         return agent_dict
 
-    def get_agents(self) -> List[dict]:
+    def get_agents(self) -> list[dict]:
         return self.agents
 
+
 def get_agent_database() -> AgentDatabase:
-    """
-    Get the database to use.
+    """Get the database to use.
 
     Returns:
         AgentDatabase: The configured agent storage backend.
     """
-    
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
             return MockAgentDatabase()
