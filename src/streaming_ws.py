@@ -168,11 +168,14 @@ async def chat_stream(websocket: WebSocket):
 
                     # Kick off RAG/LLM in background so that we can stream tokens
                     if pending_command_json is not None:
-                        asyncio.create_task(
+                        task = asyncio.create_task(
                             _handle_llm(
                                 websocket, final_transcript, pending_command_json
                             )
                         )
+                        print(
+                            f"Task created: {task}"
+                        )  # TODO: Handle the task reference appropriately
                         pending_command_json = None
 
                 elif data.get("type") == "command":
