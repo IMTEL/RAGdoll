@@ -18,7 +18,7 @@ class Agent(BaseModel):
     embedding_model: str  # TODO: will this be in agent?
     status: str
     response_format: str
-    lastUpdated: str
+    last_updated: str
 
 
 class AgentRead(BaseModel):
@@ -37,4 +37,4 @@ class AgentRead(BaseModel):
     embedding_model: str  # TODO: will this be in agent?
     status: str
     response_format: str
-    lastUpdated: str
+    last_updated: str

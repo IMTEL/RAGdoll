@@ -37,6 +37,7 @@ class AgentDatabase(ABC):
 
 class MongoAgentDatabase(AgentDatabase):
     """MongoDB implementation of AgentDatabase.
+
     Stores agents in the 'agents' collection.
     """
 
