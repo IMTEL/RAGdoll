@@ -24,7 +24,8 @@ jobs:
       GEMINI_MODEL: ${{secrets.GEMINI_MODEL}}
       MONGODB_URI: ${{secrets.MONGODB_URI}}
       MONGODB_DATABASE: ${{secrets.MONGODB_DATABASE}}
-      MONGODB_COLLECTION: ${{secrets.MONGODB_COLLECTION}}
+      MONGODB_CONTEXT_COLLECTION: ${{secrets.MONGODB_CONTEXT_COLLECTION}}
+      MONGODB_AGENTS_COLLECTION: ${{secrets.MONGODB_AGENTS_COLLECTION}}
       RAG_DATABASE_SYSTEM: ${{secrets.RAG_DATABASE_SYSTEM}}
       MOCK_DATABASE_SYSTEM: ${{secrets.MOCK_DATABASE_SYSTEM}}
       MOCK_MONGODB_URI: ${{secrets.MOCK_MONGODB_URI}}
@@ -46,7 +47,7 @@ jobs:
         echo "GEMINI_MODEL = ${{secrets.GEMINI_MODEL}}" >> .env
         echo "MONGODB_URI = ${{secrets.MONGODB_URI}}" >> .env
         echo "MONGODB_DATABASE = ${{secrets.MONGODB_DATABASE}}" >> .env
-        echo "MONGODB_COLLECTION = ${{secrets.MONGODB_COLLECTION}}" >> .env
+        echo "MONGODB_CONTEXT_COLLECTION = ${{secrets.MONGODB_CONTEXT_COLLECTION}}" >> .env
         echo "RAG_DATABASE_SYSTEM = ${{secrets.RAG_DATABASE_SYSTEM}}" >> .env
         echo "MOCK_DATABASE_SYSTEM = ${{secrets.MOCK_DATABASE_SYSTEM}}" >> .env
         echo "MOCK_MONGODB_URI = ${{secrets.MOCK_MONGODB_URI}}" >> .env

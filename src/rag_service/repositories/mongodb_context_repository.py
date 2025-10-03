@@ -22,7 +22,7 @@ class MongoDBContextRepository(ContextRepository):
         """Initialize MongoDB connection and set similarity threshold."""
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
-        self.collection = self.db[config.MONGODB_COLLECTION]
+        self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
         self.similarity_threshold = 0.5
 
     def get_context_by_category(self, category: str) -> list[Context]:

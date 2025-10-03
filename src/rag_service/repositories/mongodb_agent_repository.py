@@ -21,7 +21,7 @@ class MongoDBAgentRepository(AgentRepository):
         """Initialize MongoDB connection to agents collection."""
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
-        self.collection = self.db["agents"]
+        self.collection = self.db[config.MONGODB_AGENTS_COLLECTION]
 
     def create_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in MongoDB.

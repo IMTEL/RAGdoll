@@ -27,11 +27,16 @@ class Config:
         self.MONGODB_URI = os.getenv(
             get_mock_or_real_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
-        self.MONGODB_COLLECTION = os.getenv(
-            get_mock_or_real_env("MONGODB_COLLECTION"), "test_collection"
-        )
         self.MONGODB_DATABASE = os.getenv(
             get_mock_or_real_env("MONGODB_DATABASE"), "test_database"
+        )
+        self.MONGODB_CONTEXT_COLLECTION = os.getenv(
+            get_mock_or_real_env("MONGODB_CONTEXT_COLLECTION"), "test_collection"
+        )
+        # It is expected now that agents and contexts are in separate collections
+        # in the same database
+        self.MONGODB_AGENTS_COLLECTION = os.getenv(
+            get_mock_or_real_env("MONGODB_AGENTS_COLLECTION"), "agents"
         )
         self.RAG_DATABASE_SYSTEM = os.getenv(
             get_mock_or_real_env("RAG_DATABASE_SYSTEM"), "mongodb"
