@@ -77,8 +77,3 @@ def get_agent_repository() -> AgentRepository:
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
                 "Supported types: 'mongodb', 'mock'"
             )
-
-
-# Backward compatibility aliases
-get_database = get_context_repository
-get_agent_database = get_agent_repository
