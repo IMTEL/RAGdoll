@@ -16,7 +16,7 @@ from src.transcribe import transcribe_audio, transcribe_from_upload
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
-config_api_url = os.getenv("RAGDOLL_CONFIG_API_URL", "http://localhost:3000")
+CONFIG_API_URL = os.getenv("RAGDOLL_CONFIG_API_URL", "http://localhost:3000")
 
 app = FastAPI(
     title="Chat-Service Microservice API",
@@ -29,8 +29,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        config_api_url
-    ],  # Frontend URL(s), static rn for testing, but need env variable later
+        CONFIG_API_URL
+    ],  # TODO: Frontend URL(s), static rn for testing, but need env variable later
     allow_credentials=True,
     allow_methods=["*"],  # Allow GET, POST, PUT, DELETE, etc.
     allow_headers=["*"],  # Allow all headers
