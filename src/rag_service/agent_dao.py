@@ -74,22 +74,6 @@ class MockAgentDatabase(AgentDatabase):
         return self.agents
 
 
-class LocalMockAgentDatabase(AgentDatabase):
-    """Local in-memory mock implementation of AgentDatabase for isolated testing."""
-
-    def __init__(self):
-        self.agents = []
-
-    def create_agent(self, agent: Agent) -> dict:
-        agent_dict = agent.model_dump()
-        agent_dict["_id"] = str(len(self.agents) + 1)
-        self.agents.append(agent_dict)
-        return agent_dict
-
-    def get_agents(self) -> list[dict]:
-        return self.agents
-
-
 def get_agent_database() -> AgentDatabase:
     """Get the database to use.
 
@@ -101,7 +85,5 @@ def get_agent_database() -> AgentDatabase:
             return MockAgentDatabase()
         case "mongodb":
             return MongoAgentDatabase()
-        case "local_mock":
-            return LocalMockAgentDatabase()
         case _:
             raise ValueError("Invalid database type")
