@@ -38,7 +38,7 @@ class MongoDBContextRepository(ContextRepository):
             ValueError: If category is None/empty or no documents found
         """
         if not category:
-            raise ValueError("Category cannot be None or empty")
+            raise ValueError("Category cannot be empty")
 
         # Using MongoDB Atlas Search with an index for category field
         query = {
@@ -73,47 +73,6 @@ class MongoDBContextRepository(ContextRepository):
 
         return results
 
-    def get_context_from_npc(self, npc: int) -> list[Context]:
-        """Legacy method for backward compatibility with NPC-based queries.
-
-        Args:
-            npc (int): The NPC identifier
-
-        Returns:
-            list[Context]: Contexts associated with the NPC
-
-        Raises:
-            ValueError: If npc is None or no documents found
-        """
-        if not npc:
-            raise ValueError("NPC cannot be None")
-
-        # Using MongoDB Atlas Search with an index named "npc"
-        query = {"$search": {"index": "npc", "text": {"path": "npc", "query": npc}}}
-
-        documents = self.collection.aggregate(
-            [
-                query,
-                {"$limit": 50},
-            ]
-        )
-
-        documents = list(documents)
-        if not documents:
-            raise ValueError(f"No documents found for NPC: {npc}")
-
-        results = []
-        for doc in documents:
-            results.append(
-                Context(
-                    text=doc["text"],
-                    document_name=doc["document_name"],
-                    category=doc.get("category", f"npc_{doc['npc']}"),
-                )
-            )
-
-        return results
-
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
         """Retrieve relevant contexts using vector similarity search.
 
@@ -131,7 +90,7 @@ class MongoDBContextRepository(ContextRepository):
             ValueError: If embedding is None or no documents found
         """
         if not embedding:
-            raise ValueError("Embedding cannot be None")
+            raise ValueError("Embedding cannot be empty")
 
         query = {
             "$vectorSearch": {
@@ -193,14 +152,12 @@ class MongoDBContextRepository(ContextRepository):
         Raises:
             ValueError: If any required field is None/empty
         """
-        if not text:
-            raise ValueError("text cannot be None")
+        if not document_id:
+            raise ValueError("document_id cannot be empty")
         if not category:
-            raise ValueError("Category cannot be None or empty")
-        if not document_name:
-            raise ValueError("Document name cannot be None")
+            raise ValueError("Category cannot be empty")
         if not embedding:
-            raise ValueError("Embedding cannot be None")
+            raise ValueError("embedding cannot be empty")
 
         try:
             self.collection.insert_one(
