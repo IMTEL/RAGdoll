@@ -77,7 +77,7 @@ class MockContextRepository(ContextRepository):
             ValueError: If embedding is None
         """
         if not embedding:
-            raise ValueError("Embedding cannot be None")
+            raise ValueError("Embedding cannot be empty")
 
         results = []
 
