@@ -1,6 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
-from src.models.agent import Agent, AgentRead
+from src.models.agent import Agent
 from src.rag_service.repositories import get_agent_repository
 
 
@@ -8,22 +8,48 @@ router = APIRouter()
 agent_db = get_agent_repository()  # Repository for agent storage
 
 
-# Serialize MongoDB _id → id
-def serialize_agent(agent_doc):
-    agent_doc["id"] = str(agent_doc["_id"])
-    agent_doc.pop("_id", None)
-    return agent_doc
-
-
 # Create a new agent
 @router.post("/agents/", response_model=Agent)
 def create_agent(agent: Agent):
-    # Let DAO handle insertion
+    """Create a new agent configuration.
+
+    Args:
+        agent (Agent): The agent configuration to create
+
+    Returns:
+        Agent: The created agent
+    """
     return agent_db.create_agent(agent)
 
 
 # Get all agents
-@router.get("/agents/", response_model=list[AgentRead])
+@router.get("/agents/", response_model=list[Agent])
 def get_agents():
-    agents = agent_db.get_agents()
-    return [serialize_agent(agent) for agent in agents]
+    """Retrieve all agent configurations.
+
+    Returns:
+        list[Agent]: All stored agents
+    """
+    return agent_db.get_agents()
+
+
+# Get a specific agent by ID
+@router.get("/agents/{agent_id}", response_model=Agent)
+def get_agent(agent_id: str):
+    """Retrieve a specific agent by ID.
+
+    Args:
+        agent_id (str): The unique identifier of the agent
+
+    Returns:
+        Agent: The requested agent
+
+    Raises:
+        HTTPException: If agent not found
+    """
+    agent = agent_db.get_agent_by_id(agent_id)
+    if agent is None:
+        raise HTTPException(
+            status_code=404, detail=f"Agent with id {agent_id} not found"
+        )
+    return agent
