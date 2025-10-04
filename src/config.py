@@ -25,14 +25,14 @@ class Config:
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
         self.RAG_DATABASE_SYSTEM = os.getenv(
-            get_mock_or_real_env("RAG_DATABASE_SYSTEM"), "mongodb"
+            prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
         )
 
         self.MONGODB_URI = os.getenv(
-            get_mock_or_real_env("MONGODB_URI"), "mongodb://localhost:27017"
+            prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
         self.MONGODB_DATABASE = os.getenv(
-            get_mock_or_real_env("MONGODB_DATABASE"), "test_database"
+            prod_or_mock_env("MONGODB_DATABASE"), "test_database"
         )
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
@@ -42,8 +42,8 @@ class Config:
         self.MONGODB_AGENTS_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
 
-def get_mock_or_real_env(env_var: str) -> str:
-    """Determine whether to use mock or real database based on environment variable.
+def prod_or_mock_env(env_var: str) -> str:
+    """Determine whether to use production or mock environment variable.
 
     Args:
         env_var (str): The environment variable to check.
