@@ -4,9 +4,6 @@ Tests the FastAPI endpoints for both agent and context repositories
 to ensure proper HTTP request/response handling.
 """
 
-import os
-
-
 import pytest
 from fastapi.testclient import TestClient
 
