@@ -4,6 +4,9 @@ import sys
 import pytest
 
 
+# Force tests to use mock database
+os.environ["RAG_DATABASE_SYSTEM"] = "mock"
+
 # Add the project root directory (assuming tests/ is one level down) to sys.path.
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "src"))
 if project_root not in sys.path:

@@ -20,6 +20,12 @@ def format():
     run("uv run ruff format")
 
 
+@app.command("fl")
+def format_and_lint():
+    format()
+    lint()
+
+
 @app.command()
 def mypy():
     run("uv run mypy .")

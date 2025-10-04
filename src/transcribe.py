@@ -10,11 +10,12 @@ from fastapi import UploadFile
 from flask import Flask
 from scipy.signal import resample_poly  # pip install scipy soundfile
 
-from src.config import Config
+from src.whisper_model import get_whisper_model
 
 
-model = Config().whisper_model
+model = get_whisper_model()
 
+# TODO: switch to FastAPI
 app = Flask(__name__)
 
 TARGET_SR = 16_000  # 16 kHz mono float32
@@ -122,7 +123,5 @@ def transcribe(audio):
     Returns:
         str: Transcribed text.
     """
-    # model = Config.whisper_model
-
     result = model.transcribe(audio)
     return result["text"]

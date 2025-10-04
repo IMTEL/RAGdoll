@@ -3,8 +3,9 @@ import os
 import uuid
 
 from src.config import Config
-from src.rag_service.dao import get_database
+from src.rag_service.context import Context
 from src.rag_service.embeddings import create_embeddings_model
+from src.rag_service.repositories import get_context_repository
 
 
 # Load configuration and initialize the SentenceTransformer model.
@@ -79,29 +80,28 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     document_id = str(uuid.uuid4())
 
     # Get the configured database instance.
-    db = get_database()
+    db = get_context_repository()
 
     try:
         # Changed from NPC parameter to category parameter
-        success = db.post_context(
-            text=text,
-            category=category,  # Using category instead of NPC
-            embedding=embedding,
+        db.insert_context(
             document_id=document_id,
-            document_name=document_name,
+            embedding=embedding,
+            context=Context(
+                text=text,
+                category=category,
+                document_name=document_name,
+            ),
         )
     except Exception as e:
-        logging.error(f"Error posting context to the database: {e}")
+        logging.error(f"Error inserting context into database: {e}")
         return False
 
-    if success:
-        logging.info(
-            f"Successfully stored '{document_name}' into the database with category '{category}'."
-        )
-    else:
-        logging.error(f"Failed to store '{document_name}' into the database.")
+    logging.info(
+        f"Successfully stored '{document_name}' into the database with category '{category}'."
+    )
 
-    return success
+    return True
 
 
 if __name__ == "__main__":

@@ -1,45 +1,29 @@
-#version: '3.8'
-
 services:
   chat-service:
     build: 
       context: .
       dockerfile: Dockerfile
-    container_name: chat-service
+    container_name: ragdoll-backend
     ports:
       - "8000:8000"
     volumes:
       - .:/code
       - logvolume01:/var/log
     depends_on:
-      - redis
-      - mongodb
+      mongodb:
+        condition: service_healthy
     env_file:
     - .env
-
     environment:
-      - PYTHONUNBUFFERED=1
-      - ENV='prod'
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GPT_MODEL=${GPT_MODEL}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL}
+      - ENV='dev'
       - MONGODB_URI=${MONGODB_URI}
       - MONGODB_DATABASE=${MONGODB_DATABASE}
-      - MONGODB_COLLECTION=${MONGODB_COLLECTION}
+      - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
+      - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
       - RAG_DATABASE_SYSTEM=${RAG_DATABASE_SYSTEM}
-      - MOCK_DATABASE_SYSTEM=${MOCK_DATABASE_SYSTEM}
       - MOCK_MONGODB_URI=${MOCK_MONGODB_URI}
       - MOCK_MONGODB_DATABASE=${MOCK_MONGODB_DATABASE}
-      - MOCK_MONGODB_COLLECTION=${MOCK_MONGODB_COLLECTION}
       - MOCK_RAG_DATABASE_SYSTEM=${MOCK_RAG_DATABASE_SYSTEM}
-
-  redis:
-    image: redis
-    container_name: redis
-    restart: always
-    ports:
-      - "6379:6379"
 
   mongodb:
     image: mongo:latest
@@ -51,5 +35,5 @@ services:
 
 volumes:
   logvolume01: {}
-  mongo-data:
+  mongo-data: {}
  
