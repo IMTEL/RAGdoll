@@ -15,7 +15,6 @@ dependencies = [
     "google-auth-httplib2==0.2.0",
     "google-generativeai==0.8.4",
     "googleapis-common-protos==1.69.0",
-    "mongomock==4.3.0",
     "numpy==2.2.4",
     "openai==1.65.3",
     "openai-whisper @ git+https://github.com/openai/whisper.git@517a43ecd132a2089d85f4ebc044728a71d49f6e",
@@ -23,20 +22,22 @@ dependencies = [
     "pymongo==4.11.1",
     "python-dotenv==1.0.1",
     "python-multipart>=0.0.20",
+    "requests>=2.32.3",
     "scipy==1.15.2",
     "soundfile>=0.13.1",
     "torch==2.6.0",
+    "typer>=0.19.2",
     "uvicorn==0.34.0",
 ]
 
 [dependency-groups]
 dev = [
+    "deptry>=0.23.1",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",
     "ruff>=0.13.1",
-    "typer>=0.19.2",
 ]
 
 [tool.pytest.ini_options]
