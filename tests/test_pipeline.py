@@ -1,6 +1,6 @@
 import pytest
 
-from src.command import Command
+from src.domain.chat.command import Command
 from src.domain.chat import Message
 from src.pipeline import assemble_prompt, get_answer_from_user
 from src.rag_service.context import Context

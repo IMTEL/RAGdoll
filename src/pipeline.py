@@ -2,7 +2,7 @@ import re
 import time
 import uuid
 
-from src.command import Command
+from src.domain.chat.command import Command
 from src.config import Config
 from src.domain.agents import Agent
 from src.llm import create_llm
