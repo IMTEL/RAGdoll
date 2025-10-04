@@ -258,7 +258,8 @@ class MockDatabase(Database):
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             # If no instance exists, create one
-            cls._instance = super(MockDatabase, cls).__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls)
+
         return cls._instance
 
     def __init__(self):

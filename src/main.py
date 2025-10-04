@@ -3,22 +3,37 @@ import sys
 
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import src.pipeline as pipeline
 from src.command import Command, command_from_json, command_from_json_transcribe_version
 from src.pipeline import assemble_prompt
-from src.routes import debug, progress, upload
+from src.routes import agents, debug, progress, upload
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
+CONFIG_API_URL = os.getenv("RAGDOLL_CONFIG_API_URL", "http://localhost:3000")
+
 app = FastAPI(
     title="Chat-Service Microservice API",
     description="Generate prompts with context and passing them to LLM.",
     version="1.0.0",
+)
+
+# CORS middleware
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        CONFIG_API_URL
+    ],  # TODO: Frontend URL(s), static rn for testing, but need env variable later
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow GET, POST, PUT, DELETE, etc.
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Mount static files directory
@@ -65,6 +80,8 @@ app.include_router(debug.router)
 # app.include_router(rag.router)
 # Upload router
 app.include_router(upload.router)
+# Agents router
+app.include_router(agents.router)
 
 
 @app.get("/")
