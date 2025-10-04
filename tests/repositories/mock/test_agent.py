@@ -224,9 +224,6 @@ class TestMockAgentRepository:
         assert retrieved_again.name == original_name
 
 
-# TODO: Add MongoDBAgentRepository tests!
-
-
 class TestFactoryIntegration:
     """Test that the factory returns the correct repository based on configuration."""
 
