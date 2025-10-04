@@ -30,8 +30,6 @@ jobs:
       MOCK_DATABASE_SYSTEM: ${{secrets.MOCK_DATABASE_SYSTEM}}
       MOCK_MONGODB_URI: ${{secrets.MOCK_MONGODB_URI}}
       MOCK_MONGODB_DATABASE: ${{secrets.MOCK_MONGODB_DATABASE}}
-      MOCK_MONGODB_CONTEXT_COLLECTION: ${{secrets.MOCK_MONGODB_CONTEXT_COLLECTION}}
-      MOCK_MONGODB_AGENT_COLLECTION: ${{secrets.MOCK_MONGODB_AGENT_COLLECTION}}
       MOCK_RAG_DATABASE_SYSTEM: ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}
     steps:
     - uses: actions/checkout@v4
@@ -53,8 +51,6 @@ jobs:
         echo "MOCK_DATABASE_SYSTEM = ${{secrets.MOCK_DATABASE_SYSTEM}}" >> .env
         echo "MOCK_MONGODB_URI = ${{secrets.MOCK_MONGODB_URI}}" >> .env
         echo "MOCK_MONGODB_DATABASE = ${{secrets.MOCK_MONGODB_DATABASE}}" >> .env
-        echo "MOCK_MONGODB_CONTEXT_COLLECTION = ${{secrets.MOCK_MONGODB_CONTEXT_COLLECTION}}" >> .env
-        echo "MOCK_MONGODB_AGENT_COLLECTION = ${{secrets.MOCK_MONGODB_AGENT_COLLECTION}}" >> .env
         echo "MOCK_RAG_DATABASE_SYSTEM = ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}" >> .env
 
     - name: Build Docker image
