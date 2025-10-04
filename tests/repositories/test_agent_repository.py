@@ -4,13 +4,6 @@ Tests both MongoDBAgentRepository and MockAgentRepository to ensure
 they properly implement the repository pattern.
 """
 
-import os
-
-
-# CRITICAL: Set environment variables BEFORE importing any application code
-os.environ["ENV"] = "dev"
-os.environ["MOCK_RAG_DATABASE_SYSTEM"] = "mock"
-
 import pytest
 
 from src.models.agent import Agent
