@@ -5,7 +5,7 @@ This module defines the interfaces for document context and agent repositories.
 
 from abc import ABC, abstractmethod
 
-from src.models.agent import Agent
+from src.domain.agents import Agent
 
 
 class AgentRepository(ABC):

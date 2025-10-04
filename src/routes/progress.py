@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 
-from src.models.progress import ListProgressData, ProgressData
+from src.domain.training import ListProgressData, ProgressData
 
 # In-memory log to store progress data
 from src.utils.global_logs import progress_log

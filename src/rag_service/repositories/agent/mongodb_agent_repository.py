@@ -4,7 +4,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 
 from src.config import Config
-from src.models.agent import Agent
+from src.domain.agents import Agent
 from src.rag_service.repositories.agent.base import AgentRepository
 
 

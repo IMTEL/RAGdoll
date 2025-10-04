@@ -6,8 +6,7 @@ they properly implement the repository pattern.
 
 import pytest
 
-from src.models.agent import Agent
-from src.models.role import Role
+from src.domain.agents import Agent, Role
 from src.rag_service.repositories import get_agent_repository
 from tests.mocks import MockAgentRepository
 

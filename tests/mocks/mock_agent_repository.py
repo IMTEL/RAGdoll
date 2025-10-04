@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from src.models.agent import Agent
+from src.domain.agents import Agent
 from src.rag_service.repositories import AgentRepository
 
 
