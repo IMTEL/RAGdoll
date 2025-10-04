@@ -1,6 +1,9 @@
 import pytest
 
 from src.rag_service.context import Context
+from src.rag_service.repositories.context.mongodb_context_repository import (
+    MongoDBContextRepository,
+)
 
 
 class TestMongoDBContextRepository:
@@ -9,10 +12,6 @@ class TestMongoDBContextRepository:
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         """Setup and teardown for MongoDB tests."""
-        from src.rag_service.repositories.mongodb_context_repository import (
-            MongoDBContextRepository,
-        )
-
         self.repo = MongoDBContextRepository()
         # Clear the collection before and after each test
         self.repo.collection.delete_many({})
