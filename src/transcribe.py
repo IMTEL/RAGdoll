@@ -15,6 +15,7 @@ from src.whisper_model import get_whisper_model
 
 model = get_whisper_model()
 
+# TODO: switch to FastAPI
 app = Flask(__name__)
 
 TARGET_SR = 16_000  # 16 kHz mono float32
