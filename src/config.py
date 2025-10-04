@@ -24,6 +24,10 @@ class Config:
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
+        self.RAG_DATABASE_SYSTEM = os.getenv(
+            get_mock_or_real_env("RAG_DATABASE_SYSTEM"), "mongodb"
+        )
+
         self.MONGODB_URI = os.getenv(
             get_mock_or_real_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
@@ -36,9 +40,6 @@ class Config:
             "MONGODB_CONTEXT_COLLECTION", "contexts"
         )
         self.MONGODB_AGENTS_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
-        self.RAG_DATABASE_SYSTEM = os.getenv(
-            get_mock_or_real_env("RAG_DATABASE_SYSTEM"), "mongodb"
-        )
 
 
 def get_mock_or_real_env(env_var: str) -> str:
