@@ -1,8 +1,7 @@
 import pytest
 
 from src.command import Command
-from src.models.message import Message
-from src.models.progress import ProgressData
+from src.domain.chat import Message
 from src.pipeline import assemble_prompt, get_answer_from_user
 from src.rag_service.context import Context
 from src.rag_service.repositories import get_context_repository
@@ -53,22 +52,19 @@ def test_pipeline(mock_llm):
     }
     db.insert_context(**test_document)
 
-    progress = [
-        ProgressData(
-            task_name="Daily Exercise Routine",
-            description="Improve health",
-            status="start",
-            user_id="user123",
-            subtask_progress=[],
-        )
-    ]
+    # progress = [
+    #     ProgressData(
+    #         task_name="Daily Exercise Routine",
+    #         description="Improve health",
+    #         status="start",
+    #         user_id="user123",
+    #         subtask_progress=[],
+    #     )
+    # ]
 
     command = Command(
-        scene_name="Laboratory",
-        user_information=["Name: Tobias", "Mode: Beginner"],
-        progress=progress,
-        user_actions=["Not implemented"],
-        npc=100,
+        agent_id="507f1f77bcf86cd799439011",  # Dummy agent ID for testing
+        active_role_ids=["user"],
         chat_log=[Message(role="user", content="Why does salmon swim upstream?")],
     )
 
