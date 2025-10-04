@@ -27,7 +27,6 @@ jobs:
       MONGODB_CONTEXT_COLLECTION: ${{secrets.MONGODB_CONTEXT_COLLECTION}}
       MONGODB_AGENTS_COLLECTION: ${{secrets.MONGODB_AGENTS_COLLECTION}}
       RAG_DATABASE_SYSTEM: ${{secrets.RAG_DATABASE_SYSTEM}}
-      MOCK_DATABASE_SYSTEM: ${{secrets.MOCK_DATABASE_SYSTEM}}
       MOCK_MONGODB_URI: ${{secrets.MOCK_MONGODB_URI}}
       MOCK_MONGODB_DATABASE: ${{secrets.MOCK_MONGODB_DATABASE}}
       MOCK_RAG_DATABASE_SYSTEM: ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}
@@ -48,7 +47,6 @@ jobs:
         echo "MONGODB_DATABASE = ${{secrets.MONGODB_DATABASE}}" >> .env
         echo "MONGODB_CONTEXT_COLLECTION = ${{secrets.MONGODB_CONTEXT_COLLECTION}}" >> .env
         echo "RAG_DATABASE_SYSTEM = ${{secrets.RAG_DATABASE_SYSTEM}}" >> .env
-        echo "MOCK_DATABASE_SYSTEM = ${{secrets.MOCK_DATABASE_SYSTEM}}" >> .env
         echo "MOCK_MONGODB_URI = ${{secrets.MOCK_MONGODB_URI}}" >> .env
         echo "MOCK_MONGODB_DATABASE = ${{secrets.MOCK_MONGODB_DATABASE}}" >> .env
         echo "MOCK_RAG_DATABASE_SYSTEM = ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}" >> .env
