@@ -1,4 +1,11 @@
+# Docker Compose Configuration for RAGdoll Application
+# Purpose: Local development environment orchestration
+# - Runs the FastAPI backend container alongside MongoDB
+# - Use 'docker compose up' for local development with real database
+# - For production deployment, use Dockerfile directly with your orchestration platform
+
 services:
+  # FastAPI Backend Service
   chat-service:
     build: 
       context: .
@@ -7,24 +14,24 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/code
-      - logvolume01:/var/log
+      # Mount source code for hot-reload during development
+      - .:/app
     depends_on:
       mongodb:
         condition: service_healthy
     env_file:
-    - .env
+      - .env
     environment:
-      - ENV='dev'
-      - MONGODB_URI=${MONGODB_URI}
+      # Production environment (not dev/mock)
+      - ENV=prod
+      # MongoDB connection settings
+      - MONGODB_URI=mongodb://mongodb:27017
       - MONGODB_DATABASE=${MONGODB_DATABASE}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
-      - RAG_DATABASE_SYSTEM=${RAG_DATABASE_SYSTEM}
-      - MOCK_MONGODB_URI=${MOCK_MONGODB_URI}
-      - MOCK_MONGODB_DATABASE=${MOCK_MONGODB_DATABASE}
-      - MOCK_RAG_DATABASE_SYSTEM=${MOCK_RAG_DATABASE_SYSTEM}
+      - RAG_DATABASE_SYSTEM=mongodb
 
+  # MongoDB Database Service
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -32,8 +39,13 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
-  logvolume01: {}
   mongo-data: {}
  
