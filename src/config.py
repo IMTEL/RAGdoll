@@ -39,7 +39,7 @@ class Config:
         self.MONGODB_CONTEXT_COLLECTION = os.getenv(
             "MONGODB_CONTEXT_COLLECTION", "contexts"
         )
-        self.MONGODB_AGENTS_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
+        self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
 
 def prod_or_mock_env(env_var: str) -> str:
