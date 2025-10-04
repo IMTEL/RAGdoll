@@ -29,7 +29,6 @@ def get_context_repository() -> ContextRepository:
     Supported types:
         - 'mongodb': Production MongoDB implementation
         - 'mock': Singleton mock for testing
-        - 'local_mock': Non-singleton mock for isolated tests
     """
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
@@ -42,7 +41,7 @@ def get_context_repository() -> ContextRepository:
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
-                "Supported types: 'mongodb', 'mock', 'local_mock'"
+                "Supported types: 'mongodb', 'mock'"
             )
 
 
