@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from src.config import Config
+from src.rag_service.context import Context
 from src.rag_service.embeddings import (
     create_embeddings_model,
     similarity_search,
@@ -33,12 +34,14 @@ def test_post_context_and_retrieve_by_npc():
     test_id = str(uuid4())
 
     # Post the context
-    post_result = db.post_context(
-        text=test_text,
-        document_name=test_document_name,
-        embedding=test_embedding,
-        category=test_category,
+    post_result = db.insert_context(
         document_id=test_id,
+        embedding=test_embedding,
+        context=Context(
+            text=test_text,
+            document_name=test_document_name,
+            category=test_category,
+        ),
     )
     time.sleep(1)
     assert post_result is True, "post_context should return True"
@@ -66,12 +69,14 @@ def test_post_context_and_retrieve_by_embedding():
     test_id = str(uuid4())
 
     # Post the context
-    post_result = db.post_context(
-        text=test_text,
-        document_name=test_document_name,
-        category=test_category,
-        embedding=test_embedding,
+    post_result = db.insert_context(
         document_id=test_id,
+        embedding=test_embedding,
+        context=Context(
+            text=test_text,
+            document_name=test_document_name,
+            category=test_category,
+        ),
     )
     time.sleep(1)
     assert post_result is True, "post_context should return True"

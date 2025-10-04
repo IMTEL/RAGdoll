@@ -97,29 +97,17 @@ class MockContextRepository(ContextRepository):
                 )
         return results
 
-    def post_context(
+    def insert_context(
         self,
-        text: str,
-        document_name: str,
-        category: str,
-        embedding: list[float],
         document_id: str,
-    ) -> bool:
-        """Store a new context in memory.
+        embedding: list[float],
+        context: Context,
+    ) -> Context:
+        """Store a new context in memory."""
+        text = context.text
+        document_name = context.document_name
+        category = context.category
 
-        Args:
-            text (str): The text content
-            document_name (str): Name of the source document
-            category (str): Document category
-            embedding (list[float]): Vector embedding
-            document_id (str): Unique identifier
-
-        Returns:
-            bool: Always True for successful storage
-
-        Raises:
-            ValueError: If any required field is None or empty
-        """
         if not document_id:
             raise ValueError("document_id cannot be empty")
         if not category:
@@ -136,7 +124,7 @@ class MockContextRepository(ContextRepository):
                 "document_id": document_id,
             }
         )
-        return True
+        return context
 
     def is_reachable(self) -> bool:
         """Check if repository is reachable.

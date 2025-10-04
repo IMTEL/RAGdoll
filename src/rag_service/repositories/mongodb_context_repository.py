@@ -129,29 +129,17 @@ class MongoDBContextRepository(ContextRepository):
 
         return results
 
-    def post_context(
+    def insert_context(
         self,
-        text: str,
-        document_name: str,
-        category: str,
-        embedding: list[float],
         document_id: str,
-    ) -> bool:
-        """Store a new context document with metadata and embedding.
+        embedding: list[float],
+        context: Context,
+    ) -> Context:
+        """Store a new context document with metadata and embedding."""
+        text = context.text
+        document_name = context.document_name
+        category = context.category
 
-        Args:
-            text (str): The text content
-            document_name (str): Name of the source document
-            category (str): Document category
-            embedding (list[float]): Vector embedding
-            document_id (str): Unique identifier
-
-        Returns:
-            bool: True if successfully stored
-
-        Raises:
-            ValueError: If any required field is None/empty
-        """
         if not document_id:
             raise ValueError("document_id cannot be empty")
         if not category:
@@ -159,20 +147,16 @@ class MongoDBContextRepository(ContextRepository):
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
-        try:
-            self.collection.insert_one(
-                {
-                    "text": text,
-                    "document_name": document_name,
-                    "category": category,
-                    "embedding": embedding,
-                    "document_id": document_id,
-                }
-            )
-            return True
-        except Exception as e:
-            print("Error in post_context:", e)
-            return False
+        self.collection.insert_one(
+            {
+                "text": text,
+                "document_name": document_name,
+                "category": category,
+                "embedding": embedding,
+                "document_id": document_id,
+            }
+        )
+        return context
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.

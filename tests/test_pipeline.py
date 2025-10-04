@@ -4,6 +4,7 @@ from src.command import Command
 from src.models.message import Message
 from src.models.progress import ProgressData
 from src.pipeline import assemble_prompt, get_answer_from_user
+from src.rag_service.context import Context
 from src.rag_service.repositories import get_context_repository
 from tests.mocks import MockContextRepository
 
@@ -42,13 +43,15 @@ def test_pipeline(mock_llm):
         pytest.skip("Skipping test because MockContextRepository is not being used.")
 
     test_document = {
-        "text": "This is a test document.",
-        "document_name": "test_document",
-        "category": "Miscellaneous",
+        "context": Context(
+            text="This is a test document.",
+            document_name="test_document",
+            category="Miscellaneous",
+        ),
         "embedding": [0.1, 0.2, 0.3],
         "document_id": "test_id",
     }
-    db.post_context(**test_document)
+    db.insert_context(**test_document)
 
     progress = [
         ProgressData(

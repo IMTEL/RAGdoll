@@ -16,16 +16,6 @@ class ContextRepository(ABC):
     with embeddings for semantic search.
     """
 
-    @classmethod
-    def __instancecheck__(cls, instance: any) -> bool:
-        return cls.__subclasscheck__(type(instance))
-
-    @classmethod
-    def __subclasscheck__(cls, subclass: any) -> bool:
-        return (
-            hasattr(subclass, "get_context") and callable(subclass.get_context)
-        ) and (hasattr(subclass, "post_context") and callable(subclass.post_context))
-
     @abstractmethod
     def get_context_by_category(self, category: str) -> list[Context]:
         """Fetch all contexts associated with the given category.
@@ -50,25 +40,21 @@ class ContextRepository(ABC):
         """
 
     @abstractmethod
-    def post_context(
+    def insert_context(
         self,
-        text: str,
-        document_name: str,
-        category: str,
-        embedding: list[float],
         document_id: str,
-    ) -> bool:
+        embedding: list[float],
+        context: Context,
+    ) -> Context:
         """Store a new context document with its embedding.
 
         Args:
-            text (str): The text content to store
-            document_name (str): Name of the source document
-            category (str): Category/classification of the document
-            embedding (list[float]): Vector embedding of the text
             document_id (str): Unique identifier for the document
+            embedding (list[float]): Vector embedding of the text
+            context (Context): The context object to store
 
         Returns:
-            bool: True if successfully stored, False otherwise
+            Context: The stored context object
         """
 
     @abstractmethod
