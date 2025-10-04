@@ -65,6 +65,7 @@ dependencies = [
     "pyparsing==3.2.1",
     "pytest==8.3.4",
     "pytest-cov==6.0.0",
+    "pytest-env>=1.1.5",
     "python-dotenv==1.0.1",
     "python-multipart==0.0.20",
     "pytz==2025.1",
@@ -87,7 +88,7 @@ dependencies = [
     "uritemplate==4.1.1",
     "urllib3==2.3.0",
     "uvicorn==0.34.0",
-    "Werkzeug==3.1.3"
+    "Werkzeug==3.1.3",
 ]
 
 [dependency-groups]
@@ -98,4 +99,31 @@ dev = [
     "pytest-cov>=6.0.0",
     "ruff>=0.13.1",
     "typer>=0.19.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "src"]
+markers = [
+    "integration: marks tests as integration tests that may require external resources",
+    "unit: marks tests as unit tests that should not require external resources",
+    "asyncio: marks tests as asyncio tests",
+]
+addopts = "--cov=src --cov-report=term-missing"
+
+[tool.pytest.env]
+ENV = "dev"
+RAG_DATABASE_SYSTEM = "mock"
+
+[tool.coverage.run]
+omit = [
+    "*/rag_service/context.py",
+    "*/prompt_assemble.py",
+    "*/command.py",
+    "*/rag.py",
+    "*/config.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover", # exclude lines with this comment
 ]
