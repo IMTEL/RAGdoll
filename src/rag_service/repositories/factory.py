@@ -5,11 +5,12 @@ repository implementation based on configuration settings.
 """
 
 from src.config import Config
-from src.rag_service.repositories.base import AgentRepository, ContextRepository
-from src.rag_service.repositories.mongodb_agent_repository import (
+from src.rag_service.repositories.agent.base import AgentRepository
+from src.rag_service.repositories.agent.mongodb_agent_repository import (
     MongoDBAgentRepository,
 )
-from src.rag_service.repositories.mongodb_context_repository import (
+from src.rag_service.repositories.context.base import ContextRepository
+from src.rag_service.repositories.context.mongodb_context_repository import (
     MongoDBContextRepository,
 )
 

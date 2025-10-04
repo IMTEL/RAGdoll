@@ -5,7 +5,7 @@ from pymongo import MongoClient
 
 from src.config import Config
 from src.models.agent import Agent
-from src.rag_service.repositories.base import AgentRepository
+from src.rag_service.repositories.agent.base import AgentRepository
 
 
 config = Config()

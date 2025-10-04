@@ -4,16 +4,17 @@ This package provides abstraction layers for database operations following
 the Repository pattern, separating business logic from data access concerns.
 """
 
-from src.rag_service.repositories.base import AgentRepository, ContextRepository
+from src.rag_service.repositories.agent.base import AgentRepository
+from src.rag_service.repositories.agent.mongodb_agent_repository import (
+    MongoDBAgentRepository,
+)
+from src.rag_service.repositories.context.base import ContextRepository
+from src.rag_service.repositories.context.mongodb_context_repository import (
+    MongoDBContextRepository,
+)
 from src.rag_service.repositories.factory import (
     get_agent_repository,
     get_context_repository,
-)
-from src.rag_service.repositories.mongodb_agent_repository import (
-    MongoDBAgentRepository,
-)
-from src.rag_service.repositories.mongodb_context_repository import (
-    MongoDBContextRepository,
 )
 
 

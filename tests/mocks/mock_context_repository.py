@@ -5,7 +5,7 @@ of real database repositories without requiring actual database connections.
 """
 
 from src.rag_service.context import Context
-from src.rag_service.repositories.base import ContextRepository
+from src.rag_service.repositories import ContextRepository
 
 
 class MockContextRepository(ContextRepository):
