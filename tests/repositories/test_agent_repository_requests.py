@@ -7,10 +7,6 @@ to ensure proper HTTP request/response handling.
 import os
 
 
-# CRITICAL: Set environment variables BEFORE importing any application code
-os.environ["ENV"] = "dev"
-os.environ["MOCK_RAG_DATABASE_SYSTEM"] = "mock"
-
 import pytest
 from fastapi.testclient import TestClient
 
