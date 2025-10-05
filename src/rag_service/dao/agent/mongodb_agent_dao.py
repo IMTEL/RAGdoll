@@ -5,14 +5,14 @@ from pymongo import MongoClient
 
 from src.config import Config
 from src.models.agent import Agent
-from src.rag_service.repositories.agent.base import AgentRepository
+from src.rag_service.dao.agent.base import AgentDAO
 
 
 config = Config()
 
 
-class MongoDBAgentRepository(AgentRepository):
-    """MongoDB-backed repository for AI agent configurations.
+class MongoDBAgentDAO(AgentDAO):
+    """MongoDB-backed DAO for AI agent configurations.
 
     Stores and retrieves agent configurations in the 'agents' collection.
     """

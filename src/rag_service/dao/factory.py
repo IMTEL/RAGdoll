@@ -1,28 +1,28 @@
-"""Factory functions for creating repository instances.
+"""Factory functions for creating DAO instances.
 
 This module provides factory functions that instantiate the appropriate
-repository implementation based on configuration settings.
+DAO implementation based on configuration settings.
 """
 
 from src.config import Config
-from src.rag_service.repositories.agent.base import AgentRepository
-from src.rag_service.repositories.agent.mongodb_agent_repository import (
-    MongoDBAgentRepository,
+from src.rag_service.dao.agent.base import AgentDAO
+from src.rag_service.dao.agent.mongodb_agent_dao import (
+    MongoDBAgentDAO,
 )
-from src.rag_service.repositories.context.base import ContextRepository
-from src.rag_service.repositories.context.mongodb_context_repository import (
-    MongoDBContextRepository,
+from src.rag_service.dao.context.base import ContextDAO
+from src.rag_service.dao.context.mongodb_context_dao import (
+    MongoDBContextDAO,
 )
 
 
 config = Config()
 
 
-def get_context_repository() -> ContextRepository:
-    """Get the configured context repository implementation.
+def get_context_dao() -> ContextDAO:
+    """Get the configured context DAO implementation.
 
     Returns:
-        ContextRepository: The repository instance based on RAG_DATABASE_SYSTEM config
+        ContextDAO: The DAO instance based on RAG_DATABASE_SYSTEM config
 
     Raises:
         ValueError: If an invalid database type is configured
@@ -34,11 +34,11 @@ def get_context_repository() -> ContextRepository:
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
             # Import here to avoid circular dependency
-            from tests.mocks.mock_context_repository import MockContextRepository
+            from tests.mocks.mock_context_dao import MockContextDAO
 
-            return MockContextRepository()
+            return MockContextDAO()
         case "mongodb":
-            return MongoDBContextRepository()
+            return MongoDBContextDAO()
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
@@ -46,11 +46,11 @@ def get_context_repository() -> ContextRepository:
             )
 
 
-def get_agent_repository() -> AgentRepository:
-    """Get the configured agent repository implementation.
+def get_agent_dao() -> AgentDAO:
+    """Get the configured agent DAO implementation.
 
     Returns:
-        AgentRepository: The repository instance based on RAG_DATABASE_SYSTEM config
+        AgentDAO: The DAO instance based on RAG_DATABASE_SYSTEM config
 
     Raises:
         ValueError: If an invalid database type is configured
@@ -62,11 +62,11 @@ def get_agent_repository() -> AgentRepository:
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
             # Import here to avoid circular dependency
-            from tests.mocks.mock_agent_repository import MockAgentRepository
+            from tests.mocks.mock_agent_dao import MockAgentDAO
 
-            return MockAgentRepository()
+            return MockAgentDAO()
         case "mongodb":
-            return MongoDBAgentRepository()
+            return MongoDBAgentDAO()
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "

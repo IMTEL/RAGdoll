@@ -1,30 +1,30 @@
 import pytest
 
 from src.rag_service.context import Context
-from src.rag_service.repositories.context.mongodb_context_repository import (
-    MongoDBContextRepository,
-)
+from tests.mocks import MockContextDAO
 
 
-class TestMongoDBContextRepository:
-    """Tests for MongoDBContextRepository."""
+class TestMockContextDAO:
+    """Tests for MockContextDAO (in-memory implementation)."""
 
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
-        """Setup and teardown for MongoDB tests."""
-        self.repo = MongoDBContextRepository()
-        # Clear the collection before and after each test
-        self.repo.collection.delete_many({})
+        """Clear mock database before and after each test."""
+        repo = MockContextDAO()
+        repo.clear()
         yield
-        self.repo.collection.delete_many({})
+        repo.clear()
 
     def test_is_reachable(self):
         """Test that is_reachable returns True."""
-        assert self.repo.is_reachable() is True
+        repo = MockContextDAO()
+        assert repo.is_reachable() is True
 
     def test_post_context(self):
         """Test posting a new context."""
-        context = self.repo.insert_context(
+        repo = MockContextDAO()
+
+        context = repo.insert_context(
             document_id="doc123",
             embedding=[0.1, 0.2, 0.3],
             context=Context(
@@ -36,15 +36,14 @@ class TestMongoDBContextRepository:
 
         assert context.text == "Sample context text"
         assert context.category == "General Information"
-
-        # Verify it was inserted
-        count = self.repo.collection.count_documents({})
-        assert count == 1
+        assert len(repo.data) == 1
 
     def test_get_context_by_category(self):
         """Test retrieving contexts by category."""
+        repo = MockContextDAO()
+
         # Insert multiple contexts with different categories
-        self.repo.insert_context(
+        repo.insert_context(
             document_id="doc1",
             embedding=[0.1, 0.2, 0.3],
             context=Context(
@@ -53,7 +52,7 @@ class TestMongoDBContextRepository:
                 document_name="DocA",
             ),
         )
-        self.repo.insert_context(
+        repo.insert_context(
             document_id="doc2",
             embedding=[0.4, 0.5, 0.6],
             context=Context(
@@ -64,7 +63,7 @@ class TestMongoDBContextRepository:
         )
 
         # Retrieve contexts by category
-        results = self.repo.get_context_by_category("CategoryA")
+        results = repo.get_context_by_category("CategoryA")
 
         assert len(results) == 1
         assert results[0].category == "CategoryA"
@@ -74,12 +73,9 @@ class TestMongoDBContextRepository:
 
     def test_get_context_by_category_no_results(self):
         """Test retrieving contexts by category when none exist."""
-        results = self.repo.get_context_by_category("NonExistentCategory")
-        assert results == []
-        assert isinstance(results, list)
+        repo = MockContextDAO()
 
-    def test_get_context_by_category_no_documents(self):
-        """Test retrieving contexts when no documents exist in the collection."""
-        results = self.repo.get_context_by_category("AnyCategory")
+        results = repo.get_context_by_category("NonExistentCategory")
+
         assert results == []
         assert isinstance(results, list)

@@ -5,8 +5,8 @@ from src.models.message import Message
 from src.models.progress import ProgressData
 from src.pipeline import assemble_prompt, get_answer_from_user
 from src.rag_service.context import Context
-from src.rag_service.repositories import get_context_repository
-from tests.mocks import MockContextRepository
+from src.rag_service.dao import get_context_dao
+from tests.mocks import MockContextDAO
 
 
 # Dummy language model for testing.
@@ -38,9 +38,9 @@ def mock_llm(monkeypatch):
 
 @pytest.mark.integration
 def test_pipeline(mock_llm):
-    db = get_context_repository()
-    if not isinstance(db, MockContextRepository):
-        pytest.skip("Skipping test because MockContextRepository is not being used.")
+    db = get_context_dao()
+    if not isinstance(db, MockContextDAO):
+        pytest.skip("Skipping test because MockContextDAO is not being used.")
 
     test_document = {
         "context": Context(

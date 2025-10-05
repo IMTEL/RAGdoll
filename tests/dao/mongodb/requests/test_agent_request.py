@@ -8,8 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
-from src.rag_service.repositories import get_agent_repository
-from tests.mocks import MockAgentRepository
+from src.rag_service.dao import get_agent_dao
+from tests.mocks import MockAgentDAO
 
 
 client = TestClient(app)
@@ -18,11 +18,11 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_mock_repositories():
     """Clear all mock repositories before and after each test."""
-    repo = get_agent_repository()
-    if isinstance(repo, MockAgentRepository):
+    repo = get_agent_dao()
+    if isinstance(repo, MockAgentDAO):
         repo.clear()
     yield
-    if isinstance(repo, MockAgentRepository):
+    if isinstance(repo, MockAgentDAO):
         repo.clear()
 
 
@@ -75,7 +75,7 @@ class TestAgentEndpoints:
         assert response.status_code == 422  # Validation error
 
     def test_get_agents_empty(self):
-        """Test getting agents when repository is empty."""
+        """Test getting agents when DAO is empty."""
         response = client.get("/agents/")
 
         assert response.status_code == 200
@@ -165,7 +165,7 @@ class TestAgentEndpoints:
         create_response = client.post("/agents/", json=agent_data)
         assert create_response.status_code == 200
 
-        # Since repository is cleared before each test, this should be the only agent (ID = 0)
+        # Since DAO is cleared before each test, this should be the only agent (ID = 0)
         response = client.get("/agents/0")
 
         assert response.status_code == 200
@@ -241,17 +241,17 @@ class TestAgentEndpoints:
         assert response.status_code == 404
 
 
-class TestRepositoryHealthCheck:
-    """Tests for repository health and connectivity."""
+class TestDAOHealthCheck:
+    """Tests for DAO health and connectivity."""
 
-    def test_agent_repository_reachable(self):
-        """Test that agent repository is reachable."""
-        repo = get_agent_repository()
+    def test_agent_dao_reachable(self):
+        """Test that agent DAO is reachable."""
+        repo = get_agent_dao()
         assert repo.is_reachable() is True
 
-    def test_repositories_initialized(self):
-        """Test that repositories are properly initialized."""
-        agent_repo = get_agent_repository()
+    def test_dao_initialized(self):
+        """Test that DAO is properly initialized."""
+        agent_repo = get_agent_dao()
 
         assert agent_repo is not None
         assert hasattr(agent_repo, "create_agent")
