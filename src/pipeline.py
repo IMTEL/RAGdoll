@@ -2,9 +2,9 @@ import re
 import time
 import uuid
 
-from src.domain.chat.command import Command
 from src.config import Config
 from src.domain.agents import Agent
+from src.domain.chat.command import Command
 from src.llm import create_llm
 from src.rag_service.embeddings import create_embeddings_model
 from src.rag_service.repositories import get_context_repository
@@ -51,9 +51,7 @@ def get_answer_from_user(
     return response
 
 
-def assemble_prompt_with_agent(
-    command: Command, agent: Agent, model: str | None = None
-) -> dict:
+def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     """Assemble a prompt using agent configuration and role-based RAG.
 
     This function:
@@ -64,15 +62,14 @@ def assemble_prompt_with_agent(
     Args:
         command: The user command with conversation history and context
         agent: The agent configuration to use
-        model: Override LLM model (uses agent.llm_model if None)
 
     Returns:
         Dictionary with response, function calls, and metadata
     """
     # Extract the user's question from chat log
-    to_embed: str = (
-        str(command.chat_log[-1].content) if command.chat_log else "No user message"
-    )
+    # to_embed: str = (
+    #     str(command.chat_log[-1].content) if command.chat_log else "No user message"
+    # )
 
     # Get accessible corpus based on active roles
     accessible_corpus = agent.get_corpus_for_roles(command.active_role_ids)
@@ -82,13 +79,16 @@ def assemble_prompt_with_agent(
         accessible_corpus = agent.corpa
 
     # Perform RAG retrieval from accessible corpus
-    db = get_context_repository()
-    embedding_model = create_embeddings_model()
-    embeddings: list[float] = embedding_model.get_embedding(to_embed)
+    # db = get_context_repository()
+    # TODO: Update embedding model based on agent configuration
+    # embedding_model = create_embeddings_model()
+    # embeddings: list[float] = embedding_model.get_embedding(to_embed)
 
     # TODO: Update context retrieval to filter by accessible_corpus
     # For now, retrieve context normally
-    context = db.get_context("hello", embeddings)
+    # TODO: uncomment when embedding model is fixed
+    # context = db.get_context("hello", embeddings)
+    context = None
 
     # Use agent's prompt as base, with variable substitution
     base_prompt = agent.prompt.format(
@@ -112,11 +112,13 @@ def assemble_prompt_with_agent(
             + str(command.chat_log[-1].content if command.chat_log else "")
         )
 
+    # Define llm_provider from agent's configuration
+    llm_provider = agent.llm_provider
+
     print(f"Prompt sent to LLM:\n{prompt}")
 
     # Use agent's configured LLM
-    model_to_use = model or agent.llm_model
-    language_model = create_llm(model_to_use)
+    language_model = create_llm(llm_provider)
     response = language_model.generate(prompt)
 
     # Parse function calls from response
@@ -140,7 +142,7 @@ def assemble_prompt_with_agent(
     return {
         "id": str(uuid.uuid4()),
         "created": int(time.time()),
-        "model": model_to_use,
+        "model": llm_provider,
         "agent_id": command.agent_id,
         "active_roles": command.active_role_ids,
         "choices": [

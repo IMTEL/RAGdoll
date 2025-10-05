@@ -38,6 +38,7 @@ class Agent(BaseModel):
         prompt: System prompt that defines the agent's personality and instructions
         corpa: List of document IDs or knowledge base identifiers
         roles: Role definitions for access control
+        llm_provider: LLM service provider (e.g., "idun", "openai", "google")
         llm_model: Model identifier (e.g., "gpt-4", "gemini-pro")
         llm_temperature: Sampling temperature (0.0-2.0)
         llm_max_tokens: Maximum tokens in response
@@ -55,6 +56,7 @@ class Agent(BaseModel):
     prompt: str
     corpa: list[str] = Field(default_factory=list)
     roles: list[Role] = Field(default_factory=list)
+    llm_provider: str = Field(default="idun")
     llm_model: str
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=1000, gt=0)

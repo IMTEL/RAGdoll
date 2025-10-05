@@ -68,11 +68,11 @@ class MockLLM(LLM):
         return f"Mocked response for prompt: {prompt}"
 
 
-def create_llm(llm: str = "idun") -> LLM:
+def create_llm(llm_provider: str = "idun") -> LLM:
     """Factory for creating LLM instances.
 
     Args:
-        llm (str, optional): Select LLM. Defaults to "openai".
+        llm_provider (str): The LLM service provider ("idun", "openai", "gemini", "mock").
 
     Raises:
         ValueError: If the specified LLM is not supported.
@@ -80,7 +80,13 @@ def create_llm(llm: str = "idun") -> LLM:
     Returns:
         LLM: The specified LLM instance.
     """
-    match llm.lower():
+    """
+    TODO: Add support for:
+    - Choosing model variants (e.g., GPT-4-turbo)
+    - API key management
+    - Advanced parameters (temperature, max tokens, etc.)
+    """
+    match llm_provider.lower():
         case "idun":
             return IdunLLM()
         case "openai":
@@ -90,7 +96,7 @@ def create_llm(llm: str = "idun") -> LLM:
         case "mock":
             return MockLLM()
         case _:
-            raise ValueError(f"LLM {llm} not supported")
+            raise ValueError(f"LLM {llm_provider} not supported")
 
 
 if __name__ == "__main__":
