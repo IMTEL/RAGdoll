@@ -37,8 +37,12 @@ class MockAgentRepository(AgentRepository):
         Returns:
             Agent: A deep copy of the stored agent object
         """
-        # Store a deep copy to prevent external mutations
-        self.agents.append(deepcopy(agent))
+        # Set the agent's id to its index in the list
+        agent.id = str(len(self.agents) - 1)
+
+        # Store the agent
+        self.agents.append(agent)
+
         return deepcopy(agent)
 
     def get_agents(self) -> list[Agent]:

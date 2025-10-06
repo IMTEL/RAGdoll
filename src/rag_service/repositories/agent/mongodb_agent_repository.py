@@ -23,7 +23,7 @@ class MongoDBAgentRepository(AgentRepository):
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_AGENT_COLLECTION]
 
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in MongoDB.
 
         Args:
@@ -33,7 +33,12 @@ class MongoDBAgentRepository(AgentRepository):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
-        self.collection.insert_one(agent_dict)
+
+        result = self.collection.insert_one(agent_dict)
+
+        # Get the inserted document's ID and set it to the agent object
+        agent.id = str(result.inserted_id)
+
         return agent
 
     def get_agents(self) -> list[Agent]:

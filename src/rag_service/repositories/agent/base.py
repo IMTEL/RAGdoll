@@ -15,7 +15,7 @@ class AgentRepository(ABC):
     """
 
     @abstractmethod
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration.
 
         Args:

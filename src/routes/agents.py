@@ -19,7 +19,7 @@ def create_agent(agent: Agent):
     Returns:
         Agent: The created agent
     """
-    return agent_db.create_agent(agent)
+    return agent_db.add_agent(agent)
 
 
 # Get all agents

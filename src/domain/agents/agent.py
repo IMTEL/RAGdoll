@@ -51,6 +51,7 @@ class Agent(BaseModel):
         last_updated: ISO 8601 timestamp of last modification
     """
 
+    id: str | None = Field(default=None, description="Unique identifier for the agent")
     name: str
     description: str
     prompt: str

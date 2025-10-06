@@ -69,7 +69,7 @@ class TestMockAgentRepository:
         """Test creating an agent."""
         repo = MockAgentRepository()
 
-        result = repo.create_agent(sample_agent)
+        result = repo.add_agent(sample_agent)
 
         assert isinstance(result, Agent)
         assert result.name == "Test Bot"
@@ -85,8 +85,8 @@ class TestMockAgentRepository:
         agent2.name = "Second Bot"
         agent2.description = "Another test bot"
 
-        repo.create_agent(agent1)
-        repo.create_agent(agent2)
+        repo.add_agent(agent1)
+        repo.add_agent(agent2)
 
         assert len(repo.agents) == 2
 
@@ -108,8 +108,8 @@ class TestMockAgentRepository:
         agent2 = Agent(**sample_agent.model_dump())
         agent2.name = "Second Bot"
 
-        repo.create_agent(agent1)
-        repo.create_agent(agent2)
+        repo.add_agent(agent1)
+        repo.add_agent(agent2)
 
         # Retrieve all
         agents = repo.get_agents()
@@ -124,10 +124,10 @@ class TestMockAgentRepository:
         repo = MockAgentRepository()
 
         # Create agents
-        repo.create_agent(sample_agent)
+        repo.add_agent(sample_agent)
         agent2 = Agent(**sample_agent.model_dump())
         agent2.name = "Second Bot"
-        repo.create_agent(agent2)
+        repo.add_agent(agent2)
 
         # Retrieve by ID (index 0)
         agent = repo.get_agent_by_id("0")
@@ -147,7 +147,7 @@ class TestMockAgentRepository:
     def test_get_agent_by_invalid_id(self, sample_agent):
         """Test retrieving agent with invalid ID format."""
         repo = MockAgentRepository()
-        repo.create_agent(sample_agent)
+        repo.add_agent(sample_agent)
 
         agent = repo.get_agent_by_id("invalid")
 
@@ -162,7 +162,7 @@ class TestMockAgentRepository:
         assert repo1 is repo2
 
         # Changes in one should reflect in the other
-        repo1.create_agent(sample_agent)
+        repo1.add_agent(sample_agent)
         agents_from_repo2 = repo2.get_agents()
 
         assert len(agents_from_repo2) == 1
@@ -173,10 +173,10 @@ class TestMockAgentRepository:
         repo = MockAgentRepository()
 
         # Add agents
-        repo.create_agent(sample_agent)
+        repo.add_agent(sample_agent)
         agent2 = Agent(**sample_agent.model_dump())
         agent2.name = "Second Bot"
-        repo.create_agent(agent2)
+        repo.add_agent(agent2)
 
         assert len(repo.agents) == 2
 
@@ -190,7 +190,7 @@ class TestMockAgentRepository:
         """Test that agent data is preserved correctly."""
         repo = MockAgentRepository()
 
-        repo.create_agent(sample_agent)
+        repo.add_agent(sample_agent)
         retrieved = repo.get_agents()[0]
 
         # Verify all fields are preserved
@@ -209,7 +209,7 @@ class TestMockAgentRepository:
         """Test that modifying retrieved agent doesn't affect stored data."""
         repo = MockAgentRepository()
 
-        repo.create_agent(sample_agent)
+        repo.add_agent(sample_agent)
         retrieved = repo.get_agents()[0]
 
         # Modify retrieved agent
