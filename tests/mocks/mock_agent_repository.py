@@ -28,7 +28,7 @@ class MockAgentRepository(AgentRepository):
             self.agents: list[Agent] = []
             MockAgentRepository._initialized = True
 
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in memory.
 
         Args:
