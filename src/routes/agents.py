@@ -1,6 +1,11 @@
 from datetime import datetime
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from typing import List
+
+from src.auth_service.access_service import AccessServiceConfig, access_service_factory
+from src.config import Config
+from src.models.accesstoken import AccessKey
 
 from src.auth_service.access_service import AccessServiceConfig, access_service_factory
 from src.config import Config
@@ -10,8 +15,10 @@ from ..rag_service.agent_dao import get_agent_database
 from bson import ObjectId
 
 config = Config()
+config = Config()
 router = APIRouter()
 agent_db = get_agent_database()  # your DAO
+access_service = access_service_factory(AccessServiceConfig(config.ACCESS_SERVICE,agent_db))
 access_service = access_service_factory(AccessServiceConfig(config.ACCESS_SERVICE,agent_db))
 
 
