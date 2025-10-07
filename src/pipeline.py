@@ -3,11 +3,11 @@ import time
 import uuid
 
 from src.config import Config
-from src.domain.agents import Agent
-from src.domain.chat.command import Command
 from src.llm import create_llm
-from src.rag_service.embeddings import create_embeddings_model
+from src.models.agents import Agent
+from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
+from src.rag_service.embeddings import create_embeddings_model
 
 
 def get_answer_from_user(

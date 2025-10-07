@@ -4,8 +4,8 @@ from pymongo import MongoClient
 
 from src.config import Config
 from src.rag_service.context import Context
-from src.rag_service.embeddings import similarity_search
 from src.rag_service.dao.context.base import ContextDAO
+from src.rag_service.embeddings import similarity_search
 
 
 config = Config()

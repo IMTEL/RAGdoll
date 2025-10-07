@@ -5,11 +5,11 @@ import pytest
 
 from src.config import Config
 from src.rag_service.context import Context
+from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import (
     create_embeddings_model,
     similarity_search,
 )
-from src.rag_service.dao import get_context_dao
 
 
 @pytest.mark.integration

@@ -7,7 +7,7 @@ they properly implement the DAO pattern.
 import pytest
 
 from src.models.agent import Agent
-from src.models.role import Role
+from src.models.agents import Role
 from src.rag_service.dao import get_agent_dao
 from tests.mocks import MockAgentDAO
 

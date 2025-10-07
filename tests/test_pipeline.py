@@ -1,7 +1,7 @@
 import pytest
 
-from src.domain.chat import Message
-from src.domain.chat.command import Command
+from src.models.chat import Message
+from src.models.chat.command import Command
 from src.pipeline import assemble_prompt, get_answer_from_user
 from src.rag_service.context import Context
 from src.rag_service.dao import get_context_dao

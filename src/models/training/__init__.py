@@ -1,6 +1,6 @@
 """Training domain module exports."""
 
-from src.domain.training.progress import (
+from src.models.training.progress import (
     ListProgressData,
     ProgressData,
     StepProgressDTO,

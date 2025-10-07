@@ -38,8 +38,8 @@ import numpy as np
 import whisper
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from src.domain.chat.command import Command, command_from_json
 from src.llm import create_llm
+from src.models.chat.command import Command, command_from_json
 from src.pipeline import assemble_prompt
 from src.whisper_model import get_whisper_model
 

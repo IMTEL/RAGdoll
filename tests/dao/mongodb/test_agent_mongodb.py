@@ -1,4 +1,4 @@
-"""Comprehensive tests for MongoDBAgentRepository.
+"""Comprehensive tests for MongoDBAgentDAO implementation.
 
 These tests verify the MongoDB implementation of the AgentRepository
 interface. They require a running MongoDB instance (can be mock or real).
@@ -8,16 +8,14 @@ import pytest
 from bson import ObjectId
 
 from src.config import Config
-from src.domain.agents import Agent, Role
-from src.rag_service.repositories.agent.mongodb_agent_repository import (
-    MongoDBAgentRepository,
-)
+from src.models.agents import Agent, Role
+from src.rag_service.dao import MongoDBAgentDAO
 
 
 @pytest.fixture
 def mongodb_repo():
     """Create a MongoDB repository instance."""
-    return MongoDBAgentRepository()
+    return MongoDBAgentDAO()
 
 
 @pytest.fixture

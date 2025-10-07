@@ -9,7 +9,7 @@ This module handles the main chat functionality including:
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
-from src.domain.chat.command import (
+from src.models.chat.command import (
     command_from_json,
     command_from_json_transcribe_version,
 )

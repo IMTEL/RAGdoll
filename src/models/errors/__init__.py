@@ -1,6 +1,6 @@
 """Error domain module exports."""
 
-from src.domain.errors.failure import FailureData
+from src.models.errors.failure import FailureData
 
 
 __all__ = ["FailureData"]

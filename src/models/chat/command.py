@@ -6,8 +6,8 @@ and the prompts sent to language models.
 
 from pydantic import BaseModel, Field, ValidationError
 
-from src.domain.chat import Message
-from src.domain.training import ProgressData
+from src.models.chat import Message
+from src.models.training import ProgressData
 
 
 class Command(BaseModel):

@@ -4,7 +4,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 
 from src.config import Config
-from src.models.agent import Agent
+from src.models.agents.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
 
 
@@ -23,7 +23,7 @@ class MongoDBAgentDAO(AgentDAO):
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_AGENT_COLLECTION]
 
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in MongoDB.
 
         Args:
@@ -67,6 +67,10 @@ class MongoDBAgentDAO(AgentDAO):
             return None
         except Exception:
             return None
+
+    def update_agent(self, agent: Agent) -> Agent:
+        # TODO: implement update_agent method
+        return agent
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.
