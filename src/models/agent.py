@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.models.role import Role
 
@@ -6,6 +6,7 @@ from src.models.role import Role
 class Agent(BaseModel):
     """Agent model for creating/updating agents (without ID)."""
 
+    id: str | None = Field(default=None, description="Unique identifier for the agent")
     name: str
     description: str
     prompt: str
