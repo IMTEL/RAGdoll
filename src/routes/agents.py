@@ -56,7 +56,7 @@ def get_agent(agent_id: str):
     return agent
 
 
-@router.get("/agents/models")
+@router.get("/get_models")
 def fetch_models():
     """Returns all usable models."""
     return get_models()

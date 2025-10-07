@@ -99,17 +99,15 @@ class MockLLM(LLM):
 
 
 def get_models():
-    models = GeminiLLM.get_models() + IdunLLM.get_models()
+    all_models = OpenAILLM.get_models() + GeminiLLM.get_models()
 
-    # Openai provides no Api for getting only language models
-    # Gemini may also provide
-    # We filter for gpt models which does not contain the selected keywords
-    EXCLUDE_KEYWORDS = Config().MODEL_FILTER
+    MODEL_FILTER = ["embedding", "moderation", "tts", "whisper", "preview", "audio"]
+
     language_models = [
-        model_name
-        for model_name in models
-        if model_name.startswith("gpt-")
-        and not any(kw in model_name for kw in EXCLUDE_KEYWORDS)
+        model
+        for model in all_models
+        if model.name.startswith(("gpt-", "models/gemini-"))
+        and not any(kw in model.name for kw in MODEL_FILTER)
     ]
 
     return language_models + IdunLLM.get_models()
