@@ -1,13 +1,13 @@
-"""Mock implementation of AgentRepository for testing."""
+"""Mock implementation of AgentDAO for testing."""
 
 from copy import deepcopy
 
 from src.models.agent import Agent
-from src.rag_service.repositories import AgentRepository
+from src.rag_service.dao import AgentDAO
 
 
-class MockAgentRepository(AgentRepository):
-    """In-memory mock implementation of AgentRepository for testing.
+class MockAgentDAO(AgentDAO):
+    """In-memory mock implementation of AgentDAO for testing.
 
     Stores agent configurations in memory without requiring database connections.
     Uses singleton pattern to ensure tests can clear shared state.
@@ -24,9 +24,9 @@ class MockAgentRepository(AgentRepository):
 
     def __init__(self):
         """Initialize empty agent storage (only once for singleton)."""
-        if not MockAgentRepository._initialized:
+        if not MockAgentDAO._initialized:
             self.agents: list[Agent] = []
-            MockAgentRepository._initialized = True
+            MockAgentDAO._initialized = True
 
     def create_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in memory.
@@ -88,7 +88,7 @@ class MockAgentRepository(AgentRepository):
             raise ValueError("Agent ID must be an integer string.") from e
 
     def is_reachable(self) -> bool:
-        """Check if repository is reachable.
+        """Check if DAO is reachable.
 
         Returns:
             bool: Always True for in-memory storage

@@ -9,7 +9,7 @@ from src.rag_service.embeddings import (
     create_embeddings_model,
     similarity_search,
 )
-from src.rag_service.repositories import get_context_repository
+from src.rag_service.dao import get_context_dao
 
 
 @pytest.mark.integration
@@ -17,7 +17,7 @@ def test_database_is_reachable():
     """Test the is_reachable method to ensure we can connect to MongoDB or use the mock DB."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_context_repository()
+    db = get_context_dao()
     assert db.is_reachable() is True, "Database should be reachable"
 
 
@@ -26,7 +26,7 @@ def test_post_context_and_retrieve_by_npc():
     """Test post_context, then verify that get_context_from_npc can retrieve the inserted document."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_context_repository()
+    db = get_context_dao()
     test_text = "Test text for category"
     test_document_name = "TestDocCategory!"
     test_category = "test_category_123"
@@ -61,7 +61,7 @@ def test_post_context_and_retrieve_by_embedding():
     """Test post_context, then verify get_context returns the document when the similarity is above the threshold."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_context_repository()
+    db = get_context_dao()
     test_text = "Embedding-based retrieval text"
     test_document_name = "EmbeddingDoc"
     test_category = "test_category"
@@ -95,7 +95,7 @@ def test_get_context_from_npc_no_results():
     """Test get_context_by_category with a category that doesn't exist to confirm it raises a ValueError."""
     if Config().ENV != "dev":
         pytest.skip("Skipping test that requires MongoDB for mock DB")
-    db = get_context_repository()
+    db = get_context_dao()
     non_existent_category = "NonExistentCategory999999"
 
     with pytest.raises(ValueError) as exc_info:

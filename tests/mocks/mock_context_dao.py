@@ -1,17 +1,17 @@
-"""Mock implementation of ContextRepository for testing.
+"""Mock implementation of ContextDAO for testing.
 
 This module provides in-memory mock implementations that mimic the behavior
 of real database repositories without requiring actual database connections.
 """
 
 from src.rag_service.context import Context
-from src.rag_service.repositories import ContextRepository
+from src.rag_service.dao import ContextDAO
 
 
-class MockContextRepository(ContextRepository):
-    """In-memory singleton implementation of ContextRepository for testing.
+class MockContextDAO(ContextDAO):
+    """In-memory singleton implementation of ContextDAO for testing.
 
-    This mock repository stores all data in memory and persists across
+    This mock DAO stores all data in memory and persists across
     instances using the singleton pattern.
     """
 
@@ -25,13 +25,13 @@ class MockContextRepository(ContextRepository):
         return cls._instance
 
     def __init__(self):
-        """Initialize the mock repository (only once)."""
+        """Initialize the mock DAO (only once)."""
         # Prevent reinitialization
-        if not MockContextRepository._initialized:
+        if not MockContextDAO._initialized:
             self.data = []  # In-memory storage
             self.similarity_threshold = 0.7
             self.collection = self  # For compatibility with code expecting .collection
-            MockContextRepository._initialized = True
+            MockContextDAO._initialized = True
 
     def get_context_by_category(self, category: str) -> list[Context]:
         """Retrieve all contexts matching a category.
@@ -127,7 +127,7 @@ class MockContextRepository(ContextRepository):
         return context
 
     def is_reachable(self) -> bool:
-        """Check if repository is reachable.
+        """Check if DAO is reachable.
 
         Returns:
             bool: Always True for in-memory storage

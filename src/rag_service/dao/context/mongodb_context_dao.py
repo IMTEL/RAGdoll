@@ -5,14 +5,14 @@ from pymongo import MongoClient
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.embeddings import similarity_search
-from src.rag_service.repositories.context.base import ContextRepository
+from src.rag_service.dao.context.base import ContextDAO
 
 
 config = Config()
 
 
-class MongoDBContextRepository(ContextRepository):
-    """MongoDB-backed repository for document contexts with vector search.
+class MongoDBContextDAO(ContextDAO):
+    """MongoDB-backed data access object (DAO) for document contexts with vector search.
 
     Uses MongoDB Atlas Vector Search for semantic similarity queries
     and text search for category-based retrieval.
