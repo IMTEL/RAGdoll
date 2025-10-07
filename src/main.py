@@ -1,6 +1,7 @@
 import os
 import sys
 
+from src import pipeline
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ import sys
 import os
 from tempfile import NamedTemporaryFile
 
-from src.command import Command, command_from_json, command_from_json_transcribeVersion
+from src.command import Command, command_from_json, command_from_json_transcribe_version, command_from_json_transcribeVersion
 from src.pipeline import assemble_prompt
 from src.routes import agents, debug, progress, upload
 from src.transcribe import transcribe_audio, transcribe_from_upload

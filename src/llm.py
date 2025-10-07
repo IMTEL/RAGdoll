@@ -8,9 +8,6 @@ from openai import OpenAI
 from src.config import Config
 
 
-from src.config import Config 
-
-
 @dataclass
 class Model:
     provider: str
@@ -18,19 +15,15 @@ class Model:
     GDPR_compliant: bool | None
     description: str | None
 
- 
+
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
-        """
-        Send the prompt to the LLM and return the generated response.
-        """
-        pass
+        """Send the prompt to the LLM and return the generated response."""
+
     @staticmethod
     def get_models() -> list[str]:
-        """
-        Returns the models which can be used by the provider
-        """
-        pass
+        """Returns the models which can be used by the provider."""
+
 
 class IdunLLM(LLM):
     def __init__(self):
@@ -45,14 +38,15 @@ class IdunLLM(LLM):
         }
         data = {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
         response = requests.post(self.url, headers=headers, json=data)
-        return response.json()['choices'][0]['message']['content'].strip()
-    
+        return response.json()["choices"][0]["message"]["content"].strip()
+
     @staticmethod
     def get_models() -> list[str]:
-        models = ["Qwen3-Coder-30B-A3B-Instruct","openai/gpt-oss-120b"]
-        return [Model("idun",name,True,None) for name in models]
+        models = Config().IDUN_MODELS
+        return [Model("idun", name, True, None) for name in models]
 
-class OpenAI_LLM(LLM):
+
+class OpenAILLM(LLM):
     def __init__(self):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
@@ -70,23 +64,15 @@ class OpenAI_LLM(LLM):
             model=self.model, messages=messages
         )
         return response.choices[0].message.content.strip()
-    
-    
+
     @staticmethod
     def get_models() -> list[str]:
         client = OpenAI()
         models = client.models.list()
-        # Openai provides no Api for getting only language models
-        # We filter for gpt models which does not contain the selected keywords
-        EXCLUDE_KEYWORDS = ["embedding", "moderation", "tts", "whisper", "preview","audio"]
-        language_models = [
-            item for item in models.data
-            if item.id.startswith("gpt-")
-            and not any(kw in item.id for kw in EXCLUDE_KEYWORDS)
-        ]
-        return [Model("openai",item.id,False,None) for item in language_models]
+        return [Model("openai", item.id, False, None) for item in models.data]
 
-class Gemini_LLM(LLM):
+
+class GeminiLLM(LLM):
     def __init__(self):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
@@ -104,17 +90,31 @@ class Gemini_LLM(LLM):
     def get_models() -> list[str]:
         models = genai.list_models()
         print(models)
-        return [Model("gemini",item.name,False,None) for item in models]
+        return [Model("gemini", item.name, False, None) for item in models]
 
 
-    
 class MockLLM(LLM):
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
 
+
 def get_models():
-    return (OpenAI_LLM.get_models() + Gemini_LLM.get_models() + Idun_LLM.get_models())
-    
+    models = GeminiLLM.get_models() + IdunLLM.get_models()
+
+    # Openai provides no Api for getting only language models
+    # Gemini may also provide
+    # We filter for gpt models which does not contain the selected keywords
+    EXCLUDE_KEYWORDS = Config().MODEL_FILTER
+    language_models = [
+        model_name
+        for model_name in models
+        if model_name.startswith("gpt-")
+        and not any(kw in model_name for kw in EXCLUDE_KEYWORDS)
+    ]
+
+    return language_models + IdunLLM.get_models()
+
+
 def create_llm(llm: str = "idun") -> LLM:
     """Factory for creating LLM instances.
 
