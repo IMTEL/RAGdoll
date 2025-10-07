@@ -1,4 +1,4 @@
-"""Abstract base classes for repository pattern.
+"""Abstract base classes for DAO pattern.
 
 This module defines the interfaces for document context and agent repositories.
 """
@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 from src.rag_service.context import Context
 
 
-class ContextRepository(ABC):
+class ContextDAO(ABC):
     """Abstract base class for document context storage.
 
-    This repository handles storage and retrieval of document contexts
+    This DAO handles storage and retrieval of document contexts
     with embeddings for semantic search.
     """
 
@@ -58,7 +58,7 @@ class ContextRepository(ABC):
 
     @abstractmethod
     def is_reachable(self) -> bool:
-        """Check if the repository backend is accessible.
+        """Check if the DAO backend is accessible.
 
         Returns:
             bool: True if connection is healthy, False otherwise

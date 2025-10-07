@@ -5,7 +5,7 @@ import uuid
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.embeddings import create_embeddings_model
-from src.rag_service.repositories import get_context_repository
+from src.rag_service.dao import get_context_dao
 
 
 # Load configuration and initialize the SentenceTransformer model.
@@ -80,7 +80,7 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     document_id = str(uuid.uuid4())
 
     # Get the configured database instance.
-    db = get_context_repository()
+    db = get_context_dao()
 
     try:
         # Changed from NPC parameter to category parameter

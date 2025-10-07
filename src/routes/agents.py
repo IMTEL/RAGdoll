@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException
 
-from src.domain.agents import Agent
-from src.rag_service.repositories import get_agent_repository
+from src.models.agent import Agent
+from src.rag_service.dao import get_agent_dao
 
 
 router = APIRouter()
-agent_db = get_agent_repository()  # Repository for agent storage
+agent_db = get_agent_dao()  # DAO for agent storage
 
 
 # Create a new agent

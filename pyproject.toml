@@ -51,7 +51,7 @@ addopts = "--cov=src --cov-report=term-missing"
 
 [tool.pytest.env]
 ENV = "dev"
-RAG_DATABASE_SYSTEM = "mock"
+MOCK_RAG_DATABASE_SYSTEM = "mock"
 
 [tool.coverage.run]
 omit = [

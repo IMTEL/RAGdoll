@@ -1,24 +1,25 @@
-"""Comprehensive tests for AgentRepository implementations.
+"""Comprehensive tests for AgentDAO implementations.
 
-Tests both MongoDBAgentRepository and MockAgentRepository to ensure
-they properly implement the repository pattern.
+Tests both MongoDBAgentDAO and MockAgentDAO to ensure
+they properly implement the DAO pattern.
 """
 
 import pytest
 
-from src.domain.agents import Agent, Role
-from src.rag_service.repositories import get_agent_repository
-from tests.mocks import MockAgentRepository
+from src.models.agent import Agent
+from src.models.role import Role
+from src.rag_service.dao import get_agent_dao
+from tests.mocks import MockAgentDAO
 
 
 @pytest.fixture(autouse=True)
-def clear_mock_agent_repository():
-    """Clear mock repository before and after each test."""
-    repo = get_agent_repository()
-    if isinstance(repo, MockAgentRepository):
+def clear_mock_agent_dao():
+    """Clear mock DAO before and after each test."""
+    repo = get_agent_dao()
+    if isinstance(repo, MockAgentDAO):
         repo.clear()
     yield
-    if isinstance(repo, MockAgentRepository):
+    if isinstance(repo, MockAgentDAO):
         repo.clear()
 
 
@@ -49,25 +50,25 @@ def sample_agent():
     )
 
 
-class TestMockAgentRepository:
-    """Tests for MockAgentRepository (in-memory implementation)."""
+class TestMockAgentDAO:
+    """Tests for MockAgentDAO (in-memory implementation)."""
 
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         """Clear mock database before and after each test."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
         repo.clear()
         yield
         repo.clear()
 
     def test_is_reachable(self):
-        """Test that repository is always reachable."""
-        repo = MockAgentRepository()
+        """Test that DAO is always reachable."""
+        repo = MockAgentDAO()
         assert repo.is_reachable() is True
 
     def test_create_agent(self, sample_agent):
         """Test creating an agent."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         result = repo.add_agent(sample_agent)
 
@@ -78,7 +79,7 @@ class TestMockAgentRepository:
 
     def test_create_multiple_agents(self, sample_agent):
         """Test creating multiple agents."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         agent1 = sample_agent
         agent2 = Agent(**sample_agent.model_dump())
@@ -91,8 +92,8 @@ class TestMockAgentRepository:
         assert len(repo.agents) == 2
 
     def test_get_agents_empty(self):
-        """Test getting agents when repository is empty."""
-        repo = MockAgentRepository()
+        """Test getting agents when DAO is empty."""
+        repo = MockAgentDAO()
 
         agents = repo.get_agents()
 
@@ -101,7 +102,7 @@ class TestMockAgentRepository:
 
     def test_get_agents(self, sample_agent):
         """Test retrieving all agents."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         # Create multiple agents
         agent1 = sample_agent
@@ -121,7 +122,7 @@ class TestMockAgentRepository:
 
     def test_get_agent_by_id(self, sample_agent):
         """Test retrieving a specific agent by ID."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         # Create agents
         repo.add_agent(sample_agent)
@@ -138,7 +139,7 @@ class TestMockAgentRepository:
 
     def test_get_agent_by_id_not_found(self):
         """Test retrieving non-existent agent returns None."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         agent = repo.get_agent_by_id("999")
 
@@ -146,17 +147,17 @@ class TestMockAgentRepository:
 
     def test_get_agent_by_invalid_id(self, sample_agent):
         """Test retrieving agent with invalid ID format."""
-        repo = MockAgentRepository()
-        repo.add_agent(sample_agent)
+        repo = MockAgentDAO()
+        repo.create_agent(sample_agent)
 
         agent = repo.get_agent_by_id("invalid")
 
         assert agent is None
 
-    def test_repository_singleton(self, sample_agent):
-        """Test that repository uses singleton pattern."""
-        repo1 = MockAgentRepository()
-        repo2 = MockAgentRepository()
+    def test_dao_singleton(self, sample_agent):
+        """Test that DAO uses singleton pattern."""
+        repo1 = MockAgentDAO()
+        repo2 = MockAgentDAO()
 
         # They should be the same instance (singleton)
         assert repo1 is repo2
@@ -170,7 +171,7 @@ class TestMockAgentRepository:
 
     def test_clear_functionality(self, sample_agent):
         """Test that clear() removes all agents."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         # Add agents
         repo.add_agent(sample_agent)
@@ -188,7 +189,7 @@ class TestMockAgentRepository:
 
     def test_agent_data_integrity(self, sample_agent):
         """Test that agent data is preserved correctly."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         repo.add_agent(sample_agent)
         retrieved = repo.get_agents()[0]
@@ -207,7 +208,7 @@ class TestMockAgentRepository:
 
     def test_agent_independence(self, sample_agent):
         """Test that modifying retrieved agent doesn't affect stored data."""
-        repo = MockAgentRepository()
+        repo = MockAgentDAO()
 
         repo.add_agent(sample_agent)
         retrieved = repo.get_agents()[0]
@@ -224,11 +225,11 @@ class TestMockAgentRepository:
 
 
 class TestFactoryIntegration:
-    """Test that the factory returns the correct repository based on configuration."""
+    """Test that the factory returns the correct DAO based on configuration."""
 
-    def test_factory_returns_agent_repository(self):
-        """Test that factory returns a valid AgentRepository."""
-        repo = get_agent_repository()
+    def test_factory_returns_agent_dao(self):
+        """Test that factory returns a valid AgentDAO."""
+        repo = get_agent_dao()
 
         # Should have all required methods
         assert hasattr(repo, "create_agent")
@@ -240,8 +241,8 @@ class TestFactoryIntegration:
         assert repo.is_reachable() is True
 
     def test_factory_consistency(self):
-        """Test that factory returns consistent repository type."""
-        repo1 = get_agent_repository()
-        repo2 = get_agent_repository()
+        """Test that factory returns consistent DAO type."""
+        repo1 = get_agent_dao()
+        repo2 = get_agent_dao()
 
         assert repo1 is repo2  # Should be singleton

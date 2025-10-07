@@ -4,15 +4,15 @@ from bson import ObjectId
 from pymongo import MongoClient
 
 from src.config import Config
-from src.domain.agents import Agent
-from src.rag_service.repositories.agent.base import AgentRepository
+from src.models.agent import Agent
+from src.rag_service.dao.agent.base import AgentDAO
 
 
 config = Config()
 
 
-class MongoDBAgentRepository(AgentRepository):
-    """MongoDB-backed repository for AI agent configurations.
+class MongoDBAgentDAO(AgentDAO):
+    """MongoDB-backed DAO for AI agent configurations.
 
     Stores and retrieves agent configurations in the 'agents' collection.
     """
@@ -23,7 +23,7 @@ class MongoDBAgentRepository(AgentRepository):
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_AGENT_COLLECTION]
 
-    def add_agent(self, agent: Agent) -> Agent:
+    def create_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in MongoDB.
 
         Args:
@@ -33,12 +33,7 @@ class MongoDBAgentRepository(AgentRepository):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
-
-        result = self.collection.insert_one(agent_dict)
-
-        # Get the inserted document's ID and set it to the agent object
-        agent.id = str(result.inserted_id)
-
+        self.collection.insert_one(agent_dict)
         return agent
 
     def get_agents(self) -> list[Agent]:

@@ -7,7 +7,7 @@ from src.domain.agents import Agent
 from src.domain.chat.command import Command
 from src.llm import create_llm
 from src.rag_service.embeddings import create_embeddings_model
-from src.rag_service.repositories import get_context_repository
+from src.rag_service.dao import get_context_dao
 
 
 def get_answer_from_user(
@@ -179,7 +179,7 @@ def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict:
         str(command.chat_log[-1].content) if command.chat_log else "No user message"
     )
 
-    db = get_context_repository()
+    db = get_context_dao()
     embedding_model = create_embeddings_model()
     embeddings: list[float] = embedding_model.get_embedding(to_embed)
     context = db.get_context(

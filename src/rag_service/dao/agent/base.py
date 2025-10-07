@@ -1,4 +1,4 @@
-"""Abstract base classes for repository pattern.
+"""Abstract base classes for DAO pattern.
 
 This module defines the interfaces for document context and agent repositories.
 """
@@ -8,10 +8,10 @@ from abc import ABC, abstractmethod
 from src.domain.agents import Agent
 
 
-class AgentRepository(ABC):
+class AgentDAO(ABC):
     """Abstract base class for agent storage.
 
-    This repository handles persistence of AI agent configurations.
+    This DAO handles persistence of AI agent configurations.
     """
 
     @abstractmethod
@@ -46,8 +46,19 @@ class AgentRepository(ABC):
 
     @abstractmethod
     def is_reachable(self) -> bool:
-        """Check if the repository backend is accessible.
+        """Check if the DAO backend is accessible.
 
         Returns:
             bool: True if connection is healthy, False otherwise
+        """
+
+    @abstractmethod
+    def update_agent(self, agent: Agent) -> Agent:
+        """Update an existing agent configuration.
+
+        Args:
+            agent (Agent): The agent object with updated fields
+
+        Returns:
+            Agent: The updated agent object
         """
