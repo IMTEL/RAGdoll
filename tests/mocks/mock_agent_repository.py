@@ -66,6 +66,27 @@ class MockAgentRepository(AgentRepository):
         except (ValueError, IndexError):
             return None
 
+    def update_agent(self, agent: Agent) -> Agent:
+        """Update an existing agent configuration in memory.
+
+        Args:
+            agent (Agent): The agent object with updated fields
+        Returns:
+            Agent: A deep copy of the updated agent object
+        """
+        if agent.id is None:
+            raise ValueError("Agent ID must be set for update.")
+
+        try:
+            index = int(agent.id)
+            if 0 <= index < len(self.agents):
+                self.agents[index] = deepcopy(agent)
+                return deepcopy(agent)
+            else:
+                raise IndexError("Agent ID out of range.")
+        except ValueError as e:
+            raise ValueError("Agent ID must be an integer string.") from e
+
     def is_reachable(self) -> bool:
         """Check if repository is reachable.
 
