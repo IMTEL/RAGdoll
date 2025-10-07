@@ -52,7 +52,7 @@ class IdunLLM(LLM):
         models = ["Qwen3-Coder-30B-A3B-Instruct","openai/gpt-oss-120b"]
         return [Model("idun",name,True,None) for name in models]
 
-class OpenAILLM(LLM):
+class OpenAI_LLM(LLM):
     def __init__(self):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
@@ -86,7 +86,7 @@ class OpenAILLM(LLM):
         ]
         return [Model("openai",item.id,False,None) for item in language_models]
 
-class GeminiLLM(LLM):
+class Gemini_LLM(LLM):
     def __init__(self):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()

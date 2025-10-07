@@ -6,9 +6,15 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from src.routes import progress, debug, upload, agentconfig
+from fastapi import FastAPI, File, UploadFile, Form
+import uvicorn
+import sys
+import os
+from tempfile import NamedTemporaryFile
 
-import src.pipeline as pipeline
-from src.command import Command, command_from_json, command_from_json_transcribe_version
+from src.command import Command, command_from_json, command_from_json_transcribeVersion
 from src.pipeline import assemble_prompt
 from src.routes import agents, debug, progress, upload
 from src.transcribe import transcribe_audio, transcribe_from_upload
@@ -190,6 +196,8 @@ def get_answer_from_user(
     """
     response: str = pipeline.get_answer_from_user(answer, target, question)
     return {"response": response}
+
+
 
 
 
