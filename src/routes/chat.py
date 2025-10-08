@@ -10,7 +10,7 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from src.models.chat.command import (
-    command_from_json,
+    Command,
     command_from_json_transcribe_version,
 )
 from src.pipeline import assemble_prompt_with_agent
@@ -22,8 +22,8 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 agent_dao = get_agent_dao()
 
 
-@router.post("/ask")
-async def ask(request: Request):
+@router.post("/ask", response_model=Command)
+async def ask(command: Command):
     """Process a user question using the specified agent and roles.
 
     This endpoint:
@@ -48,15 +48,6 @@ async def ask(request: Request):
         500: Processing error
     """
     try:
-        body_bytes = await request.body()
-        data = body_bytes.decode("utf-8")
-
-        command = command_from_json(data)
-        if command is None:
-            return JSONResponse(
-                content={"message": "Invalid command format."}, status_code=400
-            )
-
         # Retrieve the agent configuration
         agent = agent_dao.get_agent_by_id(command.agent_id)
         if agent is None:
