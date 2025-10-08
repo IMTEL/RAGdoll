@@ -33,7 +33,18 @@ class MongoDBAgentDAO(AgentDAO):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
-        self.collection.insert_one(agent_dict)
+
+        result = self.collection.insert_one(agent_dict)
+
+        # Get the inserted document's ID and set it to the agent object
+        agent.id = str(result.inserted_id)
+
+        # Update the document with the string ID
+        self.collection.update_one(
+            {"_id": ObjectId(agent.id)},
+            {"$set": {"id": agent.id}},
+        )
+
         return agent
 
     def get_agents(self) -> list[Agent]:
@@ -45,7 +56,7 @@ class MongoDBAgentDAO(AgentDAO):
         agents = list(self.collection.find())
         result = []
         for agent_doc in agents:
-            # Remove MongoDB's _id before creating Agent object
+            agent_doc["id"] = str(agent_doc["_id"])
             agent_doc.pop("_id", None)
             result.append(Agent(**agent_doc))
         return result
