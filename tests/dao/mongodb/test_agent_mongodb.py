@@ -1,6 +1,6 @@
 """Comprehensive tests for MongoDBAgentDAO implementation.
 
-These tests verify the MongoDB implementation of the AgentRepository
+These tests verify the MongoDB implementation of the AgentDAO
 interface. They require a running MongoDB instance (can be mock or real).
 """
 
@@ -14,7 +14,7 @@ from src.rag_service.dao import MongoDBAgentDAO
 
 @pytest.fixture
 def mongodb_repo() -> MongoDBAgentDAO:
-    """Create a MongoDB repository instance."""
+    """Create a MongoDB DAO instance."""
     return MongoDBAgentDAO()
 
 
@@ -23,7 +23,7 @@ def sample_agent() -> Agent:
     """Create a sample agent for testing."""
     return Agent(
         name="Test MongoDB Agent",
-        description="A test agent for MongoDB repository testing",
+        description="A test agent for MongoDB DAO testing",
         prompt="You are a helpful test assistant. User info: {user_information}",
         corpa=["doc1", "doc2", "doc3"],
         roles=[
@@ -61,11 +61,11 @@ def cleanup_mongodb(mongodb_repo: MongoDBAgentDAO):
     mongodb_repo.collection.delete_many({})
 
 
-class TestMongoDBAgentRepositoryConnection:
+class TestMongoDBAgentDAOConnection:
     """Tests for MongoDB connection and health checks."""
 
     def test_is_reachable_success(self, mongodb_repo: MongoDBAgentDAO):
-        """Test that repository can successfully connect to MongoDB."""
+        """Test that DAO can successfully connect to MongoDB."""
         assert mongodb_repo.is_reachable() is True
 
     def test_database_configuration(self, mongodb_repo: MongoDBAgentDAO):
@@ -75,7 +75,7 @@ class TestMongoDBAgentRepositoryConnection:
         assert mongodb_repo.collection.name == config.MONGODB_AGENT_COLLECTION
 
 
-class TestMongoDBAgentRepositoryCreate:
+class TestMongoDBAgentDAOCreate:
     """Tests for creating agents in MongoDB."""
 
     def test_create_agent_success(
@@ -125,7 +125,7 @@ class TestMongoDBAgentRepositoryCreate:
         assert "Second Agent" in names
 
 
-class TestMongoDBAgentRepositoryRetrieve:
+class TestMongoDBAgentDAORetrieve:
     """Tests for retrieving agents from MongoDB."""
 
     def test_get_agents_empty(self, mongodb_repo: MongoDBAgentDAO):
@@ -234,7 +234,7 @@ class TestMongoDBAgentRepositoryRetrieve:
         assert retrieved_agent.corpa == ["doc1", "doc2", "doc3"]
 
 
-class TestMongoDBAgentRepositoryEdgeCases:
+class TestMongoDBAgentDAOEdgeCases:
     """Tests for edge cases and error handling."""
 
     def test_agent_with_empty_roles(self, mongodb_repo: MongoDBAgentDAO):
