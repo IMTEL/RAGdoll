@@ -90,32 +90,29 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     # context = db.get_context("hello", embeddings)
     context = None
 
+    chat_history = ""
+    if len(command.chat_log) > 1:
+        chat_history += "This is the previous conversation:\n"
+        for msg in command.chat_log[:-1]:  # Exclude latest user message
+            chat_history += f"{msg.role.upper()}: {msg.content}\n"
+
     # Use agent's prompt as base, with variable substitution
-    base_prompt = agent.prompt.format(
-        chat_log=command.chat_log,
-    )
+    base_prompt = agent.prompt.format(chat_log=chat_history)
 
     # Assemble final prompt
-    if context is None or len(context) == 0:
-        prompt = (
-            str(base_prompt)
-            + "\n\ncontext: NO CONTEXT AVAILABLE\n"
-            + "question: "
-            + str(command.chat_log[-1].content if command.chat_log else "")
-        )
-    else:
-        prompt = (
-            str(base_prompt)
-            + "\n\ncontext: "
-            + str(context[0])
-            + "\nquestion: "
-            + str(command.chat_log[-1].content if command.chat_log else "")
-        )
+    prompt = base_prompt
+    last_user_response = command.chat_log[-1].content if command.chat_log else ""
+
+    if context:
+        prompt += "\nContext: " + context
+
+    if last_user_response:
+        prompt += "\nUser Response: " + last_user_response
+
+    print(f"Prompt sent to LLM:\n{prompt}")
 
     # Define llm_provider from agent's configuration
     llm_provider = agent.llm_provider
-
-    print(f"Prompt sent to LLM:\n{prompt}")
 
     # Use agent's configured LLM
     language_model = create_llm(llm_provider)
