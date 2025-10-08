@@ -4,7 +4,7 @@ import uuid
 
 from src.config import Config
 from src.llm import create_llm
-from src.models.agents import Agent
+from src.models import Agent
 from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import create_embeddings_model

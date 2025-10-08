@@ -8,7 +8,7 @@ This package contains business domain models organized by functional area:
 - errors: Error and failure tracking
 """
 
-from src.models.agents import Agent, Role
+from src.models.agent import Agent, Role
 from src.models.chat import Message
 from src.models.errors import FailureData
 from src.models.rag import RAGPostModel

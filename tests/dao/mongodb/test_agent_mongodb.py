@@ -8,7 +8,7 @@ import pytest
 from bson import ObjectId
 
 from src.config import Config
-from src.models.agents import Agent, Role
+from src.models.agent import Agent, Role
 from src.rag_service.dao import MongoDBAgentDAO
 
 
