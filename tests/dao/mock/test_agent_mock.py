@@ -23,7 +23,7 @@ def clear_mock_agent_dao():
 
 
 @pytest.fixture
-def sample_agent():
+def sample_agent() -> Agent:
     """Create a sample agent for testing."""
     return Agent(
         name="Test Bot",
@@ -65,7 +65,7 @@ class TestMockAgentDAO:
         repo = MockAgentDAO()
         assert repo.is_reachable() is True
 
-    def test_create_agent(self, sample_agent):
+    def test_create_agent(self, sample_agent: Agent):
         """Test creating an agent."""
         repo = MockAgentDAO()
 
@@ -76,7 +76,7 @@ class TestMockAgentDAO:
         assert result.description == "A test bot for unit testing"
         assert len(repo.agents) == 1
 
-    def test_create_multiple_agents(self, sample_agent):
+    def test_create_multiple_agents(self, sample_agent: Agent):
         """Test creating multiple agents."""
         repo = MockAgentDAO()
 
@@ -99,7 +99,7 @@ class TestMockAgentDAO:
         assert agents == []
         assert isinstance(agents, list)
 
-    def test_get_agents(self, sample_agent):
+    def test_get_agents(self, sample_agent: Agent):
         """Test retrieving all agents."""
         repo = MockAgentDAO()
 
@@ -119,7 +119,7 @@ class TestMockAgentDAO:
         assert agents[0].name == "Test Bot"
         assert agents[1].name == "Second Bot"
 
-    def test_get_agent_by_id(self, sample_agent):
+    def test_get_agent_by_id(self, sample_agent: Agent) -> None:
         """Test retrieving a specific agent by ID."""
         repo = MockAgentDAO()
 
@@ -130,7 +130,7 @@ class TestMockAgentDAO:
         repo.add_agent(agent2)
 
         # Retrieve by ID (index 0)
-        agent = repo.get_agent_by_id("0")
+        agent: Agent | None = repo.get_agent_by_id("0")
 
         assert agent is not None
         assert isinstance(agent, Agent)
@@ -140,20 +140,20 @@ class TestMockAgentDAO:
         """Test retrieving non-existent agent returns None."""
         repo = MockAgentDAO()
 
-        agent = repo.get_agent_by_id("999")
+        agent: Agent | None = repo.get_agent_by_id("999")
 
         assert agent is None
 
-    def test_get_agent_by_invalid_id(self, sample_agent):
+    def test_get_agent_by_invalid_id(self, sample_agent: Agent):
         """Test retrieving agent with invalid ID format."""
         repo = MockAgentDAO()
-        repo.create_agent(sample_agent)
+        repo.add_agent(sample_agent)
 
         agent = repo.get_agent_by_id("invalid")
 
         assert agent is None
 
-    def test_dao_singleton(self, sample_agent):
+    def test_dao_singleton(self, sample_agent: Agent):
         """Test that DAO uses singleton pattern."""
         repo1 = MockAgentDAO()
         repo2 = MockAgentDAO()
@@ -168,7 +168,7 @@ class TestMockAgentDAO:
         assert len(agents_from_repo2) == 1
         assert agents_from_repo2[0].name == sample_agent.name
 
-    def test_clear_functionality(self, sample_agent):
+    def test_clear_functionality(self, sample_agent: Agent):
         """Test that clear() removes all agents."""
         repo = MockAgentDAO()
 
@@ -186,12 +186,12 @@ class TestMockAgentDAO:
         assert len(repo.agents) == 0
         assert repo.get_agents() == []
 
-    def test_agent_data_integrity(self, sample_agent):
+    def test_agent_data_integrity(self, sample_agent: Agent) -> None:
         """Test that agent data is preserved correctly."""
         repo = MockAgentDAO()
 
         repo.add_agent(sample_agent)
-        retrieved = repo.get_agents()[0]
+        retrieved: Agent = repo.get_agents()[0]
 
         # Verify all fields are preserved
         assert retrieved.name == sample_agent.name
@@ -205,7 +205,7 @@ class TestMockAgentDAO:
         assert retrieved.retrieval_method == sample_agent.retrieval_method
         assert retrieved.status == sample_agent.status
 
-    def test_agent_independence(self, sample_agent):
+    def test_agent_independence(self, sample_agent: Agent) -> None:
         """Test that modifying retrieved agent doesn't affect stored data."""
         repo = MockAgentDAO()
 

@@ -13,13 +13,13 @@ from src.rag_service.dao import MongoDBAgentDAO
 
 
 @pytest.fixture
-def mongodb_repo():
+def mongodb_repo() -> MongoDBAgentDAO:
     """Create a MongoDB repository instance."""
     return MongoDBAgentDAO()
 
 
 @pytest.fixture
-def sample_agent():
+def sample_agent() -> Agent:
     """Create a sample agent for testing."""
     return Agent(
         name="Test MongoDB Agent",
@@ -52,7 +52,7 @@ def sample_agent():
 
 
 @pytest.fixture(autouse=True)
-def cleanup_mongodb(mongodb_repo):
+def cleanup_mongodb(mongodb_repo: MongoDBAgentDAO):
     """Clean up MongoDB before and after each test."""
     # Clear the collection before test
     mongodb_repo.collection.delete_many({})
@@ -64,11 +64,11 @@ def cleanup_mongodb(mongodb_repo):
 class TestMongoDBAgentRepositoryConnection:
     """Tests for MongoDB connection and health checks."""
 
-    def test_is_reachable_success(self, mongodb_repo):
+    def test_is_reachable_success(self, mongodb_repo: MongoDBAgentDAO):
         """Test that repository can successfully connect to MongoDB."""
         assert mongodb_repo.is_reachable() is True
 
-    def test_database_configuration(self, mongodb_repo):
+    def test_database_configuration(self, mongodb_repo: MongoDBAgentDAO):
         """Verify correct database and collection configuration."""
         config = Config()
         assert mongodb_repo.db.name == config.MONGODB_DATABASE
@@ -78,9 +78,11 @@ class TestMongoDBAgentRepositoryConnection:
 class TestMongoDBAgentRepositoryCreate:
     """Tests for creating agents in MongoDB."""
 
-    def test_create_agent_success(self, mongodb_repo, sample_agent):
+    def test_create_agent_success(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test successful agent creation."""
-        created_agent = mongodb_repo.create_agent(sample_agent)
+        created_agent = mongodb_repo.add_agent(sample_agent)
 
         assert created_agent == sample_agent
         assert created_agent.name == "Test MongoDB Agent"
@@ -90,7 +92,9 @@ class TestMongoDBAgentRepositoryCreate:
         assert len(agents_in_db) == 1
         assert agents_in_db[0]["name"] == "Test MongoDB Agent"
 
-    def test_create_multiple_agents(self, mongodb_repo, sample_agent):
+    def test_create_multiple_agents(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test creating multiple agents."""
         agent1 = sample_agent
         agent2 = Agent(
@@ -111,8 +115,8 @@ class TestMongoDBAgentRepositoryCreate:
             last_updated="2025-10-05T13:00:00Z",
         )
 
-        mongodb_repo.create_agent(agent1)
-        mongodb_repo.create_agent(agent2)
+        mongodb_repo.add_agent(agent1)
+        mongodb_repo.add_agent(agent2)
 
         agents_in_db = list(mongodb_repo.collection.find())
         assert len(agents_in_db) == 2
@@ -124,14 +128,16 @@ class TestMongoDBAgentRepositoryCreate:
 class TestMongoDBAgentRepositoryRetrieve:
     """Tests for retrieving agents from MongoDB."""
 
-    def test_get_agents_empty(self, mongodb_repo):
+    def test_get_agents_empty(self, mongodb_repo: MongoDBAgentDAO):
         """Test getting agents from empty database."""
         agents = mongodb_repo.get_agents()
         assert agents == []
 
-    def test_get_agents_single(self, mongodb_repo, sample_agent):
+    def test_get_agents_single(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test getting a single agent."""
-        mongodb_repo.create_agent(sample_agent)
+        mongodb_repo.add_agent(sample_agent)
 
         agents = mongodb_repo.get_agents()
         assert len(agents) == 1
@@ -139,7 +145,9 @@ class TestMongoDBAgentRepositoryRetrieve:
         assert agents[0].llm_model == "gpt-4"
         assert len(agents[0].roles) == 2
 
-    def test_get_agents_multiple(self, mongodb_repo, sample_agent):
+    def test_get_agents_multiple(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test getting multiple agents."""
         agent1 = sample_agent
         agent2 = Agent(
@@ -160,8 +168,8 @@ class TestMongoDBAgentRepositoryRetrieve:
             last_updated="2025-10-05T14:00:00Z",
         )
 
-        mongodb_repo.create_agent(agent1)
-        mongodb_repo.create_agent(agent2)
+        mongodb_repo.add_agent(agent1)
+        mongodb_repo.add_agent(agent2)
 
         agents = mongodb_repo.get_agents()
         assert len(agents) == 2
@@ -169,7 +177,9 @@ class TestMongoDBAgentRepositoryRetrieve:
         assert "Test MongoDB Agent" in names
         assert "Agent 2" in names
 
-    def test_get_agent_by_id_success(self, mongodb_repo, sample_agent):
+    def test_get_agent_by_id_success(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test successfully retrieving an agent by ID."""
         # Create agent and get its ID
         result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
@@ -183,19 +193,21 @@ class TestMongoDBAgentRepositoryRetrieve:
         assert retrieved_agent.llm_model == "gpt-4"
         assert retrieved_agent.llm_temperature == 0.8
 
-    def test_get_agent_by_id_not_found(self, mongodb_repo):
+    def test_get_agent_by_id_not_found(self, mongodb_repo: MongoDBAgentDAO):
         """Test retrieving non-existent agent returns None."""
         fake_id = str(ObjectId())
         agent = mongodb_repo.get_agent_by_id(fake_id)
         assert agent is None
 
-    def test_get_agent_by_id_invalid_format(self, mongodb_repo):
+    def test_get_agent_by_id_invalid_format(self, mongodb_repo: MongoDBAgentDAO):
         """Test retrieving agent with invalid ID format returns None."""
         invalid_id = "not-a-valid-objectid"
         agent = mongodb_repo.get_agent_by_id(invalid_id)
         assert agent is None
 
-    def test_agent_roles_preserved(self, mongodb_repo, sample_agent):
+    def test_agent_roles_preserved(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test that agent roles are correctly preserved."""
         result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
         agent_id = str(result.inserted_id)
@@ -209,7 +221,9 @@ class TestMongoDBAgentRepositoryRetrieve:
         assert retrieved_agent.roles[1].name == "user"
         assert retrieved_agent.roles[1].subset_of_corpa == [1]
 
-    def test_agent_corpa_preserved(self, mongodb_repo, sample_agent):
+    def test_agent_corpa_preserved(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
         """Test that agent corpus list is correctly preserved."""
         result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
         agent_id = str(result.inserted_id)
@@ -223,7 +237,7 @@ class TestMongoDBAgentRepositoryRetrieve:
 class TestMongoDBAgentRepositoryEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_agent_with_empty_roles(self, mongodb_repo):
+    def test_agent_with_empty_roles(self, mongodb_repo: MongoDBAgentDAO):
         """Test creating and retrieving agent with no roles."""
         agent = Agent(
             name="No Roles Agent",
@@ -243,13 +257,13 @@ class TestMongoDBAgentRepositoryEdgeCases:
             last_updated="2025-10-05T15:00:00Z",
         )
 
-        mongodb_repo.create_agent(agent)
+        mongodb_repo.add_agent(agent)
         agents = mongodb_repo.get_agents()
 
         assert len(agents) == 1
         assert agents[0].roles == []
 
-    def test_agent_with_empty_corpa(self, mongodb_repo):
+    def test_agent_with_empty_corpa(self, mongodb_repo: MongoDBAgentDAO):
         """Test creating and retrieving agent with no corpus."""
         agent = Agent(
             name="No Corpus Agent",
@@ -269,7 +283,7 @@ class TestMongoDBAgentRepositoryEdgeCases:
             last_updated="2025-10-05T15:00:00Z",
         )
 
-        mongodb_repo.create_agent(agent)
+        mongodb_repo.add_agent(agent)
         agents = mongodb_repo.get_agents()
 
         assert len(agents) == 1
