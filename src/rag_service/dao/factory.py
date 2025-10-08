@@ -13,6 +13,7 @@ from src.rag_service.dao.context.base import ContextDAO
 from src.rag_service.dao.context.mongodb_context_dao import (
     MongoDBContextDAO,
 )
+from tests.mocks.mock_agent_dao import MockAgentDAO
 
 
 config = Config()
@@ -61,9 +62,6 @@ def get_agent_dao() -> AgentDAO:
     """
     match config.RAG_DATABASE_SYSTEM.lower():
         case "mock":
-            # Import here to avoid circular dependency
-            from tests.mocks.mock_agent_dao import MockAgentDAO
-
             return MockAgentDAO()
         case "mongodb":
             return MongoDBAgentDAO()
