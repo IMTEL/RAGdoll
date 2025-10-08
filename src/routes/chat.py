@@ -14,12 +14,12 @@ from src.models.chat.command import (
     command_from_json_transcribe_version,
 )
 from src.pipeline import assemble_prompt_with_agent
-from src.rag_service.repositories import get_agent_repository
+from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-agent_repository = get_agent_repository()
+agent_repository = get_agent_dao()
 
 
 @router.post("/ask")

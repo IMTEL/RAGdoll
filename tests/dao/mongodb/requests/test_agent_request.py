@@ -1,6 +1,5 @@
-"""Integration tests for HTTP endpoints using repositories.
+"""Tests the FastAPI endpoints for agent DAO.
 
-Tests the FastAPI endpoints for both agent and context repositories
 to ensure proper HTTP request/response handling.
 """
 
@@ -16,8 +15,8 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clear_mock_repositories():
-    """Clear all mock repositories before and after each test."""
+def clear_mock_dao():
+    """Clear mock dao before and after each test."""
     repo = get_agent_dao()
     if isinstance(repo, MockAgentDAO):
         repo.clear()
