@@ -38,7 +38,7 @@ class MockAgentDAO(AgentDAO):
             Agent: A deep copy of the stored agent object
         """
         # Set the agent's id to its index in the list
-        agent.id = str(len(self.agents) - 1)
+        agent.id = str(len(self.agents))
 
         # Store the agent
         self.agents.append(agent)
