@@ -25,6 +25,13 @@ class IdunLLM(LLM):
         }
         data = {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
         response = requests.post(self.url, headers=headers, json=data)
+
+        # Handle potential errors
+        if response.status_code != 200:
+            raise Exception(
+                f"Error from Idun API: {response.status_code} - {response.text}"
+            )
+
         return response.json()["choices"][0]["message"]["content"].strip()
 
 
