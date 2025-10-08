@@ -79,7 +79,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         accessible_corpus = agent.corpa
 
     # Perform RAG retrieval from accessible corpus
-    # db = get_context_repository()
+    # db = get_context_dao()
     # TODO: Update embedding model based on agent configuration
     # embedding_model = create_embeddings_model()
     # embeddings: list[float] = embedding_model.get_embedding(to_embed)
@@ -145,28 +145,13 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "model": llm_provider,
         "agent_id": command.agent_id,
         "active_roles": command.active_role_ids,
-        "choices": [
-            {
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": parsed_response,
-                    "function_call": function_call,
-                },
-                "logprobs": None,
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {},
-        "system_fingerprint": "v1-system",
-        "context_used": context if context else [],
         "accessible_corpus": accessible_corpus,
         "metadata": {
             "response_length": len(parsed_response),
             "agent_name": agent.name,
         },
-        "response": parsed_response,
         "function_call": function_call,
+        "response": parsed_response,
     }
 
 
