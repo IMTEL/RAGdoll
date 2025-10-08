@@ -6,20 +6,28 @@ they properly implement the DAO pattern.
 
 import pytest
 
+from src.config import Config
 from src.models.agent import Agent, Role
 from src.rag_service.dao import get_agent_dao
 from tests.mocks import MockAgentDAO
 
 
 @pytest.fixture(autouse=True)
-def clear_mock_agent_dao():
-    """Clear mock DAO before and after each test."""
-    repo = get_agent_dao()
-    if isinstance(repo, MockAgentDAO):
-        repo.clear()
+def setup_environment_and_clear_dao():
+    """Set environment variable and clear mock DAO before each test."""
+    # Set environment variable
+    config = Config()
+    prev_value = config.RAG_DATABASE_SYSTEM
+    config.RAG_DATABASE_SYSTEM = "mock"
+
+    # Clear mock DAO
+    repo = MockAgentDAO()
+    repo.clear()
+
     yield
-    if isinstance(repo, MockAgentDAO):
-        repo.clear()
+
+    repo.clear()
+    config.RAG_DATABASE_SYSTEM = prev_value
 
 
 @pytest.fixture
@@ -65,7 +73,7 @@ class TestMockAgentDAO:
         repo = MockAgentDAO()
         assert repo.is_reachable() is True
 
-    def test_create_agent(self, sample_agent: Agent):
+    def test_add_agent(self, sample_agent: Agent):
         """Test creating an agent."""
         repo = MockAgentDAO()
 
@@ -231,7 +239,7 @@ class TestFactoryIntegration:
         repo = get_agent_dao()
 
         # Should have all required methods
-        assert hasattr(repo, "create_agent")
+        assert hasattr(repo, "add_agent")
         assert hasattr(repo, "get_agents")
         assert hasattr(repo, "get_agent_by_id")
         assert hasattr(repo, "is_reachable")
