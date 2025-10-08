@@ -19,7 +19,7 @@ from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-agent_repository = get_agent_dao()
+agent_dao = get_agent_dao()
 
 
 @router.post("/ask")
@@ -28,7 +28,7 @@ async def ask(request: Request):
 
     This endpoint:
     1. Receives a Command with agent_id and active_role_ids
-    2. Retrieves the agent configuration from the repository
+    2. Retrieves the agent configuration from the DAO
     3. Validates access permissions
     4. Performs RAG retrieval based on role-specific corpus access
     5. Generates a response using the agent's LLM configuration
@@ -58,7 +58,7 @@ async def ask(request: Request):
             )
 
         # Retrieve the agent configuration
-        agent = agent_repository.get_agent_by_id(command.agent_id)
+        agent = agent_dao.get_agent_by_id(command.agent_id)
         if agent is None:
             return JSONResponse(
                 content={"message": f"Agent with id '{command.agent_id}' not found."},
@@ -149,7 +149,7 @@ async def ask_transcribe(
         )
 
     # Retrieve and validate agent (same logic as /ask)
-    agent = agent_repository.get_agent_by_id(command.agent_id)
+    agent = agent_dao.get_agent_by_id(command.agent_id)
     if agent is None:
         return JSONResponse(
             content={"message": f"Agent with id '{command.agent_id}' not found."},
