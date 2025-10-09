@@ -80,7 +80,19 @@ class MongoDBAgentDAO(AgentDAO):
             return None
 
     def update_agent(self, agent: Agent) -> Agent:
-        # TODO: implement update_agent method
+        """Update an existing agent configuration in MongoDB.
+        Args:
+            agent (Agent): The agent object with updated fields
+        Returns:
+            Agent: The updated agent object
+        """
+        if agent.id is None:
+            raise ValueError("Agent ID must be set for update.")
+
+        agent_dict = agent.model_dump()
+        agent_id = agent_dict.pop("id")
+
+        self.collection.update_one({"_id": ObjectId(agent_id)}, {"$set": agent_dict})
         return agent
 
     def is_reachable(self) -> bool:
