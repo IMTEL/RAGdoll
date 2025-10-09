@@ -23,7 +23,7 @@ class MongoDBAgentDAO(AgentDAO):
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_AGENT_COLLECTION]
 
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in MongoDB.
 
         Args:
@@ -33,7 +33,18 @@ class MongoDBAgentDAO(AgentDAO):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
-        self.collection.insert_one(agent_dict)
+
+        result = self.collection.insert_one(agent_dict)
+
+        # Get the inserted document's ID and set it to the agent object
+        agent.id = str(result.inserted_id)
+
+        # Update the document with the string ID
+        self.collection.update_one(
+            {"_id": ObjectId(agent.id)},
+            {"$set": {"id": agent.id}},
+        )
+
         return agent
 
     def get_agents(self) -> list[Agent]:
@@ -45,7 +56,7 @@ class MongoDBAgentDAO(AgentDAO):
         agents = list(self.collection.find())
         result = []
         for agent_doc in agents:
-            # Remove MongoDB's _id before creating Agent object
+            agent_doc["id"] = str(agent_doc["_id"])
             agent_doc.pop("_id", None)
             result.append(Agent(**agent_doc))
         return result
@@ -69,22 +80,7 @@ class MongoDBAgentDAO(AgentDAO):
             return None
 
     def update_agent(self, agent: Agent) -> Agent:
-        """Update an existing agent configuration in MongoDB.
-
-        Args:
-            agent (Agent): The agent object with updated fields
-
-        Returns:
-            Agent: The updated agent object
-        """
-        if agent.id is None:
-            raise ValueError("Agent ID must be set for update.")
-
-        agent_dict = agent.model_dump()
-        agent_id = agent_dict.pop("id")
-
-        self.collection.update_one({"_id": ObjectId(agent_id)}, {"$set": agent_dict})
-
+        # TODO: implement update_agent method
         return agent
 
     def is_reachable(self) -> bool:

@@ -1,7 +1,7 @@
 """Mock implementation of ContextDAO for testing.
 
 This module provides in-memory mock implementations that mimic the behavior
-of real database repositories without requiring actual database connections.
+of a real DAO without requiring actual database connections.
 """
 
 from src.rag_service.context import Context

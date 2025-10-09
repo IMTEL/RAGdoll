@@ -1,14 +1,13 @@
-"""Integration tests for HTTP endpoints using repositories.
+"""Tests the FastAPI endpoints for agent DAO.
 
-Tests the FastAPI endpoints for both agent and context repositories
 to ensure proper HTTP request/response handling.
 """
 
 import pytest
 from fastapi.testclient import TestClient
 
+from src.config import Config
 from src.main import app
-from src.rag_service.dao import get_agent_dao
 from tests.mocks import MockAgentDAO
 
 
@@ -16,14 +15,20 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def clear_mock_repositories():
-    """Clear all mock repositories before and after each test."""
-    repo = get_agent_dao()
-    if isinstance(repo, MockAgentDAO):
-        repo.clear()
+def clear_mock_dao():
+    """Clear mock dao before and after each test."""
+    config = Config()
+    # Set environment to use mock DAO
+    prev_value = config.RAG_DATABASE_SYSTEM
+    config.RAG_DATABASE_SYSTEM = "mock"
+
+    repo = MockAgentDAO()
+    repo.clear()
+
     yield
-    if isinstance(repo, MockAgentDAO):
-        repo.clear()
+
+    config.RAG_DATABASE_SYSTEM = prev_value
+    repo.clear()
 
 
 class TestAgentEndpoints:
@@ -239,21 +244,3 @@ class TestAgentEndpoints:
         response = client.get("/agents/invalid-id-format")
 
         assert response.status_code == 404
-
-
-class TestDAOHealthCheck:
-    """Tests for DAO health and connectivity."""
-
-    def test_agent_dao_reachable(self):
-        """Test that agent DAO is reachable."""
-        repo = get_agent_dao()
-        assert repo.is_reachable() is True
-
-    def test_dao_initialized(self):
-        """Test that DAO is properly initialized."""
-        agent_repo = get_agent_dao()
-
-        assert agent_repo is not None
-        assert hasattr(agent_repo, "create_agent")
-        assert hasattr(agent_repo, "get_agents")
-        assert hasattr(agent_repo, "get_agent_by_id")

@@ -1,6 +1,6 @@
 """Abstract base classes for DAO pattern.
 
-This module defines the interfaces for document context and agent repositories.
+This module defines the interfaces for document context and agent DAOs.
 """
 
 from abc import ABC, abstractmethod
@@ -15,7 +15,7 @@ class AgentDAO(ABC):
     """
 
     @abstractmethod
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration.
 
         Args:

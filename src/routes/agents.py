@@ -5,7 +5,6 @@ from src.rag_service.dao import get_agent_dao
 
 
 router = APIRouter()
-agent_db = get_agent_dao()  # DAO for agent storage
 
 
 # Create a new agent
@@ -19,7 +18,7 @@ def create_agent(agent: Agent):
     Returns:
         Agent: The created agent
     """
-    return agent_db.create_agent(agent)
+    return get_agent_dao().add_agent(agent)
 
 
 # Get all agents
@@ -30,7 +29,7 @@ def get_agents():
     Returns:
         list[Agent]: All stored agents
     """
-    return agent_db.get_agents()
+    return get_agent_dao().get_agents()
 
 
 # Get a specific agent by ID
@@ -47,7 +46,7 @@ def get_agent(agent_id: str):
     Raises:
         HTTPException: If agent not found
     """
-    agent = agent_db.get_agent_by_id(agent_id)
+    agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(
             status_code=404, detail=f"Agent with id {agent_id} not found"

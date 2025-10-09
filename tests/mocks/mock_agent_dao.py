@@ -28,7 +28,7 @@ class MockAgentDAO(AgentDAO):
             self.agents: list[Agent] = []
             MockAgentDAO._initialized = True
 
-    def create_agent(self, agent: Agent) -> Agent:
+    def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in memory.
 
         Args:
@@ -37,8 +37,12 @@ class MockAgentDAO(AgentDAO):
         Returns:
             Agent: A deep copy of the stored agent object
         """
-        # Store a deep copy to prevent external mutations
-        self.agents.append(deepcopy(agent))
+        # Set the agent's id to its index in the list
+        agent.id = str(len(self.agents))
+
+        # Store the agent
+        self.agents.append(agent)
+
         return deepcopy(agent)
 
     def get_agents(self) -> list[Agent]:
