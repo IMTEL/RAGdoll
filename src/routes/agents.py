@@ -17,11 +17,14 @@ def create_agent(agent: Agent):
 
     Returns:
         Agent: The created agent or the updated agent
-    """    
+    """
     try:
         return get_agent_dao().add_agent(agent)
     except ValueError:
-        raise HTTPException(status_code=404, detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates")
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates",
+        )
 
 
 # Get all agents

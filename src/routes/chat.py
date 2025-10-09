@@ -6,7 +6,7 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
 from src.models.chat.command import (
