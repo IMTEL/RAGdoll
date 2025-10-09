@@ -7,12 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.config import Config
 from src.routes import agents, chat, debug, progress, upload
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
-
-CONFIG_API_URL = os.getenv("RAGDOLL_CONFIG_API_URL", "http://localhost:3000")
 
 app = FastAPI(
     title="Chat-Service Microservice API",
@@ -25,7 +24,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        CONFIG_API_URL
+        Config().RAGDOLL_CONFIG_API_URL,
+        Config().RAGDOLL_CHAT_API_URL,
     ],  # TODO: Frontend URL(s), static rn for testing, but need env variable later
     allow_credentials=True,
     allow_methods=["*"],  # Allow GET, POST, PUT, DELETE, etc.

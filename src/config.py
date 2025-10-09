@@ -24,6 +24,13 @@ class Config:
         self.path = path
         self.ENV = os.getenv("ENV", "dev")
 
+        self.RAGDOLL_CONFIG_API_URL = os.getenv(
+            "RAGDOLL_CONFIG_API_URL", "http://localhost:3000"
+        )
+        self.RAGDOLL_CHAT_API_URL = os.getenv(
+            "RAGDOLL_CHAT_API_URL", "http://localhost:3001"
+        )
+
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
