@@ -2,16 +2,12 @@ import os
 import sys
 
 import uvicorn
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-import src.pipeline as pipeline
-from src.command import Command, command_from_json, command_from_json_transcribe_version
-from src.pipeline import assemble_prompt
-from src.routes import agents, debug, progress, upload
-from src.transcribe import transcribe_audio, transcribe_from_upload
+from src.routes import agents, chat, debug, progress, upload
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
@@ -82,6 +78,8 @@ app.include_router(debug.router)
 app.include_router(upload.router)
 # Agents router
 app.include_router(agents.router)
+# Chat router (handles /ask, /transcribe, /askTranscribe)
+app.include_router(chat.router)
 
 
 @app.get("/")
@@ -96,100 +94,12 @@ def hello_world():
 
 @app.get("/ping")
 def ping():
-    """Ping.
+    """Health check endpoint.
 
     Returns:
         status: Pong
     """
     return {"status": "PONG!"}
-
-
-@app.post("/ask")
-async def ask(request: Request):
-    """Ask.
-
-    Accepts a byte array input and returns a response.
-
-    Returns:
-        response: str
-    """
-    try:
-        body_bytes = await request.body()
-
-        data = body_bytes.decode("utf-8")
-
-        command: Command = command_from_json(data)
-
-        if command is None:
-            return JSONResponse(
-                content={"message": "Invalid command format."}, status_code=400
-            )
-
-        response = assemble_prompt(command)
-        return response
-
-    except UnicodeDecodeError:
-        return JSONResponse(
-            content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."},
-            status_code=400,
-        )
-    except Exception as e:
-        return JSONResponse(
-            content={"message": f"Error processing request: {e!s}"}, status_code=500
-        )
-
-
-@app.post("/transcribe")
-async def transcribe_endpoint(
-    audio: UploadFile = File(...),  # noqa: B008
-    language: str = Form(None),
-):
-    """Transcribe an audio file to text.
-
-    Parameters:
-    - audio: The audio file (WAV format recommended)
-    - language: Optional language code (e.g., 'en', 'fr', 'es')
-
-    Returns:
-    - A JSON response with transcription or error message
-    """
-    result = transcribe_audio(audio, language)
-
-    if result["success"]:
-        return JSONResponse(content=result, status_code=200)
-    else:
-        return JSONResponse(content=result, status_code=400)
-
-
-@app.post("/askTranscribe")
-async def ask_transcribe(
-    audio: UploadFile = File(...),  # noqa: B008
-    data: str = Form(...),
-):
-    """Transcribes an audio file and processes a command."""
-    transcribed = transcribe_from_upload(audio)
-
-    command: Command = command_from_json_transcribe_version(data, question=transcribed)
-    if command is None:
-        return {"message": "Invalid command."}
-
-    response = assemble_prompt(command)
-    return {"response": response}
-
-
-@app.get("/getAnswerFromUser")
-def get_answer_from_user(
-    answer: str,
-    target: str,
-    question: str,
-) -> str:
-    """Get the answer from the user. Target is what the question is about. Example: "What is your name?" -> target= "name".
-
-    Returns:
-        response: str
-    """
-    response: str = pipeline.get_answer_from_user(answer, target, question)
-    return {"response": response}
 
 
 if __name__ == "__main__":

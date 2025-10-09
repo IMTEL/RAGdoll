@@ -6,14 +6,14 @@ from src.auth_service.access_service import AccessServiceConfig, access_service_
 from src.config import Config
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
-from src.rag_service.repositories import get_agent_repository
+from src.rag_service.dao import get_agent_dao
 
 
 config = Config()
 router = APIRouter()
-agent_db = get_agent_repository()  # Repository for agent storage
+ # Repository for agent storage
 access_service = access_service_factory(
-    AccessServiceConfig(config.ACCESS_SERVICE, agent_db)
+    AccessServiceConfig(config.ACCESS_SERVICE, get_agent_dao())
 )
 
 
@@ -28,7 +28,7 @@ def create_agent(agent: Agent):
     Returns:
         Agent: The created agent
     """
-    return agent_db.create_agent(agent)
+    return get_agent_dao().add_agent(agent)
 
 
 # Get all agents
@@ -39,7 +39,7 @@ def get_agents():
     Returns:
         list[Agent]: All stored agents
     """
-    return agent_db.get_agents()
+    return get_agent_dao().get_agents()
 
 
 # Get a specific agent by ID
@@ -56,7 +56,7 @@ def get_agent(agent_id: str):
     Raises:
         HTTPException: If agent not found
     """
-    agent = agent_db.get_agent_by_id(agent_id)
+    agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(
             status_code=404, detail=f"Agent with id {agent_id} not found"
@@ -85,7 +85,7 @@ def revoke_access_key(access_key_id: str, agent_id: str):
 
 @router.get("/get-accesskeys", response_model=list[AccessKey])
 def get_access_keys(agent_id: str):
-    agent = agent_db.get_agent_by_id(agent_id)
+    agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
         HTTPException(status_code=404, detail=f" agent of id not found {agent_id}")
     return agent.access_key
