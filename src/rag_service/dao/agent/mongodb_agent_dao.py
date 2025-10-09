@@ -49,8 +49,13 @@ class MongoDBAgentDAO(AgentDAO):
             return agent
         # ELSE UPDATE EXISTING AGENT
         agent_id = agent_dict.pop("id")
-
-        result = self.collection.update_one({"_id": ObjectId(agent_id)}, {"$set": agent_dict})
+        
+        try:
+            object_id = ObjectId(agent_id)
+        except Exception:
+            raise ValueError(f"Agent ID '{agent_id}' is not a valid MongoDB ObjectId.")
+        
+        result = self.collection.update_one({"_id": object_id}, {"$set": agent_dict})
         if result.matched_count == 0:
             # IF AGENTID NOT FOUND: 
             raise ValueError(f"Agent with ID {agent_id} not found")
