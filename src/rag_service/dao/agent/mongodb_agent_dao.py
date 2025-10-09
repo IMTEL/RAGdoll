@@ -35,7 +35,7 @@ class MongoDBAgentDAO(AgentDAO):
         agent_dict = agent.model_dump()
 
         if not agent.id:
-            # CREATE NEW AGENT
+            # Create new agent
             result = self.collection.insert_one(agent_dict)
 
             # Get the inserted document's ID and set it to the agent object
@@ -47,18 +47,23 @@ class MongoDBAgentDAO(AgentDAO):
                 {"$set": {"id": agent.id}},
             )
             return agent
-        # ELSE UPDATE EXISTING AGENT
-        agent_id = agent_dict.pop("id")
+        # Else update existing agent
+        else:
+            agent_id = agent_dict.pop("id")
 
-        try:
-            object_id = ObjectId(agent_id)
-        except Exception:
-            raise ValueError(f"Agent ID '{agent_id}' is not a valid MongoDB ObjectId.")
+            try:
+                object_id = ObjectId(agent_id)
+            except Exception:
+                raise ValueError(
+                    f"Agent ID '{agent_id}' is not a valid MongoDB ObjectId."
+                )
 
-        result = self.collection.update_one({"_id": object_id}, {"$set": agent_dict})
-        if result.matched_count == 0:
-            # IF AGENTID NOT FOUND:
-            raise ValueError(f"Agent with ID {agent_id} not found")
+            result = self.collection.update_one(
+                {"_id": object_id}, {"$set": agent_dict}
+            )
+            if result.matched_count == 0:
+                # If agentid is not found:
+                raise ValueError(f"Agent with ID {agent_id} not found")
         return agent
 
     def get_agents(self) -> list[Agent]:
