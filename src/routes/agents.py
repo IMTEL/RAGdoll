@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 
+from src.llm import get_models
 from src.models.agent import Agent
+from src.models.model import Model
 from src.rag_service.dao import get_agent_dao
 
 
@@ -13,12 +15,18 @@ def create_agent(agent: Agent):
     """Create a new agent configuration.
 
     Args:
-        agent (Agent): The agent configuration to create
+        agent (Agent): The agent configuration to create or update
 
     Returns:
-        Agent: The created agent
+        Agent: The created agent or the updated agent
     """
-    return get_agent_dao().add_agent(agent)
+    try:
+        return get_agent_dao().add_agent(agent)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates",
+        )
 
 
 # Get all agents
@@ -52,3 +60,9 @@ def get_agent(agent_id: str):
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
     return agent
+
+
+@router.get("/get_models", response_model=list[Model])
+def fetch_models():
+    """Returns all usable models."""
+    return get_models()
