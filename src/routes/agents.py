@@ -70,9 +70,10 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, expiery_date: datetime, agent_id: str):
+def new_access_key(name: str, expiry_date: datetime, agent_id: str):
     try:
-        return access_service.generate_accesskey(name, expiery_date, agent_id)
+        print(expiry_date)
+        return access_service.generate_accesskey(name, expiry_date, agent_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{e}") from e
 
@@ -89,5 +90,14 @@ def revoke_access_key(access_key_id: str, agent_id: str):
 def get_access_keys(agent_id: str):
     agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
-        HTTPException(status_code=404, detail=f" agent of id not found {agent_id}")
+        raise HTTPException(
+            status_code=404, detail=f" agent of id not found {agent_id}"
+        )
+    print(agent.access_key)
     return agent.access_key
+
+
+@router.get("/get_models", response_model=list[Model])
+def fetch_models():
+    """Returns all usable models."""
+    return get_models()

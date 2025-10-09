@@ -53,6 +53,10 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
+        self.IDUN_MODELS = os.getenv(
+            "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
+        ).split(",")
+
 
 def prod_or_mock_env(env_var: str) -> str:
     """Determine whether to use production or mock environment variable.

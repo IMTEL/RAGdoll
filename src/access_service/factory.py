@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
 from src.access_service.access_service import AccessService
-from src.access_service.mock_access_service import MockAccessService
 from src.rag_service.dao.agent.base import AgentDAO
+from tests.mocks.mock_access_service import MockAccessService
 
 
 @dataclass

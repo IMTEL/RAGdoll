@@ -1,7 +1,7 @@
 import base64
 import secrets
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 
 from src.access_service.base import AbstractAccessService
 from src.models.accesskey import AccessKey
@@ -32,15 +32,11 @@ class AccessService(AbstractAccessService):
     def generate_accesskey(
         self, name: str, expiry_date: datetime, agent_id: str
     ) -> AccessKey:
-        if expiry_date < datetime.now():
+        if expiry_date.replace(tzinfo=UTC) < datetime.now(UTC):
             raise ValueError("Expiery date cannot be in the past")
-
         agent = self.try_get_agent(agent_id)
-
         key = secrets.token_bytes(32)  # AES-256 32byte secret
         key_str = base64.urlsafe_b64encode(key).decode("ascii")
-        print(key_str)
-        print(self.get_uniqe_access_key_id(agent))
         access_key = AccessKey(
             id=self.get_uniqe_access_key_id(agent),
             key=key_str,
@@ -49,8 +45,6 @@ class AccessService(AbstractAccessService):
             created=datetime.now(),
             last_use=None,
         )
-        print(access_key)
-
         agent.access_key.append(access_key)
         self.agent_database.update_agent(agent)
         return access_key
