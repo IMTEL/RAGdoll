@@ -1,11 +1,20 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException
 
+from src.auth_service.access_service import AccessServiceConfig, access_service_factory
+from src.config import Config
+from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.rag_service.repositories import get_agent_repository
 
 
+config = Config()
 router = APIRouter()
 agent_db = get_agent_repository()  # Repository for agent storage
+access_service = access_service_factory(
+    AccessServiceConfig(config.ACCESS_SERVICE, agent_db)
+)
 
 
 # Create a new agent
@@ -53,3 +62,30 @@ def get_agent(agent_id: str):
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
     return agent
+
+
+# TODO : implement a better system of returning status codes on exceptions
+
+
+@router.get("/new-accesskey", response_model=AccessKey)
+def new_access_key(name: str, expiery_date: datetime, agent_id: str):
+    try:
+        return access_service.generate_accesskey(name, expiery_date, agent_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{e}") from e
+
+
+@router.get("/revoke-accesskey")
+def revoke_access_key(access_key_id: str, agent_id: str):
+    try:
+        return access_service.revoke_key(access_key_id, agent_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{e}") from e
+
+
+@router.get("/get-accesskeys", response_model=list[AccessKey])
+def get_access_keys(agent_id: str):
+    agent = agent_db.get_agent_by_id(agent_id)
+    if agent is None:
+        HTTPException(status_code=404, detail=f" agent of id not found {agent_id}")
+    return agent.access_key

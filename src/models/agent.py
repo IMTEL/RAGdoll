@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+from src.models.accesskey import AccessKey
 from src.models.role import Role
 
 
@@ -15,7 +16,7 @@ class Agent(BaseModel):
     llm_temperature: float
     llm_max_tokens: int
     llm_api_key: str
-    access_key: list[str]  # str for now, but may need to change later
+    access_key: list[AccessKey]  # str for now, but may need to change later
     retrieval_method: str
     embedding_model: str  # TODO: will this be in agent?
     status: str
