@@ -29,6 +29,16 @@ def compute_embedding(text: str) -> list[float]:
 def process_file_and_store(file_path: str, category: str) -> bool:
     """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
+    Currently stores the whole document as a single context entry.
+
+    TODO: Implement text scraping and chunking for large documents
+    Future enhancements should include:
+    - Intelligent text chunking based on semantic boundaries (paragraphs, sections)
+    - Chunk size optimization (e.g., 512-1024 tokens per chunk)
+    - Overlap between chunks for context preservation
+    - Store multiple chunk entries per document with proper metadata
+    - Update retrieval logic to handle chunk reassembly
+
     Args:
         file_path (str): Path to the text or markdown file.
         category (str): Document category to associate with this context.
@@ -66,6 +76,7 @@ def process_file_and_store(file_path: str, category: str) -> bool:
         return False
 
     # Compute the embedding using the actual model.
+    # TODO: For chunked documents, compute embeddings per chunk
     try:
         embedding = compute_embedding(text)
     except Exception as e:
@@ -76,14 +87,14 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     document_name = os.path.basename(file_path)
 
     # Generate a unique document ID.
-    # TODO: Is this really a unique enough ID?
     document_id = str(uuid.uuid4())
 
     # Get the configured database instance.
     db = get_context_dao()
 
     try:
-        # Changed from NPC parameter to category parameter
+        # Store the whole document as a single context entry
+        # TODO: When implementing chunking, loop through chunks and store each with proper metadata
         db.insert_context(
             document_id=document_id,
             embedding=embedding,
@@ -91,6 +102,10 @@ def process_file_and_store(file_path: str, category: str) -> bool:
                 text=text,
                 category=category,
                 document_name=document_name,
+                document_id=document_id,
+                chunk_id=None,  # Not chunked yet
+                chunk_index=0,  # First (and only) chunk
+                total_chunks=1,  # Only one chunk (whole document)
             ),
         )
     except Exception as e:

@@ -1,6 +1,7 @@
 import logging
 import os
 from enum import Enum
+from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
@@ -33,38 +34,61 @@ class DocumentCategory(Enum):
 @router.post("/upload/")
 async def upload_document(
     file: UploadFile = File(...),  # noqa: B008
-    category: DocumentCategory | None = DocumentCategory.GENERAL_INFORMATION,
+    category: DocumentCategory = DocumentCategory.GENERAL_INFORMATION,
 ):
-    """API to receive a document, process it, and store it.
+    """API to receive a document, process it, and store it with RAG embeddings.
+
+    This endpoint:
+    1. Accepts text or markdown files
+    2. Computes embeddings for semantic search
+    3. Stores the document with associated category/corpus ID
+    4. Enables later retrieval through RAG queries
 
     Args:
         file: The uploaded document file (txt, md)
-        category: The document category from the DocumentCategory enum
+        category: The document category/corpus identifier from DocumentCategory enum
+
+    Returns:
+        dict: Success message with category and filename information
+
+    Raises:
+        HTTPException: If file processing fails or unsupported file type
     """
+    file_location = ""
     try:
         # Create the directory if it does not exist
-        os.makedirs("temp_files", exist_ok=True)
+        temp_files_dir = Path("temp_files")
+        temp_files_dir.mkdir(parents=True, exist_ok=True)
+
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file uploaded")
 
         # Save the file temporarily
-        file_location = f"temp_files/{file.filename}"
+        # TODO: Why temporarily save to disk?
+        file_location = temp_files_dir / Path(file.filename).name
         with open(file_location, "wb") as buffer:
             buffer.write(file.file.read())
 
         # Process and store - convert enum to its string value for database compatibility
-        success = process_file_and_store(file_location, category.value)
+        success = process_file_and_store(str(file_location), category.value)
 
         # Delete temporary file
-        os.remove(file_location)
+        file_location.unlink()
 
         logging.info(f"Uploaded file: {file.filename}, Category: {category.value}")
 
         if success:
             return {
                 "message": "File uploaded and processed successfully",
+                "filename": file.filename,
                 "category": category.value,
+                "status": "stored_with_embeddings",
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to process file")
 
     except Exception as e:
+        # Clean up temp file if it exists
+        if file_location and os.path.exists(file_location):
+            os.remove(file_location)
         raise HTTPException(status_code=500, detail=str(e)) from e
