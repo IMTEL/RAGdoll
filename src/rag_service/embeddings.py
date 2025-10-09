@@ -38,10 +38,12 @@ class OpenAIEmbedding(EmbeddingsModel):
 
 
 class GoogleEmbedding(EmbeddingsModel):
-    def __init__(self, model_name: str = "text-embedding-004"):
+    def __init__(
+        self, model_name: str = "text-embedding-004"
+    ):  # TODO: take from agent config
         config = Config()
 
-        genai.configure(api_key=config.GEMINI_API_KEY)
+        genai.configure(api_key=config.GEMINI_API_KEY)  # TODO: take from agent config
 
         self.model_name = model_name
         if not self.model_name.startswith("models/"):
