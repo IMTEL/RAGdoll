@@ -68,8 +68,79 @@ class MongoDBContextDAO(ContextDAO):
                     text=doc["text"],
                     document_name=doc["document_name"],
                     category=doc["category"],
+                    document_id=doc.get("document_id"),
+                    chunk_id=doc.get("chunk_id"),
+                    chunk_index=doc.get("chunk_index"),
+                    total_chunks=doc.get("total_chunks", 1),
                 )
             )
+
+        return results
+
+    def get_context_by_corpus_ids(
+        self, corpus_ids: list[str], embedding: list[float], top_k: int = 5
+    ) -> list[Context]:
+        """Retrieve relevant contexts from specific corpus IDs using vector similarity.
+
+        This method filters documents by corpus/category IDs and then performs
+        semantic similarity search within those documents.
+
+        Args:
+            corpus_ids (list[str]): List of corpus/category identifiers to search within
+            embedding (list[float]): Query embedding vector
+            top_k (int): Maximum number of results to return
+
+        Returns:
+            list[Context]: Top matching contexts from the specified corpus
+
+        Raises:
+            ValueError: If corpus_ids or embedding is empty
+        """
+        if not corpus_ids:
+            raise ValueError("corpus_ids cannot be empty")
+        if not embedding:
+            raise ValueError("Embedding cannot be empty")
+
+        # Use MongoDB aggregation with $vectorSearch and category filter
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": "embeddings",
+                    "path": "embedding",
+                    "queryVector": embedding,
+                    "numCandidates": 50,  # Broad initial search
+                    "limit": top_k * 2,  # Get more candidates for filtering
+                    # TODO: Re-enable category filtering once supported
+                    # "filter": {"category": {"$in": corpus_ids}},
+                }
+            },
+            # {"$limit": top_k}, # TODO: What about this?
+        ]
+
+        documents = self.collection.aggregate(pipeline)
+        documents = list(documents)
+
+        results = []
+        for document in documents:
+            # Additional similarity check
+            similarity = similarity_search(embedding, document["embedding"])
+
+            print(
+                f"Document Name: {document.get('document_name')}, Similarity: {similarity}"
+            )  # TODO: Remove debug print
+
+            if similarity > self.similarity_threshold:
+                results.append(
+                    Context(
+                        text=document["text"],
+                        document_name=document["document_name"],
+                        category=document.get("category", "Unknown"),
+                        document_id=document.get("document_id"),
+                        chunk_id=document.get("chunk_id"),
+                        chunk_index=document.get("chunk_index"),
+                        total_chunks=document.get("total_chunks", 1),
+                    )
+                )
 
         return results
 
@@ -124,6 +195,10 @@ class MongoDBContextDAO(ContextDAO):
                         category=document.get(
                             "category", f"npc_{document.get('npc', 'Unknown')}"
                         ),
+                        document_id=document.get("document_id"),
+                        chunk_id=document.get("chunk_id"),
+                        chunk_index=document.get("chunk_index"),
+                        total_chunks=document.get("total_chunks", 1),
                     )
                 )
 
@@ -147,15 +222,23 @@ class MongoDBContextDAO(ContextDAO):
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
-        self.collection.insert_one(
-            {
-                "text": text,
-                "document_name": document_name,
-                "category": category,
-                "embedding": embedding,
-                "document_id": document_id,
-            }
-        )
+        document = {
+            "text": text,
+            "document_name": document_name,
+            "category": category,
+            "embedding": embedding,
+            "document_id": document_id,
+        }
+
+        # Add optional chunking fields if present
+        if context.chunk_id is not None:
+            document["chunk_id"] = context.chunk_id
+        if context.chunk_index is not None:
+            document["chunk_index"] = context.chunk_index
+        if context.total_chunks is not None:
+            document["total_chunks"] = context.total_chunks
+
+        self.collection.insert_one(document)
         return context
 
     def is_reachable(self) -> bool:
