@@ -15,12 +15,18 @@ def create_agent(agent: Agent):
     """Create a new agent configuration.
 
     Args:
-        agent (Agent): The agent configuration to create
+        agent (Agent): The agent configuration to create or update
 
     Returns:
-        Agent: The created agent
+        Agent: The created agent or the updated agent
     """
-    return get_agent_dao().add_agent(agent)
+    try:
+        return get_agent_dao().add_agent(agent)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates",
+        )
 
 
 # Get all agents

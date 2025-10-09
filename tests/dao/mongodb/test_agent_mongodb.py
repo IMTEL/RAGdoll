@@ -288,3 +288,49 @@ class TestMongoDBAgentDAOEdgeCases:
 
         assert len(agents) == 1
         assert agents[0].corpa == []
+
+
+class TestMongoDBAgentDAOUpdate:
+    """Tests for updating agents in MongoDB."""
+
+    def test_update_agent_success(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
+        """Test successfully updating an agent."""
+        # Create agent
+        created_agent = mongodb_repo.add_agent(sample_agent)
+        agent_id = created_agent.id
+        # Update agent
+        updated_agent = Agent(**created_agent.model_dump())
+        updated_agent.name = "Updated MongoDB Agent"
+        updated_agent.id = agent_id
+        result = mongodb_repo.add_agent(updated_agent)
+        assert result.id == agent_id
+        assert result.name == "Updated MongoDB Agent"
+        # Check in DB
+        db_agent = mongodb_repo.get_agent_by_id(agent_id)
+        assert db_agent is not None
+        assert db_agent.name == "Updated MongoDB Agent"
+
+    def test_update_agent_invalid_id_format(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
+        """Test updating agent with invalid ObjectId format (should raise ValueError)."""
+        mongodb_repo.add_agent(sample_agent)
+        invalid_agent = Agent(**sample_agent.model_dump())
+        invalid_agent.id = "not-a-valid-objectid"
+        invalid_agent.name = "Should Fail"
+        with pytest.raises(ValueError):
+            mongodb_repo.add_agent(invalid_agent)
+
+    def test_update_agent_nonexistent_id(
+        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
+    ):
+        """Test updating agent with non-existent ObjectId (should raise ValueError)."""
+        mongodb_repo.add_agent(sample_agent)
+        fake_id = str(ObjectId())
+        invalid_agent = Agent(**sample_agent.model_dump())
+        invalid_agent.id = fake_id
+        invalid_agent.name = "Should Fail"
+        with pytest.raises(ValueError):
+            mongodb_repo.add_agent(invalid_agent)
