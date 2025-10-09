@@ -5,16 +5,11 @@ import requests
 from openai import OpenAI
 
 from src.config import Config
-from src.models.model import Model
 
 
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
         """Send the prompt to the LLM and return the generated response."""
-
-    @staticmethod
-    def get_models() -> list[str]:
-        """Returns the models which can be used by the provider."""
 
 
 class IdunLLM(LLM):
@@ -39,11 +34,6 @@ class IdunLLM(LLM):
 
         return response.json()["choices"][0]["message"]["content"].strip()
 
-    @staticmethod
-    def get_models() -> list[str]:
-        models = Config().IDUN_MODELS
-        return [Model("idun", name, True, None) for name in models]
-
 
 class OpenAILLM(LLM):
     def __init__(self):
@@ -64,12 +54,6 @@ class OpenAILLM(LLM):
         )
         return response.choices[0].message.content.strip()
 
-    @staticmethod
-    def get_models() -> list[str]:
-        client = OpenAI()
-        models = client.models.list()
-        return [Model("openai", item.id, False, None) for item in models.data]
-
 
 class GeminiLLM(LLM):
     def __init__(self):
@@ -85,33 +69,12 @@ class GeminiLLM(LLM):
         response = self.client.generate_content(prompt)
         return response.text.strip()
 
-    @staticmethod
-    def get_models() -> list[str]:
-        models = genai.list_models()
-        print(models)
-        return [Model("gemini", item.name, False, None) for item in models]
-
 
 class MockLLM(LLM):
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
 
 
-def get_models():
-    all_models = OpenAILLM.get_models() + GeminiLLM.get_models()
-
-    MODEL_FILTER = ["embedding", "moderation", "tts", "whisper", "preview", "audio"]
-
-    language_models = [
-        model
-        for model in all_models
-        if model.name.startswith(("gpt-", "models/gemini-"))
-        and not any(kw in model.name for kw in MODEL_FILTER)
-    ]
-
-    return language_models + IdunLLM.get_models()
-
-  
 def create_llm(llm_provider: str = "idun") -> LLM:
     """Factory for creating LLM instances.
 
