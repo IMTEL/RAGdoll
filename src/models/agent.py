@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from src.models.accesskey import AccessKey
+
 
 class Role(BaseModel):
     """Role within an agent that defines access to specific corpus subsets.
@@ -63,10 +65,7 @@ class Agent(BaseModel):
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=1000, gt=0)
     llm_api_key: str = Field(..., description="LLM service API key")
-    access_key: list[str] = Field(
-        default_factory=list,
-        description="API keys authorized to use this agent",
-    )
+    access_key: list[AccessKey]
     retrieval_method: str = Field(default="semantic")
     embedding_model: str
     status: str = Field(default="active")

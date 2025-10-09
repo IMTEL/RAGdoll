@@ -2,16 +2,18 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
-from src.auth_service.access_service import AccessServiceConfig, access_service_factory
+from src.access_service.factory import AccessServiceConfig, access_service_factory
 from src.config import Config
+from src.llm import get_models
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
+from src.models.model import Model
 from src.rag_service.dao import get_agent_dao
 
 
 config = Config()
 router = APIRouter()
- # Repository for agent storage
+# Repository for agent storage
 access_service = access_service_factory(
     AccessServiceConfig(config.ACCESS_SERVICE, get_agent_dao())
 )

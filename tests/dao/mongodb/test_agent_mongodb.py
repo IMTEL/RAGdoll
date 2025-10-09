@@ -42,7 +42,7 @@ def sample_agent() -> Agent:
         llm_temperature=0.8,
         llm_max_tokens=2000,
         llm_api_key="test-mongodb-key",
-        access_key=["mongodb-key-1", "mongodb-key-2"],
+        access_key=[],
         retrieval_method="semantic",
         embedding_model="text-embedding-ada-002",
         status="active",

@@ -48,7 +48,7 @@ def sample_agent() -> Agent:
         llm_temperature=0.7,
         llm_max_tokens=1000,
         llm_api_key="test-api-key",
-        access_key=["key1", "key2"],
+        access_key=[],
         retrieval_method="semantic",
         embedding_model="text-embedding-ada-002",
         status="active",
