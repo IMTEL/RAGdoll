@@ -34,7 +34,7 @@ class MongoDBAgentDAO(AgentDAO):
         """
         agent_dict = agent.model_dump()
 
-        if agent.id == "":
+        if not agent.id:
             # CREATE NEW AGENT
             result = self.collection.insert_one(agent_dict)
 
@@ -49,7 +49,7 @@ class MongoDBAgentDAO(AgentDAO):
             return agent
         # ELSE UPDATE EXISTING AGENT
         agent_id = agent_dict.pop("id")
-        
+
         try:
             object_id = ObjectId(agent_id)
         except Exception:
