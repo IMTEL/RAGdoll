@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 
+from src.llm import get_models
 from src.models.agent import Agent
+from src.models.model import Model
 from src.rag_service.repositories import get_agent_repository
 
 
@@ -53,3 +55,9 @@ def get_agent(agent_id: str):
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
     return agent
+
+
+@router.get("/get_models", response_model=list[Model])
+def fetch_models():
+    """Returns all usable models."""
+    return get_models()

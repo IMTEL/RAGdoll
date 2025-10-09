@@ -41,6 +41,8 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
+        self.IDUN_MODELS = os.getenv("IDUN_MODELS", "").split(",")
+
 
 def prod_or_mock_env(env_var: str) -> str:
     """Determine whether to use production or mock environment variable.
