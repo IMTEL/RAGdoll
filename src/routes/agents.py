@@ -52,3 +52,29 @@ def get_agent(agent_id: str):
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
     return agent
+
+
+# Update an existing agent
+@router.put("/agents/", response_model=Agent)
+def update_agent(agent: Agent):
+    """Update an existing agent configuration.
+
+    Args:
+        agent (Agent): The updated agent configuration (must include id)
+
+    Returns:
+        Agent: The updated agent
+
+    Raises:
+        HTTPException: If agent not found or id missing
+    """
+    if not agent.id:
+        raise HTTPException(
+            status_code=400, detail="Agent id must be provided in the payload."
+        )
+    updated_agent = get_agent_dao().update_agent(agent)
+    if updated_agent is None:
+        raise HTTPException(
+            status_code=404, detail=f"Agent with id {agent.id} not found"
+        )
+    return updated_agent
