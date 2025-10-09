@@ -13,12 +13,24 @@ def create_agent(agent: Agent):
     """Create a new agent configuration.
 
     Args:
-        agent (Agent): The agent configuration to create
+        agent (Agent): The agent configuration to create or update
 
     Returns:
-        Agent: The created agent
+        Agent: The created agent or the updated agent
     """
-    return get_agent_dao().add_agent(agent)
+    # If agent has an ID that's not empty, check if it already exists
+    if agent.id and agent.id != "":
+        existing_agent = get_agent_dao().get_agent_by_id(agent.id)
+        if existing_agent:
+            raise HTTPException(
+                status_code=409, 
+                detail=f"Agent with id {agent.id} already exists. Use PUT to update existing agents."
+            )
+    
+    try:
+        return get_agent_dao().add_agent(agent)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Get all agents
@@ -52,29 +64,3 @@ def get_agent(agent_id: str):
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
     return agent
-
-
-# Update an existing agent
-@router.put("/agents/", response_model=Agent)
-def update_agent(agent: Agent):
-    """Update an existing agent configuration.
-
-    Args:
-        agent (Agent): The updated agent configuration (must include id)
-
-    Returns:
-        Agent: The updated agent
-
-    Raises:
-        HTTPException: If agent not found or id missing
-    """
-    if not agent.id:
-        raise HTTPException(
-            status_code=400, detail="Agent id must be provided in the payload."
-        )
-    updated_agent = get_agent_dao().update_agent(agent)
-    if updated_agent is None:
-        raise HTTPException(
-            status_code=404, detail=f"Agent with id {agent.id} not found"
-        )
-    return updated_agent

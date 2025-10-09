@@ -24,7 +24,7 @@ class MongoDBAgentDAO(AgentDAO):
         self.collection = self.db[config.MONGODB_AGENT_COLLECTION]
 
     def add_agent(self, agent: Agent) -> Agent:
-        """Store a new agent configuration in MongoDB.
+        """Store a new agent configuration in MongoDB or updates an existing one.
 
         Args:
             agent (Agent): The agent to store
@@ -34,17 +34,26 @@ class MongoDBAgentDAO(AgentDAO):
         """
         agent_dict = agent.model_dump()
 
-        result = self.collection.insert_one(agent_dict)
+        if agent.id == "":
+            # CREATE NEW AGENT
+            result = self.collection.insert_one(agent_dict)
 
-        # Get the inserted document's ID and set it to the agent object
-        agent.id = str(result.inserted_id)
+            # Get the inserted document's ID and set it to the agent object
+            agent.id = str(result.inserted_id)
 
-        # Update the document with the string ID
-        self.collection.update_one(
-            {"_id": ObjectId(agent.id)},
-            {"$set": {"id": agent.id}},
-        )
+            # Update the document with the string ID
+            self.collection.update_one(
+                {"_id": ObjectId(agent.id)},
+                {"$set": {"id": agent.id}},
+            )
+            return agent
+        # ELSE UPDATE EXISTING AGENT
+        agent_id = agent_dict.pop("id")
 
+        result = self.collection.update_one({"_id": ObjectId(agent_id)}, {"$set": agent_dict})
+        if result.matched_count == 0:
+            # IF AGENTID NOT FOUND: 
+            raise ValueError(f"Agent with ID {agent_id} not found")
         return agent
 
     def get_agents(self) -> list[Agent]:
@@ -78,22 +87,6 @@ class MongoDBAgentDAO(AgentDAO):
             return None
         except Exception:
             return None
-
-    def update_agent(self, agent: Agent) -> Agent:
-        """Update an existing agent configuration in MongoDB.
-        Args:
-            agent (Agent): The agent object with updated fields
-        Returns:
-            Agent: The updated agent object
-        """
-        if agent.id is None:
-            raise ValueError("Agent ID must be set for update.")
-
-        agent_dict = agent.model_dump()
-        agent_id = agent_dict.pop("id")
-
-        self.collection.update_one({"_id": ObjectId(agent_id)}, {"$set": agent_dict})
-        return agent
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.
