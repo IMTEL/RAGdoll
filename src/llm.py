@@ -30,6 +30,13 @@ class IdunLLM(LLM):
         }
         data = {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
         response = requests.post(self.url, headers=headers, json=data)
+
+        # Handle potential errors
+        if response.status_code != 200:
+            raise Exception(
+                f"Error from Idun API: {response.status_code} - {response.text}"
+            )
+
         return response.json()["choices"][0]["message"]["content"].strip()
 
     @staticmethod
@@ -104,12 +111,12 @@ def get_models():
 
     return language_models + IdunLLM.get_models()
 
-
-def create_llm(llm: str = "idun") -> LLM:
+  
+def create_llm(llm_provider: str = "idun") -> LLM:
     """Factory for creating LLM instances.
 
     Args:
-        llm (str, optional): Select LLM. Defaults to "openai".
+        llm_provider (str): The LLM service provider ("idun", "openai", "gemini", "mock").
 
     Raises:
         ValueError: If the specified LLM is not supported.
@@ -117,7 +124,13 @@ def create_llm(llm: str = "idun") -> LLM:
     Returns:
         LLM: The specified LLM instance.
     """
-    match llm.lower():
+    """
+    TODO: Add support for:
+    - Choosing model variants (e.g., GPT-4-turbo)
+    - API key management
+    - Advanced parameters (temperature, max tokens, etc.)
+    """
+    match llm_provider.lower():
         case "idun":
             return IdunLLM()
         case "openai":
@@ -127,7 +140,7 @@ def create_llm(llm: str = "idun") -> LLM:
         case "mock":
             return MockLLM()
         case _:
-            raise ValueError(f"LLM {llm} not supported")
+            raise ValueError(f"LLM {llm_provider} not supported")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,18 @@ load_dotenv()
 
 
 class Config:
-    """Configuration class to manage environment variables and model loading."""
+    """Configuration class to manage environment variables and model loading.
+
+    Singleton pattern is used to ensure a single configuration instance.
+    """
+
+    _instance: "Config | None" = None
+
+    def __new__(cls):
+        """Ensure only one instance exists (singleton pattern)."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self, path=".env"):
         self.path = path

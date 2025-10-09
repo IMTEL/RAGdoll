@@ -1,12 +1,11 @@
 import pytest
 
-from src.command import Command
-from src.models.message import Message
-from src.models.progress import ProgressData
+from src.models.chat import Message
+from src.models.chat.command import Command
 from src.pipeline import assemble_prompt, get_answer_from_user
 from src.rag_service.context import Context
-from src.rag_service.repositories import get_context_repository
-from tests.mocks import MockContextRepository
+from src.rag_service.dao import get_context_dao
+from tests.mocks import MockContextDAO
 
 
 # Dummy language model for testing.
@@ -38,9 +37,9 @@ def mock_llm(monkeypatch):
 
 @pytest.mark.integration
 def test_pipeline(mock_llm):
-    db = get_context_repository()
-    if not isinstance(db, MockContextRepository):
-        pytest.skip("Skipping test because MockContextRepository is not being used.")
+    db = get_context_dao()
+    if not isinstance(db, MockContextDAO):
+        pytest.skip("Skipping test because MockContextDAO is not being used.")
 
     test_document = {
         "context": Context(
@@ -53,22 +52,20 @@ def test_pipeline(mock_llm):
     }
     db.insert_context(**test_document)
 
-    progress = [
-        ProgressData(
-            task_name="Daily Exercise Routine",
-            description="Improve health",
-            status="start",
-            user_id="user123",
-            subtask_progress=[],
-        )
-    ]
+    # # TODO: Update tests
+    # progress = [
+    #     ProgressData(
+    #         task_name="Daily Exercise Routine",
+    #         description="Improve health",
+    #         status="start",
+    #         user_id="user123",
+    #         subtask_progress=[],
+    #     )
+    # ]
 
     command = Command(
-        scene_name="Laboratory",
-        user_information=["Name: Tobias", "Mode: Beginner"],
-        progress=progress,
-        user_actions=["Not implemented"],
-        npc=100,
+        agent_id="507f1f77bcf86cd799439011",  # Dummy agent ID for testing
+        active_role_ids=["user"],
         chat_log=[Message(role="user", content="Why does salmon swim upstream?")],
     )
 

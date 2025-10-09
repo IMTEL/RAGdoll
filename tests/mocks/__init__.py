@@ -1,12 +1,12 @@
-"""Mock repository implementations for testing."""
+"""Mock DAO implementations for testing."""
 
-from tests.mocks.mock_agent_repository import MockAgentRepository
-from tests.mocks.mock_context_repository import (
-    MockContextRepository,
+from tests.mocks.mock_agent_dao import MockAgentDAO
+from tests.mocks.mock_context_dao import (
+    MockContextDAO,
 )
 
 
 __all__ = [
-    "MockAgentRepository",
-    "MockContextRepository",
+    "MockAgentDAO",
+    "MockContextDAO",
 ]

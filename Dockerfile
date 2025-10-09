@@ -1,3 +1,9 @@
+# Dockerfile for RAGdoll FastAPI Application
+# Purpose: Defines how to build the application container image
+# - Used by docker-compose for local development
+# - Used directly for production deployment (Kubernetes, cloud platforms, CI/CD)
+# - Creates a standalone, portable container with all dependencies
+
 # Use an official Python base image
 FROM python:3.11-slim
 
