@@ -64,7 +64,6 @@ def test_create_access_key():
 def test_revoke_access_key():
     agent, access_service, database = get_access_service_and_agent()
     key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
-    print(key.name)
     assert key.name == "test"
     assert key.expiry_date == DEFAULT_DATETIME
     assert database.get_agent_by_id(agent.id).access_key[0] == key
@@ -94,4 +93,4 @@ def test_authenticate_key():
 
     assert access_service.revoke_key(agent.id, key.id)
 
-    assert access_service.authenticate(agent.id, key.key) == False  # noqa: E712
+    assert not access_service.authenticate(agent.id, key.key)

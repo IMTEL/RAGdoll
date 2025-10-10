@@ -29,7 +29,7 @@ class MockAgentDAO(AgentDAO):
             MockAgentDAO._initialized = True
 
     def add_agent(self, agent: Agent) -> Agent:
-        """Store a new agent configuration in memory.
+        """Store a new agent configuration in memory or updates if the agentID already exists.
 
         Args:
             agent (Agent): The agent to store
@@ -37,11 +37,23 @@ class MockAgentDAO(AgentDAO):
         Returns:
             Agent: A deep copy of the stored agent object
         """
-        # Set the agent's id to its index in the list
-        agent.id = str(len(self.agents))
+        if not agent.id:
+            # Set the agent's id to its index in the list
+            agent.id = str(len(self.agents))
 
-        # Store the agent
-        self.agents.append(agent)
+            # Store the agent
+            self.agents.append(agent)
+            return deepcopy(agent)
+        # ELSE UPDATE EXISTING AGENT
+        try:
+            index = int(agent.id)
+            if 0 <= index < len(self.agents):
+                # UPDATE EXISTING AGENT
+                self.agents[index] = agent
+            else:
+                raise ValueError(f"Agent ID '{agent.id}' does not exist for update.")
+        except ValueError:
+            raise ValueError(f"Agent ID '{agent.id}' is not a valid index for update.")
 
         return deepcopy(agent)
 
@@ -69,27 +81,6 @@ class MockAgentDAO(AgentDAO):
             return None
         except (ValueError, IndexError):
             return None
-
-    def update_agent(self, agent: Agent) -> Agent:
-        """Update an existing agent configuration in memory.
-
-        Args:
-            agent (Agent): The agent object with updated fields
-        Returns:
-            Agent: A deep copy of the updated agent object
-        """
-        if agent.id is None:
-            raise ValueError("Agent ID must be set for update.")
-
-        try:
-            index = int(agent.id)
-            if 0 <= index < len(self.agents):
-                self.agents[index] = deepcopy(agent)
-                return deepcopy(agent)
-            else:
-                raise IndexError("Agent ID out of range.")
-        except ValueError as e:
-            raise ValueError("Agent ID must be an integer string.") from e
 
     def is_reachable(self) -> bool:
         """Check if DAO is reachable.

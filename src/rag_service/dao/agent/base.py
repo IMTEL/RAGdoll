@@ -16,7 +16,7 @@ class AgentDAO(ABC):
 
     @abstractmethod
     def add_agent(self, agent: Agent) -> Agent:
-        """Store a new agent configuration.
+        """Store a new agent configuration and updates if the agent already exists.
 
         Args:
             agent (Agent): The agent object to persist
@@ -50,15 +50,4 @@ class AgentDAO(ABC):
 
         Returns:
             bool: True if connection is healthy, False otherwise
-        """
-
-    @abstractmethod
-    def update_agent(self, agent: Agent) -> Agent:
-        """Update an existing agent configuration.
-
-        Args:
-            agent (Agent): The agent object with updated fields
-
-        Returns:
-            Agent: The updated agent object
         """

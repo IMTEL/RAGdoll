@@ -70,10 +70,10 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, expiry_date: datetime, agent_id: str):
+def new_access_key(name: str, expiry_date: str, agent_id: str):
     try:
-        print(expiry_date)
-        return access_service.generate_accesskey(name, expiry_date, agent_id)
+        expiry_date_formatted = datetime.fromisoformat(expiry_date).replace(tzinfo=None)
+        return access_service.generate_accesskey(name, expiry_date_formatted, agent_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{e}") from e
 
@@ -81,7 +81,7 @@ def new_access_key(name: str, expiry_date: datetime, agent_id: str):
 @router.get("/revoke-accesskey")
 def revoke_access_key(access_key_id: str, agent_id: str):
     try:
-        return access_service.revoke_key(access_key_id, agent_id)
+        return access_service.revoke_key(agent_id, access_key_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{e}") from e
 
@@ -93,7 +93,6 @@ def get_access_keys(agent_id: str):
         raise HTTPException(
             status_code=404, detail=f" agent of id not found {agent_id}"
         )
-    print(agent.access_key)
     return agent.access_key
 
 

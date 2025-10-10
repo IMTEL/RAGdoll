@@ -76,9 +76,7 @@ class TestMockAgentDAO:
     def test_add_agent(self, sample_agent: Agent):
         """Test creating an agent."""
         repo = MockAgentDAO()
-
         result = repo.add_agent(sample_agent)
-
         assert isinstance(result, Agent)
         assert result.name == "Test Bot"
         assert result.description == "A test bot for unit testing"
@@ -135,11 +133,11 @@ class TestMockAgentDAO:
         repo.add_agent(sample_agent)
         agent2 = Agent(**sample_agent.model_dump())
         agent2.name = "Second Bot"
+        agent2.id = ""
         repo.add_agent(agent2)
 
         # Retrieve by ID (index 0)
         agent: Agent | None = repo.get_agent_by_id("0")
-
         assert agent is not None
         assert isinstance(agent, Agent)
         assert agent.name == "Test Bot"
@@ -184,6 +182,7 @@ class TestMockAgentDAO:
         repo.add_agent(sample_agent)
         agent2 = Agent(**sample_agent.model_dump())
         agent2.name = "Second Bot"
+        agent2.id = ""
         repo.add_agent(agent2)
 
         assert len(repo.agents) == 2
@@ -229,6 +228,46 @@ class TestMockAgentDAO:
 
         # Original should be unchanged
         assert retrieved_again.name == original_name
+
+    def test_update_agent_valid_id(self, sample_agent: Agent):
+        """Test updating an agent with a valid id."""
+        repo = MockAgentDAO()
+        # Add agent
+        created = repo.add_agent(sample_agent)
+        # Update agent
+        updated_agent = Agent(**created.model_dump())
+        updated_agent.name = "Updated Bot"
+        updated = repo.add_agent(updated_agent)
+        assert updated.id == created.id
+        assert updated.name == "Updated Bot"
+        # Only one agent should exist
+        agents = repo.get_agents()
+        assert len(agents) == 1
+        assert agents[0].name == "Updated Bot"
+
+    def test_update_agent_invalid_id(self, sample_agent: Agent):
+        """Test updating an agent with an invalid id format (should raise ValueError)."""
+        repo = MockAgentDAO()
+        # Add agent
+        repo.add_agent(sample_agent)
+        # Try to update with invalid id
+        invalid_agent = Agent(**sample_agent.model_dump())
+        invalid_agent.id = "not-an-int"
+        invalid_agent.name = "Should Fail"
+        with pytest.raises(ValueError):
+            repo.add_agent(invalid_agent)
+
+    def test_update_agent_nonexistent_id(self, sample_agent: Agent):
+        """Test updating an agent with a non-existent id (should raise ValueError)."""
+        repo = MockAgentDAO()
+        # Add agent
+        repo.add_agent(sample_agent)
+        # Try to update with out-of-range id
+        invalid_agent = Agent(**sample_agent.model_dump())
+        invalid_agent.id = "999"
+        invalid_agent.name = "Should Fail"
+        with pytest.raises(ValueError):
+            repo.add_agent(invalid_agent)
 
 
 class TestFactoryIntegration:
