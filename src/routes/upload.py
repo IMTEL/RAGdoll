@@ -1,5 +1,4 @@
 import logging
-import os
 from enum import Enum
 from pathlib import Path
 
@@ -53,21 +52,20 @@ async def upload_document(
     Raises:
         HTTPException: If file processing fails or unsupported file type
     """
-    file_location = ""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+
+    # Create the directory if it does not exist
+    temp_files_dir = Path("temp_files")
+    temp_files_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save the file temporarily
+    # TODO: Why temporarily save to disk?
+    file_location = temp_files_dir / Path(file.filename).name
+    with open(file_location, "wb") as buffer:
+        buffer.write(file.file.read())
+
     try:
-        # Create the directory if it does not exist
-        temp_files_dir = Path("temp_files")
-        temp_files_dir.mkdir(parents=True, exist_ok=True)
-
-        if not file.filename:
-            raise HTTPException(status_code=400, detail="No file uploaded")
-
-        # Save the file temporarily
-        # TODO: Why temporarily save to disk?
-        file_location = temp_files_dir / Path(file.filename).name
-        with open(file_location, "wb") as buffer:
-            buffer.write(file.file.read())
-
         # Process and store - convert enum to its string value for database compatibility
         success = process_file_and_store(str(file_location), category.value)
 
@@ -87,7 +85,8 @@ async def upload_document(
             raise HTTPException(status_code=500, detail="Failed to process file")
 
     except Exception as e:
-        # Clean up temp file if it exists
-        if file_location and os.path.exists(file_location):
-            os.remove(file_location)
         raise HTTPException(status_code=500, detail=str(e)) from e
+    finally:
+        # Clean up temp file if it exists
+        if file_location.exists():
+            file_location.unlink()
