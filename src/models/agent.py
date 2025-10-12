@@ -13,15 +13,14 @@ class Role(BaseModel):
     Attributes:
         name: Unique identifier for the role (e.g., "admin", "user", "viewer")
         description: Human-readable explanation of the role's purpose
-        subset_of_corpa: Indices into the agent's corpa list indicating which
-                        documents this role can access
+        subset_of_corpus: Document IDs in the agent's corpus that this role can access
     """
 
     name: str = Field(..., description="Unique role identifier")
     description: str = Field(..., description="Role purpose and permissions")
-    subset_of_corpa: list[int] = Field(
+    subset_of_corpus: list[int] = Field(
         default_factory=list,
-        description="Indices of corpus documents accessible to this role",
+        description="Document IDs in the agent's corpus that this role can access",
     )
 
 
@@ -37,7 +36,7 @@ class Agent(BaseModel):
         name: Human-readable agent name
         description: Agent's purpose and capabilities
         prompt: System prompt that defines the agent's personality and instructions
-        corpa: List of document IDs or knowledge base identifiers
+        corpus: List of document IDs or knowledge base identifiers
         roles: Role definitions for access control
         llm_provider: LLM service provider (e.g., "idun", "openai", "google")
         llm_model: Model identifier (e.g., "gpt-4", "gemini-pro")
@@ -100,7 +99,7 @@ class Agent(BaseModel):
         for role_name in role_names:
             role = self.get_role_by_name(role_name)
             if role:
-                corpus_indices.update(role.subset_of_corpa)
+                corpus_indices.update(role.subset_of_corpus)
 
         # Return corpus documents at the specified indices
         return [self.corpus[i] for i in corpus_indices if i < len(self.corpus)]

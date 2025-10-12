@@ -40,9 +40,9 @@ def sample_agent() -> Agent:
         corpus=["document1", "document2"],
         roles=[
             Role(
-                name="admin", description="Administrator role", subset_of_corpa=[0, 1]
+                name="admin", description="Administrator role", subset_of_corpus=[0, 1]
             ),
-            Role(name="user", description="User role", subset_of_corpa=[1]),
+            Role(name="user", description="User role", subset_of_corpus=[1]),
         ],
         llm_model="gpt-3.5-turbo",
         llm_temperature=0.7,

@@ -45,7 +45,7 @@ class TestAgentEndpoints:
                 {
                     "name": "user",
                     "description": "Standard user",
-                    "subset_of_corpa": [0, 1],
+                    "subset_of_corpus": [0, 1],
                 }
             ],
             "llm_model": "gpt-3.5-turbo",
@@ -97,7 +97,7 @@ class TestAgentEndpoints:
             "prompt": "Prompt 1",
             "corpa": ["doc1"],
             "roles": [
-                {"name": "user", "description": "User role", "subset_of_corpa": [0]}
+                {"name": "user", "description": "User role", "subset_of_corpus": [0]}
             ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.5,
@@ -118,7 +118,7 @@ class TestAgentEndpoints:
             "prompt": "Prompt 2",
             "corpa": ["doc2"],
             "roles": [
-                {"name": "admin", "description": "Admin role", "subset_of_corpa": [0]}
+                {"name": "admin", "description": "Admin role", "subset_of_corpus": [0]}
             ],
             "llm_model": "gpt-4",
             "llm_temperature": 0.7,
@@ -153,7 +153,7 @@ class TestAgentEndpoints:
             "description": "Agent to retrieve by ID",
             "prompt": "Test prompt",
             "corpa": ["doc1"],
-            "roles": [{"name": "user", "description": "User", "subset_of_corpa": [0]}],
+            "roles": [{"name": "user", "description": "User", "subset_of_corpus": [0]}],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
@@ -196,9 +196,9 @@ class TestAgentEndpoints:
                 {
                     "name": "admin",
                     "description": "Admin role",
-                    "subset_of_corpa": [0, 1, 2],
+                    "subset_of_corpus": [0, 1, 2],
                 },
-                {"name": "user", "description": "User role", "subset_of_corpa": [1]},
+                {"name": "user", "description": "User role", "subset_of_corpus": [1]},
             ],
             "llm_model": "gpt-4",
             "llm_temperature": 0.8,

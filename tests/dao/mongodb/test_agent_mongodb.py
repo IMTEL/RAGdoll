@@ -30,12 +30,12 @@ def sample_agent() -> Agent:
             Role(
                 name="admin",
                 description="Administrator with full access",
-                subset_of_corpa=[0, 1, 2],
+                subset_of_corpus=[0, 1, 2],
             ),
             Role(
                 name="user",
                 description="Regular user with limited access",
-                subset_of_corpa=[1],
+                subset_of_corpus=[1],
             ),
         ],
         llm_model="gpt-4",
@@ -217,9 +217,9 @@ class TestMongoDBAgentDAORetrieve:
         assert retrieved_agent is not None
         assert len(retrieved_agent.roles) == 2
         assert retrieved_agent.roles[0].name == "admin"
-        assert retrieved_agent.roles[0].subset_of_corpa == [0, 1, 2]
+        assert retrieved_agent.roles[0].subset_of_corpus == [0, 1, 2]
         assert retrieved_agent.roles[1].name == "user"
-        assert retrieved_agent.roles[1].subset_of_corpa == [1]
+        assert retrieved_agent.roles[1].subset_of_corpus == [1]
 
     def test_agent_corpa_preserved(
         self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
