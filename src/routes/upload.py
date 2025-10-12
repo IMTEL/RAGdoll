@@ -8,8 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from src.context_upload import process_file_and_store
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -75,7 +74,7 @@ async def upload_document(
         # Delete temporary file
         file_location.unlink()
 
-        logging.info(f"Uploaded file: {file.filename}, Category: {category.value}")
+        logger.info(f"Uploaded file: {file.filename}, Category: {category.value}")
 
         if success:
             return {

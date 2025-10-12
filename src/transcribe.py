@@ -13,6 +13,9 @@ from scipy.signal import resample_poly  # pip install scipy soundfile
 from src.whisper_model import get_whisper_model
 
 
+logger = logging.getLogger(__name__)
+
+
 model = get_whisper_model()
 
 # TODO: switch to FastAPI
@@ -38,10 +41,10 @@ def load_audio_from_upload(file) -> np.ndarray:
             audio = resample_poly(audio, TARGET_SR // g, sr // g).astype("float32")
         return audio
     except sf.SoundFileError as e:
-        logging.error(f"SoundFile error when processing audio: {e!s}")
+        logger.error(f"SoundFile error when processing audio: {e!s}")
         raise ValueError("Invalid audio file format.") from e
     except Exception as e:
-        logging.error(f"Error loading audio: {e!s}")
+        logger.error(f"Error loading audio: {e!s}")
         raise ValueError("Failed to process audio file.") from e
 
 
@@ -110,7 +113,7 @@ def transcribe_audio(file: UploadFile, language: str | None = None) -> dict:
         return {"success": False, "error": str(e)}
     except Exception as e:
         # Handle other errors
-        logging.error(f"Transcription error: {e!s}")
+        logger.error(f"Transcription error: {e!s}")
         return {"success": False, "error": f"Failed to transcribe audio: {e!s}"}
 
 

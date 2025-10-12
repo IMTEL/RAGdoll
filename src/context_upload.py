@@ -8,6 +8,9 @@ from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import create_embeddings_model
 
 
+logger = logging.getLogger(__name__)
+
+
 # Load configuration and initialize the SentenceTransformer model.
 config = Config()
 embedding_model = create_embeddings_model()
@@ -46,17 +49,17 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     Returns:
         bool: True if storing was successful; False otherwise.
     """
-    logging.info(f"Starting file processing for: {file_path} with category: {category}")
+    logger.info(f"Starting file processing for: {file_path} with category: {category}")
 
     # Verify file exists
     if not os.path.exists(file_path):
-        logging.error(f"File '{file_path}' does not exist.")
+        logger.error(f"File '{file_path}' does not exist.")
         return False
 
     # Verify file extension is supported.
     _, ext = os.path.splitext(file_path)
     if ext.lower() not in [".txt", ".md"]:
-        logging.error("Unsupported file type. Only .txt and .md files are supported.")
+        logger.error("Unsupported file type. Only .txt and .md files are supported.")
         return False
 
     # Extract the file's text content.
@@ -69,10 +72,10 @@ def process_file_and_store(file_path: str, category: str) -> bool:
             with open(file_path, encoding="latin-1") as f:
                 text = f.read()
         except Exception as e:
-            logging.error(f"Error reading file '{file_path}': {e}")
+            logger.error(f"Error reading file '{file_path}': {e}")
             return False
     except Exception as e:
-        logging.error(f"Error reading file '{file_path}': {e}")
+        logger.error(f"Error reading file '{file_path}': {e}")
         return False
 
     # Compute the embedding using the actual model.
@@ -80,7 +83,7 @@ def process_file_and_store(file_path: str, category: str) -> bool:
     try:
         embedding = compute_embedding(text)
     except Exception as e:
-        logging.error(f"Error computing embedding for file '{file_path}': {e}")
+        logger.error(f"Error computing embedding for file '{file_path}': {e}")
         return False
 
     # Use the file's basename as the document name.
@@ -109,10 +112,10 @@ def process_file_and_store(file_path: str, category: str) -> bool:
             ),
         )
     except Exception as e:
-        logging.error(f"Error inserting context into database: {e}")
+        logger.error(f"Error inserting context into database: {e}")
         return False
 
-    logging.info(
+    logger.info(
         f"Successfully stored '{document_name}' into the database with category '{category}'."
     )
 
