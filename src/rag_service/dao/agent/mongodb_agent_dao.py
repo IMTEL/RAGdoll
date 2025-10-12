@@ -53,10 +53,10 @@ class MongoDBAgentDAO(AgentDAO):
 
             try:
                 object_id = ObjectId(agent_id)
-            except Exception:
+            except Exception as e:
                 raise ValueError(
                     f"Agent ID '{agent_id}' is not a valid MongoDB ObjectId."
-                )
+                ) from e
 
             result = self.collection.update_one(
                 {"_id": object_id}, {"$set": agent_dict}
