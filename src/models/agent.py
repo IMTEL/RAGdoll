@@ -56,7 +56,7 @@ class Agent(BaseModel):
     name: str
     description: str
     prompt: str
-    corpa: list[str] = Field(default_factory=list)
+    corpus: list[str] = Field(default_factory=list)
     roles: list[Role] = Field(default_factory=list)
     llm_provider: str = Field(default="idun")
     llm_model: str
@@ -103,7 +103,7 @@ class Agent(BaseModel):
                 corpus_indices.update(role.subset_of_corpa)
 
         # Return corpus documents at the specified indices
-        return [self.corpa[i] for i in corpus_indices if i < len(self.corpa)]
+        return [self.corpus[i] for i in corpus_indices if i < len(self.corpus)]
 
     def is_access_key_valid(self, key: str) -> bool:
         """Verify if the provided access key is authorized for this agent.

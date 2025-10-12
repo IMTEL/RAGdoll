@@ -37,7 +37,7 @@ def sample_agent() -> Agent:
         name="Test Bot",
         description="A test bot for unit testing",
         prompt="You are a helpful assistant",
-        corpa=["document1", "document2"],
+        corpus=["document1", "document2"],
         roles=[
             Role(
                 name="admin", description="Administrator role", subset_of_corpa=[0, 1]
@@ -204,7 +204,7 @@ class TestMockAgentDAO:
         assert retrieved.name == sample_agent.name
         assert retrieved.description == sample_agent.description
         assert retrieved.prompt == sample_agent.prompt
-        assert retrieved.corpa == sample_agent.corpa
+        assert retrieved.corpus == sample_agent.corpus
         assert len(retrieved.roles) == len(sample_agent.roles)
         assert retrieved.llm_model == sample_agent.llm_model
         assert retrieved.llm_temperature == sample_agent.llm_temperature

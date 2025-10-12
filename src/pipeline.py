@@ -78,8 +78,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     accessible_corpus = agent.get_corpus_for_roles(command.active_role_ids)
 
     # If no roles specified, use all corpus
-    if not command.active_role_ids and agent.corpa:
-        accessible_corpus = agent.corpa
+    if not command.active_role_ids and agent.corpus:
+        accessible_corpus = agent.corpus
 
     # Perform RAG retrieval from accessible corpus
     retrieved_contexts = []
