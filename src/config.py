@@ -3,6 +3,11 @@ import os
 from dotenv import load_dotenv
 
 
+# Flag to indicate if tests are running.
+# Environment variable is set in pyproject.toml under [tool.pytest.env]
+RUNNING_TESTS: bool = os.getenv("RUNNING_TESTS", "false").lower() == "true"
+
+
 load_dotenv()
 
 
@@ -23,6 +28,9 @@ class Config:
     def __init__(self, path=".env"):
         self.path = path
         self.ENV = os.getenv("ENV", "dev")
+
+        if RUNNING_TESTS:  # Ensure tests always run in 'dev' environment
+            self.ENV = "dev"
 
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
