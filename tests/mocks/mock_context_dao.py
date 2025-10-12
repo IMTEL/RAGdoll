@@ -65,13 +65,18 @@ class MockContextDAO(ContextDAO):
         return results
 
     def get_context_by_corpus_ids(
-        self, corpus_ids: list[str], embedding: list[float], top_k: int = 5
+        self,
+        corpus_ids: list[str],
+        embedding: list[float],
+        num_candidates: int = 50,
+        top_k: int = 5,
     ) -> list[Context]:
         """Retrieve contexts from specific corpus IDs using mock similarity.
 
         Args:
             corpus_ids (list[str]): List of corpus/category identifiers to search within
             embedding (list[float]): Query embedding vector
+            num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
 
         Returns:
@@ -86,7 +91,7 @@ class MockContextDAO(ContextDAO):
             raise ValueError("Embedding cannot be empty")
 
         results = []
-        for document in self.data:
+        for document in self.data[:num_candidates]:  # Limit to num_candidates
             # Check if document category matches any corpus ID
             if document.get("category") in corpus_ids:
                 # Mock similarity - returns high value for testing

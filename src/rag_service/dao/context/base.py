@@ -28,13 +28,18 @@ class ContextDAO(ABC):
 
     @abstractmethod
     def get_context_by_corpus_ids(
-        self, corpus_ids: list[str], embedding: list[float], top_k: int = 5
+        self,
+        corpus_ids: list[str],
+        embedding: list[float],
+        num_candidates: int = 50,
+        top_k: int = 5,
     ) -> list[Context]:
         """Retrieve contexts from specific corpus IDs using semantic similarity.
 
         Args:
             corpus_ids (list[str]): List of corpus/category identifiers to search within
             embedding (list[float]): Query embedding vector for similarity search
+            num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
 
         Returns:

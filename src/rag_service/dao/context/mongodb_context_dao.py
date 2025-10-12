@@ -1,11 +1,16 @@
 """MongoDB implementation for context document storage."""
 
+import logging
+
 from pymongo import MongoClient
 
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.dao.context.base import ContextDAO
 from src.rag_service.embeddings import similarity_search
+
+
+logger = logging.getLogger(__name__)
 
 
 config = Config()
@@ -78,7 +83,11 @@ class MongoDBContextDAO(ContextDAO):
         return results
 
     def get_context_by_corpus_ids(
-        self, corpus_ids: list[str], embedding: list[float], top_k: int = 5
+        self,
+        corpus_ids: list[str],
+        embedding: list[float],
+        num_candidates: int = 50,
+        top_k: int = 5,
     ) -> list[Context]:
         """Retrieve relevant contexts from specific corpus IDs using vector similarity.
 
@@ -88,6 +97,7 @@ class MongoDBContextDAO(ContextDAO):
         Args:
             corpus_ids (list[str]): List of corpus/category identifiers to search within
             embedding (list[float]): Query embedding vector
+            num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
 
         Returns:
@@ -108,13 +118,12 @@ class MongoDBContextDAO(ContextDAO):
                     "index": "embeddings",
                     "path": "embedding",
                     "queryVector": embedding,
-                    "numCandidates": 50,  # Broad initial search
-                    "limit": top_k * 2,  # Get more candidates for filtering
+                    "numCandidates": num_candidates,
+                    "limit": top_k,
                     # TODO: Re-enable category filtering once supported
                     # "filter": {"category": {"$in": corpus_ids}},
                 }
             },
-            # {"$limit": top_k}, # TODO: What about this?
         ]
 
         documents = self.collection.aggregate(pipeline)
@@ -125,9 +134,9 @@ class MongoDBContextDAO(ContextDAO):
             # Additional similarity check
             similarity = similarity_search(embedding, document["embedding"])
 
-            print(
+            logger.debug(
                 f"Document Name: {document.get('document_name')}, Similarity: {similarity}"
-            )  # TODO: Remove debug print
+            )
 
             if similarity > self.similarity_threshold:
                 results.append(
