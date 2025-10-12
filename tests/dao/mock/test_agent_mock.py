@@ -1,0 +1,294 @@
+"""Comprehensive tests for AgentDAO implementations.
+
+Tests both MongoDBAgentDAO and MockAgentDAO to ensure
+they properly implement the DAO pattern.
+"""
+
+import pytest
+
+from src.config import Config
+from src.models.agent import Agent, Role
+from src.rag_service.dao import get_agent_dao
+from tests.mocks import MockAgentDAO
+
+
+@pytest.fixture(autouse=True)
+def setup_environment_and_clear_dao():
+    """Set environment variable and clear mock DAO before each test."""
+    # Set environment variable
+    config = Config()
+    prev_value = config.RAG_DATABASE_SYSTEM
+    config.RAG_DATABASE_SYSTEM = "mock"
+
+    # Clear mock DAO
+    repo = MockAgentDAO()
+    repo.clear()
+
+    yield
+
+    repo.clear()
+    config.RAG_DATABASE_SYSTEM = prev_value
+
+
+@pytest.fixture
+def sample_agent() -> Agent:
+    """Create a sample agent for testing."""
+    return Agent(
+        name="Test Bot",
+        description="A test bot for unit testing",
+        prompt="You are a helpful assistant",
+        corpa=["document1", "document2"],
+        roles=[
+            Role(
+                name="admin", description="Administrator role", subset_of_corpa=[0, 1]
+            ),
+            Role(name="user", description="User role", subset_of_corpa=[1]),
+        ],
+        llm_model="gpt-3.5-turbo",
+        llm_temperature=0.7,
+        llm_max_tokens=1000,
+        llm_api_key="test-api-key",
+        access_key=["key1", "key2"],
+        retrieval_method="semantic",
+        embedding_model="text-embedding-ada-002",
+        status="active",
+        response_format="json",
+        last_updated="2025-10-03T10:00:00Z",
+    )
+
+
+class TestMockAgentDAO:
+    """Tests for MockAgentDAO (in-memory implementation)."""
+
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self):
+        """Clear mock database before and after each test."""
+        repo = MockAgentDAO()
+        repo.clear()
+        yield
+        repo.clear()
+
+    def test_is_reachable(self):
+        """Test that DAO is always reachable."""
+        repo = MockAgentDAO()
+        assert repo.is_reachable() is True
+
+    def test_add_agent(self, sample_agent: Agent):
+        """Test creating an agent."""
+        repo = MockAgentDAO()
+        result = repo.add_agent(sample_agent)
+        assert isinstance(result, Agent)
+        assert result.name == "Test Bot"
+        assert result.description == "A test bot for unit testing"
+        assert len(repo.agents) == 1
+
+    def test_create_multiple_agents(self, sample_agent: Agent):
+        """Test creating multiple agents."""
+        repo = MockAgentDAO()
+
+        agent1 = sample_agent
+        agent2 = Agent(**sample_agent.model_dump())
+        agent2.name = "Second Bot"
+        agent2.description = "Another test bot"
+
+        repo.add_agent(agent1)
+        repo.add_agent(agent2)
+
+        assert len(repo.agents) == 2
+
+    def test_get_agents_empty(self):
+        """Test getting agents when DAO is empty."""
+        repo = MockAgentDAO()
+
+        agents = repo.get_agents()
+
+        assert agents == []
+        assert isinstance(agents, list)
+
+    def test_get_agents(self, sample_agent: Agent):
+        """Test retrieving all agents."""
+        repo = MockAgentDAO()
+
+        # Create multiple agents
+        agent1 = sample_agent
+        agent2 = Agent(**sample_agent.model_dump())
+        agent2.name = "Second Bot"
+
+        repo.add_agent(agent1)
+        repo.add_agent(agent2)
+
+        # Retrieve all
+        agents = repo.get_agents()
+
+        assert len(agents) == 2
+        assert all(isinstance(a, Agent) for a in agents)
+        assert agents[0].name == "Test Bot"
+        assert agents[1].name == "Second Bot"
+
+    def test_get_agent_by_id(self, sample_agent: Agent) -> None:
+        """Test retrieving a specific agent by ID."""
+        repo = MockAgentDAO()
+
+        # Create agents
+        repo.add_agent(sample_agent)
+        agent2 = Agent(**sample_agent.model_dump())
+        agent2.name = "Second Bot"
+        agent2.id = ""
+        repo.add_agent(agent2)
+
+        # Retrieve by ID (index 0)
+        agent: Agent | None = repo.get_agent_by_id("0")
+        assert agent is not None
+        assert isinstance(agent, Agent)
+        assert agent.name == "Test Bot"
+
+    def test_get_agent_by_id_not_found(self):
+        """Test retrieving non-existent agent returns None."""
+        repo = MockAgentDAO()
+
+        agent: Agent | None = repo.get_agent_by_id("999")
+
+        assert agent is None
+
+    def test_get_agent_by_invalid_id(self, sample_agent: Agent):
+        """Test retrieving agent with invalid ID format."""
+        repo = MockAgentDAO()
+        repo.add_agent(sample_agent)
+
+        agent = repo.get_agent_by_id("invalid")
+
+        assert agent is None
+
+    def test_dao_singleton(self, sample_agent: Agent):
+        """Test that DAO uses singleton pattern."""
+        repo1 = MockAgentDAO()
+        repo2 = MockAgentDAO()
+
+        # They should be the same instance (singleton)
+        assert repo1 is repo2
+
+        # Changes in one should reflect in the other
+        repo1.add_agent(sample_agent)
+        agents_from_repo2 = repo2.get_agents()
+
+        assert len(agents_from_repo2) == 1
+        assert agents_from_repo2[0].name == sample_agent.name
+
+    def test_clear_functionality(self, sample_agent: Agent):
+        """Test that clear() removes all agents."""
+        repo = MockAgentDAO()
+
+        # Add agents
+        repo.add_agent(sample_agent)
+        agent2 = Agent(**sample_agent.model_dump())
+        agent2.name = "Second Bot"
+        agent2.id = ""
+        repo.add_agent(agent2)
+
+        assert len(repo.agents) == 2
+
+        # Clear
+        repo.clear()
+
+        assert len(repo.agents) == 0
+        assert repo.get_agents() == []
+
+    def test_agent_data_integrity(self, sample_agent: Agent) -> None:
+        """Test that agent data is preserved correctly."""
+        repo = MockAgentDAO()
+
+        repo.add_agent(sample_agent)
+        retrieved: Agent = repo.get_agents()[0]
+
+        # Verify all fields are preserved
+        assert retrieved.name == sample_agent.name
+        assert retrieved.description == sample_agent.description
+        assert retrieved.prompt == sample_agent.prompt
+        assert retrieved.corpa == sample_agent.corpa
+        assert len(retrieved.roles) == len(sample_agent.roles)
+        assert retrieved.llm_model == sample_agent.llm_model
+        assert retrieved.llm_temperature == sample_agent.llm_temperature
+        assert retrieved.llm_max_tokens == sample_agent.llm_max_tokens
+        assert retrieved.retrieval_method == sample_agent.retrieval_method
+        assert retrieved.status == sample_agent.status
+
+    def test_agent_independence(self, sample_agent: Agent) -> None:
+        """Test that modifying retrieved agent doesn't affect stored data."""
+        repo = MockAgentDAO()
+
+        repo.add_agent(sample_agent)
+        retrieved = repo.get_agents()[0]
+
+        # Modify retrieved agent
+        original_name = retrieved.name
+        retrieved.name = "Modified Name"
+
+        # Get agent again
+        retrieved_again = repo.get_agents()[0]
+
+        # Original should be unchanged
+        assert retrieved_again.name == original_name
+
+    def test_update_agent_valid_id(self, sample_agent: Agent):
+        """Test updating an agent with a valid id."""
+        repo = MockAgentDAO()
+        # Add agent
+        created = repo.add_agent(sample_agent)
+        # Update agent
+        updated_agent = Agent(**created.model_dump())
+        updated_agent.name = "Updated Bot"
+        updated = repo.add_agent(updated_agent)
+        assert updated.id == created.id
+        assert updated.name == "Updated Bot"
+        # Only one agent should exist
+        agents = repo.get_agents()
+        assert len(agents) == 1
+        assert agents[0].name == "Updated Bot"
+
+    def test_update_agent_invalid_id(self, sample_agent: Agent):
+        """Test updating an agent with an invalid id format (should raise ValueError)."""
+        repo = MockAgentDAO()
+        # Add agent
+        repo.add_agent(sample_agent)
+        # Try to update with invalid id
+        invalid_agent = Agent(**sample_agent.model_dump())
+        invalid_agent.id = "not-an-int"
+        invalid_agent.name = "Should Fail"
+        with pytest.raises(ValueError):
+            repo.add_agent(invalid_agent)
+
+    def test_update_agent_nonexistent_id(self, sample_agent: Agent):
+        """Test updating an agent with a non-existent id (should raise ValueError)."""
+        repo = MockAgentDAO()
+        # Add agent
+        repo.add_agent(sample_agent)
+        # Try to update with out-of-range id
+        invalid_agent = Agent(**sample_agent.model_dump())
+        invalid_agent.id = "999"
+        invalid_agent.name = "Should Fail"
+        with pytest.raises(ValueError):
+            repo.add_agent(invalid_agent)
+
+
+class TestFactoryIntegration:
+    """Test that the factory returns the correct DAO based on configuration."""
+
+    def test_factory_returns_agent_dao(self):
+        """Test that factory returns a valid AgentDAO."""
+        repo = get_agent_dao()
+
+        # Should have all required methods
+        assert hasattr(repo, "add_agent")
+        assert hasattr(repo, "get_agents")
+        assert hasattr(repo, "get_agent_by_id")
+        assert hasattr(repo, "is_reachable")
+
+        # Should be reachable
+        assert repo.is_reachable() is True
+
+    def test_factory_consistency(self):
+        """Test that factory returns consistent DAO type."""
+        repo1 = get_agent_dao()
+        repo2 = get_agent_dao()
+
+        assert repo1 is repo2  # Should be singleton

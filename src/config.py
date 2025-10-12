@@ -1,43 +1,73 @@
 import os
-from dotenv import load_dotenv
-import whisper
 
-load_dotenv()  
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 class Config:
     """Configuration class to manage environment variables and model loading.
-    
+
+    Singleton pattern is used to ensure a single configuration instance.
     """
-    def __init__(self, path=".env", gpt_model="gpt-4o-mini", gemini_model="gemini-2.0-flash-lite"):
+
+    _instance: "Config | None" = None
+
+    def __new__(cls):
+        """Ensure only one instance exists (singleton pattern)."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, path=".env"):
         self.path = path
         self.ENV = os.getenv("ENV", "dev")
-        
+
         self.MODEL = os.getenv("MODEL", "idun")
-        self.GPT_MODEL = os.getenv("GPT_MODEL", gpt_model)
-        self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", gemini_model)
+        self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
+        self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
         self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_gemini_api_key")
-        self.IDUN_API_URL = os.getenv("IDUN_API_URL", "https://idun-llm")
+        self.IDUN_API_URL = os.getenv(
+            "IDUN_API_URL", "https://idun-llm.hpc.ntnu.no/api/chat/completions"
+        )
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
-        self.IDUN_MODEL = os.getenv("IDUN_MODEL", "gpt-4o-mini")
-         # Load the model (options: tiny, base, small, medium, large)
-        try:
-            self.whisper_model = whisper.load_model("base").to("cuda") # TODO: load model on ping or keep container warm
-        except:
-            try:
-                self.whisper_model = whisper.load_model("base")
-            except:
-                self.whisper_model = None
-        
-        if self.ENV == 'dev': # TODO: change this to 'dev' when ready
-            self.MONGODB_URI = os.getenv("MOCK_MONGODB_URI", "mongodb://localhost:27017")
-            self.MONGODB_COLLECTION = os.getenv("MOCK_MONGODB_COLLECTION", "test_collection")
-            self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
-            self.RAG_DATABASE_SYSTEM = os.getenv("MOCK_RAG_DATABASE_SYSTEM", "mongodb")
-        else:
-            self.MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-            self.MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "test_collection")
-            self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
-            self.RAG_DATABASE_SYSTEM = os.getenv("RAG_DATABASE_SYSTEM", "mongodb")
+        self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
+        self.RAG_DATABASE_SYSTEM = os.getenv(
+            prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
+        )
+
+        self.MONGODB_URI = os.getenv(
+            prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
+        )
+        self.MONGODB_DATABASE = os.getenv(
+            prod_or_mock_env("MONGODB_DATABASE"), "test_database"
+        )
+        # It is expected now that agents and contexts are in the same database
+        # and in separate collections
+        self.MONGODB_CONTEXT_COLLECTION = os.getenv(
+            "MONGODB_CONTEXT_COLLECTION", "contexts"
+        )
+        self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
+
+        self.IDUN_MODELS = os.getenv(
+            "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
+        ).split(",")
+
+
+def prod_or_mock_env(env_var: str) -> str:
+    """Determine whether to use production or mock environment variable.
+
+    Args:
+        env_var (str): The environment variable to check.
+
+    Returns:
+        str: "MOCK_" + env_var if in dev mode, else env_var.
+    """
+    env = os.getenv("ENV", "dev")
+    if env == "dev":
+        return "MOCK_" + env_var
+
+    return env_var

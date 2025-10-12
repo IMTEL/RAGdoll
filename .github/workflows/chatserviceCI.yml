@@ -24,12 +24,11 @@ jobs:
       GEMINI_MODEL: ${{secrets.GEMINI_MODEL}}
       MONGODB_URI: ${{secrets.MONGODB_URI}}
       MONGODB_DATABASE: ${{secrets.MONGODB_DATABASE}}
-      MONGODB_COLLECTION: ${{secrets.MONGODB_COLLECTION}}
+      MONGODB_CONTEXT_COLLECTION: ${{secrets.MONGODB_CONTEXT_COLLECTION}}
+      MONGODB_AGENT_COLLECTION: ${{secrets.MONGODB_AGENT_COLLECTION}}
       RAG_DATABASE_SYSTEM: ${{secrets.RAG_DATABASE_SYSTEM}}
-      MOCK_DATABASE_SYSTEM: ${{secrets.MOCK_DATABASE_SYSTEM}}
       MOCK_MONGODB_URI: ${{secrets.MOCK_MONGODB_URI}}
       MOCK_MONGODB_DATABASE: ${{secrets.MOCK_MONGODB_DATABASE}}
-      MOCK_MONGODB_COLLECTION: ${{secrets.MOCK_MONGODB_COLLECTION}}
       MOCK_RAG_DATABASE_SYSTEM: ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}
     steps:
     - uses: actions/checkout@v4
@@ -46,12 +45,10 @@ jobs:
         echo "GEMINI_MODEL = ${{secrets.GEMINI_MODEL}}" >> .env
         echo "MONGODB_URI = ${{secrets.MONGODB_URI}}" >> .env
         echo "MONGODB_DATABASE = ${{secrets.MONGODB_DATABASE}}" >> .env
-        echo "MONGODB_COLLECTION = ${{secrets.MONGODB_COLLECTION}}" >> .env
+        echo "MONGODB_CONTEXT_COLLECTION = ${{secrets.MONGODB_CONTEXT_COLLECTION}}" >> .env
         echo "RAG_DATABASE_SYSTEM = ${{secrets.RAG_DATABASE_SYSTEM}}" >> .env
-        echo "MOCK_DATABASE_SYSTEM = ${{secrets.MOCK_DATABASE_SYSTEM}}" >> .env
         echo "MOCK_MONGODB_URI = ${{secrets.MOCK_MONGODB_URI}}" >> .env
         echo "MOCK_MONGODB_DATABASE = ${{secrets.MOCK_MONGODB_DATABASE}}" >> .env
-        echo "MOCK_MONGODB_COLLECTION = ${{secrets.MOCK_MONGODB_COLLECTION}}" >> .env
         echo "MOCK_RAG_DATABASE_SYSTEM = ${{secrets.MOCK_RAG_DATABASE_SYSTEM}}" >> .env
 
     - name: Build Docker image

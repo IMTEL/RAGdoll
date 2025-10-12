@@ -1,0 +1,68 @@
+[project]
+name = "RAGdoll"
+version = "0.1.0"
+description = "A FastAPI-based microservice that serves as the backend for a VR chatbot system designed for educational/training purposes. It implements a Retrieval-Augmented Generation (RAG) architecture to provide context-aware responses to users in VR environments."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "fastapi==0.115.8",
+    "Flask==3.1.0",
+    "google-ai-generativelanguage==0.6.15",
+    "google-api-core==2.24.1",
+    "google-api-python-client==2.162.0",
+    "google-auth==2.38.0",
+    "google-auth-httplib2==0.2.0",
+    "google-generativeai==0.8.4",
+    "googleapis-common-protos==1.69.0",
+    "numpy==2.2.4",
+    "openai==1.65.3",
+    "openai-whisper @ git+https://github.com/openai/whisper.git@517a43ecd132a2089d85f4ebc044728a71d49f6e",
+    "pydantic==2.10.6",
+    "pymongo==4.11.1",
+    "python-dotenv==1.0.1",
+    "python-multipart>=0.0.20",
+    "requests>=2.32.3",
+    "scipy==1.15.2",
+    "soundfile>=0.13.1",
+    "torch==2.6.0",
+    "typer>=0.19.2",
+    "uvicorn==0.34.0",
+]
+
+[dependency-groups]
+dev = [
+    "deptry>=0.23.1",
+    "mypy>=1.18.2",
+    "pre-commit>=4.3.0",
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.13.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "src"]
+markers = [
+    "integration: marks tests as integration tests that may require external resources",
+    "unit: marks tests as unit tests that should not require external resources",
+    "asyncio: marks tests as asyncio tests",
+]
+addopts = "--cov=src --cov-report=term-missing"
+
+[tool.pytest.env]
+ENV = "dev"
+MOCK_RAG_DATABASE_SYSTEM = "mock"
+
+[tool.coverage.run]
+omit = [
+    "*/rag_service/context.py",
+    "*/prompt_assemble.py",
+    "*/command.py",
+    "*/rag.py",
+    "*/config.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover", # exclude lines with this comment
+]

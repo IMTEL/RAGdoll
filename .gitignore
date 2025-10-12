@@ -1,18 +1,28 @@
+# Python cache files
 __pycache__/
 
+# Virtual environments
 venv/
+.venv/
 venv311/
 py311/
 fresh_env/
 fresh_venv/
+
+# Environment variables
 .env
 env
+
+# Distribution / Packaging
+*.egg-info/
+
+# Coverage reports
 .coverage/
 coverage/
 coverage
 htmlcov/
 htmlcov
-# remove .coverage files
 *.coverage
 
+# Context files
 *context_files/
