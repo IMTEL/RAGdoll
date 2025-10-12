@@ -8,13 +8,13 @@
 
 ---
 
-## 🧭 Overview
+## Overview
 
 This document summarizes the complete setup of the **halvadministrert Ubuntu server** provided by **NTNU IT**, configured to host the **RAGdoll** FastAPI + MongoDB + Docker application.
 
 ---
 
-## 🧩 1. Initial Information from NTNU IT
+## 1. Initial Information from NTNU IT
 
 | Item | Value |
 |------|--------|
@@ -27,7 +27,7 @@ This document summarizes the complete setup of the **halvadministrert Ubuntu ser
 
 ---
 
-## ⚙️ 2. SSH Access
+## 2. SSH Access
 
 Connected using the NTNU username:
 
