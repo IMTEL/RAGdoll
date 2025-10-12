@@ -2,7 +2,7 @@
 
 # 🚀 RAGdoll development tool
 
-This is the backend microservice for the **VR4VET Chatbot**, built with **FastAPI**.
+available api at https://iplvr.it.ntnu.no
 
 ## 📦 Installation
 ### Prerequisites
