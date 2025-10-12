@@ -300,6 +300,7 @@ class TestMongoDBAgentDAOUpdate:
         # Create agent
         created_agent = mongodb_repo.add_agent(sample_agent)
         agent_id = created_agent.id
+        assert agent_id is not None
         # Update agent
         updated_agent = Agent(**created_agent.model_dump())
         updated_agent.name = "Updated MongoDB Agent"
