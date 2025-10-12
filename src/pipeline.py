@@ -10,6 +10,9 @@ from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import GoogleEmbedding, create_embeddings_model
 
 
+CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
+
+
 def get_answer_from_user(
     answer: str, target: str, question: str, model="gemini"
 ) -> str:
@@ -167,7 +170,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
                 "document_name": ctx.document_name,
                 "category": ctx.category,
                 "chunk_index": ctx.chunk_index,
-                "content": ctx.text,  # TODO: Omit later if too large
+                "content": ctx.text[:CONTEXT_TRUNCATE_LENGTH],
             }
             for ctx in retrieved_contexts
         ],
