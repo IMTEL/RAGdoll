@@ -6,10 +6,10 @@ from src.models.accesskey import AccessKey
 
 class MockAccessService(AbstractAccessService):
     def generate_accesskey(
-        self, name: str, expiery_date: datetime, agent_id: str
+        self, name: str, expiry_date: datetime, agent_id: str
     ) -> AccessKey:
         return AccessKey(
-            key="", name=name, expiery_date=expiery_date, created=datetime.now()
+            key="", name=name, expiry_date=expiry_date, created=datetime.now()
         )
 
     def authenticate(self, agent_id: str, access_key: str) -> bool:
