@@ -56,8 +56,62 @@ class MockContextDAO(ContextDAO):
                         text=document["text"],
                         document_name=document["document_name"],
                         category=document["category"],
+                        document_id=document.get("document_id"),
+                        chunk_id=document.get("chunk_id"),
+                        chunk_index=document.get("chunk_index"),
+                        total_chunks=document.get("total_chunks", 1),
                     )
                 )
+        return results
+
+    def get_context_by_corpus_ids(
+        self,
+        corpus_ids: list[str],
+        embedding: list[float],
+        num_candidates: int = 50,
+        top_k: int = 5,
+    ) -> list[Context]:
+        """Retrieve contexts from specific corpus IDs using mock similarity.
+
+        Args:
+            corpus_ids (list[str]): List of corpus/category identifiers to search within
+            embedding (list[float]): Query embedding vector
+            num_candidates (int): Number of initial candidates to consider
+            top_k (int): Maximum number of results to return
+
+        Returns:
+            list[Context]: Top matching contexts from the specified corpus
+
+        Raises:
+            ValueError: If corpus_ids or embedding is empty
+        """
+        if not corpus_ids:
+            raise ValueError("corpus_ids cannot be empty")
+        if not embedding:
+            raise ValueError("Embedding cannot be empty")
+
+        results = []
+        for document in self.data[:num_candidates]:  # Limit to num_candidates
+            # Check if document category matches any corpus ID
+            if document.get("category") in corpus_ids:
+                # Mock similarity - returns high value for testing
+                similarity = 0.9
+                if similarity > self.similarity_threshold:
+                    doc_name = document.get("document_name", "default_document_name")
+                    results.append(
+                        Context(
+                            text=document["text"],
+                            document_name=doc_name,
+                            category=document.get("category", "Unknown"),
+                            document_id=document.get("document_id"),
+                            chunk_id=document.get("chunk_id"),
+                            chunk_index=document.get("chunk_index"),
+                            total_chunks=document.get("total_chunks", 1),
+                        )
+                    )
+                # Limit results to top_k
+                if len(results) >= top_k:
+                    break
         return results
 
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
@@ -93,6 +147,10 @@ class MockContextDAO(ContextDAO):
                         category=document.get(
                             "category", f"npc_{document.get('npc', 'Unknown')}"
                         ),
+                        document_id=document.get("document_id"),
+                        chunk_id=document.get("chunk_id"),
+                        chunk_index=document.get("chunk_index"),
+                        total_chunks=document.get("total_chunks", 1),
                     )
                 )
         return results
@@ -115,15 +173,23 @@ class MockContextDAO(ContextDAO):
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
-        self.data.append(
-            {
-                "text": text,
-                "document_name": document_name,
-                "category": category,
-                "embedding": embedding,
-                "document_id": document_id,
-            }
-        )
+        document = {
+            "text": text,
+            "document_name": document_name,
+            "category": category,
+            "embedding": embedding,
+            "document_id": document_id,
+        }
+
+        # Add optional chunking fields if present
+        if context.chunk_id is not None:
+            document["chunk_id"] = context.chunk_id
+        if context.chunk_index is not None:
+            document["chunk_index"] = context.chunk_index
+        if context.total_chunks is not None:
+            document["total_chunks"] = context.total_chunks
+
+        self.data.append(document)
         return context
 
     def is_reachable(self) -> bool:
