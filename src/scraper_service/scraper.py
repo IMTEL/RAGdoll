@@ -280,56 +280,5 @@ class ScraperService:
         }
 
 
-def test_scraper_with_cv():
-    """
-    Test function to process the cv.pdf file in the scraper_service directory.
-    """
-    # Setup logging - use INFO level to avoid spammy debug logs
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    
-    # Reduce verbosity of third-party libraries
-    logging.getLogger('unstructured').setLevel(logging.WARNING)
-    logging.getLogger('pdfminer').setLevel(logging.WARNING)
-    logging.getLogger('PIL').setLevel(logging.WARNING)
-    logging.getLogger('urllib3').setLevel(logging.WARNING)
-    
-    # Get the directory of this script
-    current_dir = Path(__file__).parent
-    cv_file_path = current_dir / "Dsa.pdf"
-    
-    print(f"Testing scraper with CV file: {cv_file_path}")
-    
-    # Initialize scraper
-    scraper = ScraperService(chunk_size=800, overlap=100)
-    
-    try:
-        # Get file info first
-        file_info = scraper.get_file_info(str(cv_file_path))
-        print(f"\nFile Info: {file_info}")
-        
-        # Scrape the CV file
-        documents = scraper.scrape_file(str(cv_file_path))
-        
-        print(f"\nSuccessfully processed CV file!")
-        print(f"Number of document chunks created: {len(documents)}")
-        
-        # Display first few chunks
-        for i, doc in enumerate(documents[:3]):  # Show first 3 chunks
-            print(f"\n--- Chunk {i+1} ---")
-            print(f"Document ID: {doc.document_id}")
-            print(f"Content preview: {doc.content[:200]}...")
-            print(f"Metadata: {doc.metadata}")
-        
-        if len(documents) > 3:
-            print(f"\n... and {len(documents) - 3} more chunks")
-        
-        return documents
-        
-    except Exception as e:
-        print(f"Error processing CV file: {str(e)}")
-        return None
 
-
-if __name__ == "__main__":
-    test_scraper_with_cv()
 
