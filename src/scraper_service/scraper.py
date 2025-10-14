@@ -54,7 +54,7 @@ class ScraperService:
     def generate_document_id(self, file_path: str, chunk_index: int = 0) -> str:
         """Generate a unique document ID based on file path and chunk index"""
         file_content = f"{file_path}_{chunk_index}"
-        return hashlib.md5(file_content.encode()).hexdigest()
+        return hashlib.sha256(file_content.encode()).hexdigest()
     
     def is_supported_file(self, file_path: str) -> bool:
         """Check if the file type is supported"""
