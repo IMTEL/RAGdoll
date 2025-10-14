@@ -76,10 +76,18 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, expiry_date: str, agent_id: str):
+def new_access_key(name: str, agent_id: str , expiry_date: str | None = None):
     try:
-        expiry_date_formatted = datetime.fromisoformat(expiry_date).replace(tzinfo=None)
-        return access_service.generate_accesskey(name, expiry_date_formatted, agent_id)
+        if expiry_date is None:
+            return access_service.generate_accesskey(name, None, agent_id)
+        else:
+            expiry_date_formatted = datetime.fromisoformat(expiry_date).replace(
+                tzinfo=None
+            )
+            return access_service.generate_accesskey(
+                name, expiry_date_formatted, agent_id
+            )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{e}") from e
 

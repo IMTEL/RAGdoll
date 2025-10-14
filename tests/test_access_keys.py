@@ -61,6 +61,16 @@ def test_create_access_key():
 
 
 @pytest.mark.unit
+def test_create_access_key_no_expiery():
+    agent, access_service, database = get_access_service_and_agent()
+    key = access_service.generate_accesskey("test", None, agent.id)
+    assert key.name == "test"
+    assert key.expiry_date is None
+    assert database.get_agent_by_id(agent.id).access_key[0] == key
+    assert access_service.authenticate(agent_id=agent.id, access_key=key.key)
+
+
+@pytest.mark.unit
 def test_revoke_access_key():
     agent, access_service, database = get_access_service_and_agent()
     key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)

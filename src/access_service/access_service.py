@@ -30,9 +30,9 @@ class AccessService(AbstractAccessService):
         raise ValueError("Could not generate a new key!")
 
     def generate_accesskey(
-        self, name: str, expiry_date: datetime, agent_id: str
+        self, name: str, expiry_date: datetime | None, agent_id: str
     ) -> AccessKey:
-        if expiry_date < datetime.now():
+        if (expiry_date is not None) and expiry_date < datetime.now():
             raise ValueError("Expiry date cannot be in the past")
 
         agent = self.try_get_agent(agent_id)
