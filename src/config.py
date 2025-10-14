@@ -54,6 +54,9 @@ class Config:
         )
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
+        self.MONGODB_DOCUMENTS_COLLECTION = os.getenv(
+            "MONGODB_DOCUMENTS_COLLECTION", "documents"
+        )
         self.MONGODB_CONTEXT_COLLECTION = os.getenv(
             "MONGODB_CONTEXT_COLLECTION", "contexts"
         )
