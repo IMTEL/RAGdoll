@@ -1,7 +1,7 @@
 import base64
 import secrets
 import uuid
-from datetime import UTC, datetime, timezone
+from datetime import datetime
 
 from src.access_service.base import AbstractAccessService
 from src.models.accesskey import AccessKey
@@ -15,7 +15,7 @@ class AccessService(AbstractAccessService):
 
     def try_get_agent(self, agent_id: str):
         agent = self.agent_database.get_agent_by_id(agent_id)
-        if agent == None:
+        if agent is None:
             raise ValueError(f"No agent found by id : {agent_id}")
         return agent
 
@@ -34,7 +34,7 @@ class AccessService(AbstractAccessService):
     ) -> AccessKey:
         if expiry_date < datetime.now():
             raise ValueError("Expiry date cannot be in the past")
-        
+
         agent = self.try_get_agent(agent_id)
         key = secrets.token_bytes(32)  # AES-256 32byte secret
         key_str = base64.urlsafe_b64encode(key).decode("ascii")
@@ -61,18 +61,19 @@ class AccessService(AbstractAccessService):
                 return datetime.now() < ak.expiry_date
 
         return False
-    
-    def get_access_key_by_id(self, agent : Agent, access_key_id: str) -> AccessKey | None:
+
+    def get_access_key_by_id(
+        self, agent: Agent, access_key_id: str
+    ) -> AccessKey | None:
         for ak in agent.access_key:
             if ak.id == access_key_id:
                 return ak
         return None
 
-
     def revoke_key(self, agent_id: str, access_key_id: str) -> bool:
         agent = self.try_get_agent(agent_id)
         key = self.get_access_key_by_id(agent, access_key_id)
-        if (key is None):
+        if key is None:
             return False
         agent.access_key.remove(key)
         self.agent_database.add_agent(agent)
