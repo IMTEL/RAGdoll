@@ -74,39 +74,36 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         str(command.chat_log[-1].content) if command.chat_log else "No user message"
     )
 
-    # Get accessible corpus based on active roles
-    accessible_corpus = agent.get_corpus_for_roles(command.active_role_ids)
+    # Get accessible categories based on active roles
+    accessible_categories = agent.get_categories_for_roles(command.active_role_ids)
 
-    # If no roles specified, use all corpus
-    if not command.active_role_ids and agent.corpus:
-        accessible_corpus = agent.corpus
-
-    # Perform RAG retrieval from accessible corpus
+    # Perform RAG retrieval from accessible categories
     retrieved_contexts = []
-    if accessible_corpus:
-        db = get_context_dao()
-        # Use agent's configured embedding model, fallback to "google"
+    db = get_context_dao()
 
-        # embedding_model_name = getattr(agent, "embedding_model", "google")
-        # print("Using embedding model:", embedding_model_name)
-        # embedding_model = create_embeddings_model(embedding_model_name)
-        # TODO: Change to use agent's configured embedding model when we have more than one
-        embedding_model = GoogleEmbedding()
+    # Use agent's configured embedding model, fallback to "google"
+    # embedding_model_name = getattr(agent, "embedding_model", "google")
+    # print("Using embedding model:", embedding_model_name)
+    # embedding_model = create_embeddings_model(embedding_model_name)
+    # TODO: Change to use agent's configured embedding model when we have more than one
+    embedding_model = GoogleEmbedding()
 
-        try:
-            # Generate embedding for the user's query
-            embeddings: list[float] = embedding_model.get_embedding(to_embed)
+    try:
+        # Generate embedding for the user's query
+        embeddings: list[float] = embedding_model.get_embedding(to_embed)
 
-            # Retrieve relevant contexts from the accessible corpus
-            # The corpus IDs should match the category field in stored documents
-            retrieved_contexts = db.get_context_by_corpus_ids(
-                corpus_ids=accessible_corpus,
-                embedding=embeddings,
-                top_k=3,  # Retrieve top 3 most relevant contexts
-            )
-        except Exception as e:
-            print(f"Error retrieving context: {e}")
-            retrieved_contexts = []
+        # Retrieve relevant contexts for the agent with optional category filtering
+        retrieved_contexts = db.get_context_for_agent(
+            agent_id=agent.id
+            if agent.id
+            else "",  # TODO: Raise error if agent.id is None
+            embedding=embeddings,
+            categories=accessible_categories if accessible_categories else None,
+            top_k=3,  # Retrieve top 3 most relevant contexts
+        )
+    except Exception as e:
+        print(f"Error retrieving context: {e}")
+        retrieved_contexts = []
 
     # Build chat history
     chat_history = ""
@@ -164,7 +161,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "model": llm_provider,
         "agent_id": command.agent_id,
         "active_roles": command.active_role_ids,
-        "accessible_corpus": accessible_corpus,
+        "accessible_categories": accessible_categories,
         "context_used": [
             {
                 "document_name": ctx.document_name,

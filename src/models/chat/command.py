@@ -30,7 +30,7 @@ class Command(BaseModel):
 
     # Agent configuration
     agent_id: str = Field(..., description="MongoDB ObjectId of the agent to use")
-    active_role_ids: list[str] = Field(
+    active_role_ids: list[str] = Field(  # TODO: change to single role, maybe to URL
         default_factory=list,
         description="Names of roles that determine RAG corpus access",
     )

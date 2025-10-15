@@ -36,6 +36,8 @@ class ContextDAO(ABC):
     ) -> list[Context]:
         """Retrieve contexts from specific corpus IDs using semantic similarity.
 
+        DEPRECATED: Use get_context_for_agent instead.
+
         Args:
             corpus_ids (list[str]): List of corpus/category identifiers to search within
             embedding (list[float]): Query embedding vector for similarity search
@@ -44,6 +46,31 @@ class ContextDAO(ABC):
 
         Returns:
             list[Context]: Most relevant contexts from the specified corpus
+        """
+
+    @abstractmethod
+    def get_context_for_agent(
+        self,
+        agent_id: str,
+        embedding: list[float],
+        categories: list[str] | None = None,
+        num_candidates: int = 50,
+        top_k: int = 5,
+    ) -> list[Context]:
+        """Retrieve contexts for an agent using semantic similarity.
+
+        Searches within the agent's documents, optionally filtered by categories.
+        Uses vector similarity search with indexes on agent_id and categories for efficiency.
+
+        Args:
+            agent_id (str): Agent identifier
+            embedding (list[float]): Query embedding vector for similarity search
+            categories (list[str] | None): Optional list of categories to filter by
+            num_candidates (int): Number of initial candidates to consider
+            top_k (int): Maximum number of results to return
+
+        Returns:
+            list[Context]: Most relevant contexts for the agent
         """
 
     @abstractmethod
@@ -62,6 +89,7 @@ class ContextDAO(ABC):
     def insert_context(
         self,
         document_id: str,
+        agent_id: str,
         embedding: list[float],
         context: Context,
     ) -> Context:
@@ -69,6 +97,7 @@ class ContextDAO(ABC):
 
         Args:
             document_id (str): Unique identifier for the document
+            agent_id (str): Agent identifier that owns this document
             embedding (list[float]): Vector embedding of the text
             context (Context): The context object to store
 
