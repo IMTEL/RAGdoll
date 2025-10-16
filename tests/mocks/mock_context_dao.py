@@ -118,7 +118,7 @@ class MockContextDAO(ContextDAO):
         self,
         agent_id: str,
         embedding: list[float],
-        categories: list[str] | None = None,
+        documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
     ) -> list[Context]:
@@ -127,7 +127,7 @@ class MockContextDAO(ContextDAO):
         Args:
             agent_id (str): Agent identifier
             embedding (list[float]): Query embedding vector
-            categories (list[str] | None): Optional list of categories to filter by
+            documents (list[str] | None): List of accessible documents
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
 
@@ -148,8 +148,8 @@ class MockContextDAO(ContextDAO):
             if document.get("agent_id") != agent_id:
                 continue
 
-            # Filter by categories if provided
-            if categories and document.get("category") not in categories:
+            # Filter by documents if provided
+            if documents and document.get("_id") not in documents:
                 continue
 
             # Mock similarity - returns high value for testing

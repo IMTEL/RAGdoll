@@ -22,7 +22,7 @@ class Command(BaseModel):
     Attributes:
         chat_log: Conversation history
         agent_id: ID of the agent to use for generating response
-        active_role_ids: List of role names that determine corpus access
+        active_role_id: Name of the role that determines corpus access
         access_key: API key for authentication (optional)
     """
 
@@ -30,9 +30,9 @@ class Command(BaseModel):
 
     # Agent configuration
     agent_id: str = Field(..., description="MongoDB ObjectId of the agent to use")
-    active_role_ids: list[str] = Field(  # TODO: change to single role, maybe to URL
-        default_factory=list,
-        description="Names of roles that determine RAG corpus access",
+    active_role_id: str | None = Field(
+        default=None,
+        description="Name of the role that determines RAG corpus access",
     )
     access_key: str | None = Field(
         default=None, description="API key for agent access authorization"

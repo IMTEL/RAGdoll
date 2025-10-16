@@ -75,9 +75,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     )
 
     # Get accessible categories based on active roles
-    accessible_categories = agent.get_categories_for_roles(command.active_role_ids)
+    accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
 
-    # Perform RAG retrieval from accessible categories
+    print("Accessible documents for role:", accessible_documents)
+
+    # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
     db = get_context_dao()
 
@@ -98,7 +100,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             if agent.id
             else "",  # TODO: Raise error if agent.id is None
             embedding=embeddings,
-            categories=accessible_categories if accessible_categories else None,
+            documents=accessible_documents,
             top_k=3,  # Retrieve top 3 most relevant contexts
         )
     except Exception as e:
@@ -160,8 +162,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "created": int(time.time()),
         "model": llm_provider,
         "agent_id": command.agent_id,
-        "active_roles": command.active_role_ids,
-        "accessible_categories": accessible_categories,
+        "active_role": command.active_role_id,
+        "accessible_documents": accessible_documents,
         "context_used": [
             {
                 "document_name": ctx.document_name,

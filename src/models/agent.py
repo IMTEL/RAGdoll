@@ -18,9 +18,9 @@ class Role(BaseModel):
 
     name: str = Field(..., description="Unique role identifier")
     description: str = Field(..., description="Role purpose and permissions")
-    categories: list[str] = Field(
+    document_access: list[str] = Field(
         default_factory=list,
-        description="Document categories that this role can access",
+        description="Identifiers of documents this role can access",
     )
 
 
@@ -84,23 +84,6 @@ class Agent(BaseModel):
             if role.name == role_name:
                 return role
         return None
-
-    def get_categories_for_roles(self, role_names: list[str]) -> list[str]:
-        """Get the combined categories accessible by the given roles.
-
-        Args:
-            role_names: List of role names to check
-
-        Returns:
-            List of category names accessible by any of the roles
-        """
-        categories = set()
-        for role_name in role_names:
-            role = self.get_role_by_name(role_name)
-            if role:
-                categories.update(role.categories)
-
-        return list(categories)
 
     def is_access_key_valid(self, key: str) -> bool:
         """Verify if the provided access key is authorized for this agent.

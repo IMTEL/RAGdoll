@@ -53,7 +53,7 @@ class ContextDAO(ABC):
         self,
         agent_id: str,
         embedding: list[float],
-        categories: list[str] | None = None,
+        documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
     ) -> list[Context]:
