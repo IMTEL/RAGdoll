@@ -78,7 +78,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             chat_history += f"{msg.role.upper()}: {msg.content}\n"
 
     # Use agent's prompt as base, with variable substitution
-    base_prompt = agent.prompt.format(chat_log=chat_history)
+    base_prompt = chat_history + "\n" + agent.prompt
 
     # Assemble final prompt
     prompt = base_prompt
