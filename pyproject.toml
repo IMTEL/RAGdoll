@@ -51,7 +51,7 @@ markers = [
 ]
 addopts = "--cov=src --cov-report=term-missing"
 
-[tool.pytest.env]
+[tool.pytest_env]
 ENV = "dev"
 MOCK_RAG_DATABASE_SYSTEM = "mock"
 
