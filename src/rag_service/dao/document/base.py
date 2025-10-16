@@ -36,20 +36,6 @@ class DocumentDAO(ABC):
         """
 
     @abstractmethod
-    def get_by_agent_and_categories(
-        self, agent_id: str, categories: list[str]
-    ) -> list[Document]:
-        """Fetch documents for an agent filtered by categories.
-
-        Args:
-            agent_id (str): Agent identifier
-            categories (list[str]): List of category tags to filter by
-
-        Returns:
-            list[Document]: Documents matching agent and any of the categories
-        """
-
-    @abstractmethod
     def create(self, document: Document) -> Document:
         """Create a new document.
 

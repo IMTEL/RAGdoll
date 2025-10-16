@@ -69,15 +69,36 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     Returns:
         Dictionary with response, function calls, and metadata
     """
+
+    # Build chat history
+    chat_history = ""
+    if len(command.chat_log) > 1:
+        chat_history += "This is the previous conversation:\n"
+        for msg in command.chat_log[:-1]:  # Exclude latest user message
+            chat_history += f"{msg.role.upper()}: {msg.content}\n"
+
+    # Use agent's prompt as base, with variable substitution
+    base_prompt = agent.prompt.format(chat_log=chat_history)
+
+    # Assemble final prompt
+    prompt = base_prompt
+    role_prompt = (
+        agent.get_role_by_name(command.active_role_id).description
+        if command.active_role_id
+        else None
+    )
+    prompt += ("\n" + role_prompt) if role_prompt else ""
+    last_user_response = command.chat_log[-1].content if command.chat_log else ""
+
     # Extract the user's question from chat log for embedding
     to_embed: str = (
-        str(command.chat_log[-1].content) if command.chat_log else "No user message"
+        prompt + "\nUser Response: " + last_user_response
     )
 
     # Get accessible categories based on active roles
     accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
 
-    print("Accessible documents for role:", accessible_documents)
+    print("Accessible documents for role:", accessible_documents, command.active_role_id)
 
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
@@ -107,19 +128,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         print(f"Error retrieving context: {e}")
         retrieved_contexts = []
 
-    # Build chat history
-    chat_history = ""
-    if len(command.chat_log) > 1:
-        chat_history += "This is the previous conversation:\n"
-        for msg in command.chat_log[:-1]:  # Exclude latest user message
-            chat_history += f"{msg.role.upper()}: {msg.content}\n"
-
-    # Use agent's prompt as base, with variable substitution
-    base_prompt = agent.prompt.format(chat_log=chat_history)
-
-    # Assemble final prompt
-    prompt = base_prompt
-    last_user_response = command.chat_log[-1].content if command.chat_log else ""
+    print(f"Retrieved {len(retrieved_contexts)} contexts for agent {agent.name}")
 
     # Add retrieved context to prompt
     if retrieved_contexts:
@@ -128,7 +137,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             prompt += f"\n[Context {idx} from {ctx.document_name}]:\n{ctx.text}\n"
 
     if last_user_response:
-        prompt += "\nUser Response: " + last_user_response
+        prompt += "\nUser message: " + last_user_response
 
     print(f"Prompt sent to LLM:\n{prompt}")
 
@@ -167,7 +176,6 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "context_used": [
             {
                 "document_name": ctx.document_name,
-                "category": ctx.category,
                 "chunk_index": ctx.chunk_index,
                 "content": ctx.text[:CONTEXT_TRUNCATE_LENGTH],
             }

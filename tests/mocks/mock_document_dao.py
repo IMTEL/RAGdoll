@@ -49,49 +49,6 @@ class MockDocumentDAO(DocumentDAO):
         """
         return [doc for doc in self._documents.values() if doc.agent_id == agent_id]
 
-    def get_by_categories(self, categories: list[str]) -> list[Document]:
-        """Fetch documents that have any of the specified categories.
-
-        Args:
-            categories (list[str]): List of category tags to filter by
-
-        Returns:
-            list[Document]: Documents matching any of the categories
-        """
-        results = []
-        for doc in self._documents.values():
-            # Check if document has any of the specified categories
-            if any(cat in doc.categories for cat in categories):
-                results.append(doc)
-        return results
-
-    def get_by_agent_and_categories(
-        self, agent_id: str, categories: list[str]
-    ) -> list[Document]:
-        """Fetch documents for an agent filtered by categories.
-
-        Args:
-            agent_id (str): Agent identifier
-            categories (list[str]): List of category tags to filter by
-
-        Returns:
-            list[Document]: Documents matching agent and any of the categories
-        """
-        results = []
-        for doc in self._documents.values():
-            if doc.agent_id != agent_id:
-                continue
-
-            if not categories:
-                # If no categories specified, return all agent documents
-                results.append(doc)
-            else:
-                # Check if document has any of the specified categories
-                if any(cat in doc.categories for cat in categories):
-                    results.append(doc)
-
-        return results
-
     def create(self, document: Document) -> Document:
         """Create a new document.
 

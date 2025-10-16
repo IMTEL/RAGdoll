@@ -30,7 +30,7 @@ def compute_embedding(text: str) -> list[float]:
 
 
 def process_file_and_store(
-    file_path: str, agent_id: str, categories: list[str], document_id: str | None = None
+    file_path: str, agent_id: str, document_id: str | None = None
 ) -> tuple[bool, str]:
     """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
@@ -49,7 +49,6 @@ def process_file_and_store(
     Args:
         file_path (str): Path to the text or markdown file.
         agent_id (str): Agent ID that owns this document.
-        categories (list[str]): List of category tags for the document.
         document_id (str | None): Optional document ID for updates.
 
     Returns:
@@ -58,7 +57,7 @@ def process_file_and_store(
     from src.models.rag import Document
 
     logger.info(
-        f"Starting file processing for: {file_path} with agent_id: {agent_id}, categories: {categories}"
+        f"Starting file processing for: {file_path} with agent_id: {agent_id}"
     )
 
     # Verify file exists
@@ -118,11 +117,6 @@ def process_file_and_store(
             assert document_id is not None  # Type narrowing for mypy
             logger.info(f"Updating existing document '{document_id}'")
 
-            # Update categories if changed
-            if set(existing_doc.categories) != set(categories):
-                existing_doc.categories = categories
-                document_dao.update(existing_doc)
-
             # Delete old contexts for this document
             if hasattr(context_dao, "collection"):
                 # TODO: make this generic by adding a delete_by_document_id method to ContextDAO
@@ -142,7 +136,6 @@ def process_file_and_store(
                 id=document_id,
                 name=document_name,
                 agent_id=agent_id,
-                categories=categories,
             )
             document_dao.create(doc)
 
@@ -154,7 +147,6 @@ def process_file_and_store(
             embedding=embedding,
             context=Context(
                 text=text,
-                categories=categories,
                 document_name=document_name,
                 document_id=document_id,
                 chunk_id=None,  # Not chunked yet
@@ -167,7 +159,7 @@ def process_file_and_store(
         return False, ""
 
     logger.info(
-        f"Successfully stored '{document_name}' into the database with categories '{categories}'."
+        f"Successfully stored '{document_name}' into the database."
     )
 
     return True, document_id
@@ -177,7 +169,6 @@ if __name__ == "__main__":
     # Example usage of the process_file_and_store function.
     file_path = "src.context_files.salmon.txt"
     agent_id = "test-agent-123"
-    categories = ["General Information"]
-    success, doc_id = process_file_and_store(file_path, agent_id, categories)
+    success, doc_id = process_file_and_store(file_path, agent_id)
     if success:
         print(f"Document stored with ID: {doc_id}")

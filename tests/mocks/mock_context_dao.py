@@ -33,87 +33,6 @@ class MockContextDAO(ContextDAO):
             self.collection = self  # For compatibility with code expecting .collection
             MockContextDAO._initialized = True
 
-    def get_context_by_category(self, category: str) -> list[Context]:
-        """Retrieve all contexts matching a category.
-
-        Args:
-            category (str): The category to filter by
-
-        Returns:
-            list[Context]: All contexts with matching category
-
-        Raises:
-            ValueError: If category is None or empty
-        """
-        if not category:
-            raise ValueError("Category cannot be empty")
-
-        results = []
-        for document in self.data:
-            if document.get("category") == category:
-                results.append(
-                    Context(
-                        text=document["text"],
-                        document_name=document["document_name"],
-                        categories=document.get("categories", []),
-                        document_id=document.get("document_id"),
-                        chunk_id=document.get("chunk_id"),
-                        chunk_index=document.get("chunk_index"),
-                        total_chunks=document.get("total_chunks", 1),
-                    )
-                )
-        return results
-
-    def get_context_by_corpus_ids(
-        self,
-        corpus_ids: list[str],
-        embedding: list[float],
-        num_candidates: int = 50,
-        top_k: int = 5,
-    ) -> list[Context]:
-        """Retrieve contexts from specific corpus IDs using mock similarity.
-
-        Args:
-            corpus_ids (list[str]): List of corpus/category identifiers to search within
-            embedding (list[float]): Query embedding vector
-            num_candidates (int): Number of initial candidates to consider
-            top_k (int): Maximum number of results to return
-
-        Returns:
-            list[Context]: Top matching contexts from the specified corpus
-
-        Raises:
-            ValueError: If corpus_ids or embedding is empty
-        """
-        if not corpus_ids:
-            raise ValueError("corpus_ids cannot be empty")
-        if not embedding:
-            raise ValueError("Embedding cannot be empty")
-
-        results = []
-        for document in self.data[:num_candidates]:  # Limit to num_candidates
-            # Check if document category matches any corpus ID
-            if document.get("category") in corpus_ids:
-                # Mock similarity - returns high value for testing
-                similarity = 0.9
-                if similarity > self.similarity_threshold:
-                    doc_name = document.get("document_name", "default_document_name")
-                    results.append(
-                        Context(
-                            text=document["text"],
-                            document_name=doc_name,
-                            categories=document.get("categories", []),
-                            document_id=document.get("document_id"),
-                            chunk_id=document.get("chunk_id"),
-                            chunk_index=document.get("chunk_index"),
-                            total_chunks=document.get("total_chunks", 1),
-                        )
-                    )
-                # Limit results to top_k
-                if len(results) >= top_k:
-                    break
-        return results
-
     def get_context_for_agent(
         self,
         agent_id: str,
@@ -202,7 +121,6 @@ class MockContextDAO(ContextDAO):
                     Context(
                         text=document["text"],
                         document_name=doc_name,
-                        categories=document.get("categories", []),
                         document_id=document.get("document_id"),
                         chunk_id=document.get("chunk_id"),
                         chunk_index=document.get("chunk_index"),
@@ -221,21 +139,17 @@ class MockContextDAO(ContextDAO):
         """Store a new context in memory."""
         text = context.text
         document_name = context.document_name
-        categories = context.categories
 
         if not document_id:
             raise ValueError("document_id cannot be empty")
         if not agent_id:
             raise ValueError("agent_id cannot be empty")
-        if not categories:
-            raise ValueError("Categories cannot be empty")
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
         document = {
             "text": text,
             "document_name": document_name,
-            "categories": categories,
             "embedding": embedding,
             "document_id": document_id,
             "agent_id": agent_id,

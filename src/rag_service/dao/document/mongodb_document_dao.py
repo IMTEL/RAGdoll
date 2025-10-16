@@ -39,14 +39,6 @@ class MongoDBDocumentDAO(DocumentDAO):
             # Index on agent_id for fast agent-based queries
             self.collection.create_index([("agent_id", ASCENDING)])
 
-            # Index on categories for category-based filtering
-            self.collection.create_index([("categories", ASCENDING)])
-
-            # Compound index for agent_id and categories queries
-            self.collection.create_index(
-                [("agent_id", ASCENDING), ("categories", ASCENDING)]
-            )
-
             # Unique index on name within an agent
             self.collection.create_index(
                 [("agent_id", ASCENDING), ("name", ASCENDING)], unique=True
@@ -89,29 +81,6 @@ class MongoDBDocumentDAO(DocumentDAO):
         cursor = self.collection.find({"agent_id": agent_id})
         return [self._doc_from_mongo(doc) for doc in cursor]
 
-    def get_by_agent_and_categories(
-        self, agent_id: str, categories: list[str]
-    ) -> list[Document]:
-        """Fetch documents for an agent filtered by categories.
-
-        Args:
-            agent_id (str): Agent identifier
-            categories (list[str]): List of category tags to filter by
-
-        Returns:
-            list[Document]: Documents matching agent and any of the categories
-        """
-        if not agent_id:
-            return []
-
-        query = {"agent_id": agent_id}
-        if categories:
-            # Match documents that have any of the specified categories
-            query["categories"] = {"$in": categories}  # type: ignore[assignment]
-
-        cursor = self.collection.find(query)
-        return [self._doc_from_mongo(doc) for doc in cursor]
-
     def create(self, document: Document) -> Document:
         """Create a new document.
 
@@ -150,7 +119,6 @@ class MongoDBDocumentDAO(DocumentDAO):
             "_id": document.id,
             "name": document.name,
             "agent_id": document.agent_id,
-            "categories": document.categories,
             "created_at": document.created_at,
             "updated_at": document.updated_at,
         }
@@ -189,7 +157,6 @@ class MongoDBDocumentDAO(DocumentDAO):
         update_dict = {
             "$set": {
                 "name": document.name,
-                "categories": document.categories,
                 "updated_at": document.updated_at,
             }
         }
@@ -288,7 +255,6 @@ class MongoDBDocumentDAO(DocumentDAO):
             id=str(doc["_id"]),  # Convert ObjectId to string
             name=doc.get("name", "Unnamed Document"),  # Default if name is missing
             agent_id=doc.get("agent_id", ""),
-            categories=doc.get("categories", []),
             created_at=doc.get("created_at", datetime.now()),
             updated_at=doc.get("updated_at", datetime.now()),
         )
