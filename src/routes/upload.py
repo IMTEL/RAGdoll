@@ -153,7 +153,8 @@ async def delete_document(document_id: str):
     """Delete a document and all its associated context chunks.
 
     This endpoint permanently removes a document and cascades the deletion
-    to all context chunks associated with it.
+    to all context chunks associated with it. It also removes the document ID
+    from all agent roles' document_access lists.
 
     Args:
         document_id: Unique identifier of the document to delete
@@ -166,6 +167,7 @@ async def delete_document(document_id: str):
     """
     try:
         document_dao = get_document_dao()
+        agent_dao = get_agent_dao()
         
         # Check if document exists first
         document = document_dao.get_by_id(document_id)
@@ -174,6 +176,20 @@ async def delete_document(document_id: str):
                 status_code=404, 
                 detail=f"Document '{document_id}' not found"
             )
+
+        # Get the agent that owns this document
+        agent = agent_dao.get_agent_by_id(document.agent_id)
+        
+        if agent:
+            updated = False
+            for role in agent.roles:
+                if document_id in role.document_access:
+                    role.document_access.remove(document_id)
+                    updated = True
+            
+            if updated:
+                agent_dao.add_agent(agent)  # This updates the existing agent
+                logger.info(f"Removed document '{document_id}' from agent '{agent.id}' roles")
 
         # Delete the document (this also deletes associated contexts)
         success = document_dao.delete(document_id)
@@ -184,6 +200,7 @@ async def delete_document(document_id: str):
                 "message": "Document deleted successfully",
                 "document_id": document_id,
                 "document_name": document.name,
+                "removed_from_roles": updated if agent else False,
             }
         else:
             raise HTTPException(
