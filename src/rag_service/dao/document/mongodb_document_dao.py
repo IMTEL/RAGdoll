@@ -285,9 +285,9 @@ class MongoDBDocumentDAO(DocumentDAO):
             Document: Document model instance
         """
         return Document(
-            id=doc["_id"],
-            name=doc["name"],
-            agent_id=doc["agent_id"],
+            id=str(doc["_id"]),  # Convert ObjectId to string
+            name=doc.get("name", "Unnamed Document"),  # Default if name is missing
+            agent_id=doc.get("agent_id", ""),
             categories=doc.get("categories", []),
             created_at=doc.get("created_at", datetime.now()),
             updated_at=doc.get("updated_at", datetime.now()),

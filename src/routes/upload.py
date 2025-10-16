@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.context_upload import process_file_and_store
-from src.rag_service.dao.factory import get_agent_dao
+from src.rag_service.dao.factory import get_agent_dao, get_document_dao
 
 
 logger = logging.getLogger(__name__)
@@ -194,3 +194,110 @@ async def upload_document_for_agent(
         # Clean up temp file if it exists
         if file_location.exists():
             file_location.unlink()
+
+
+@router.get("/documents/agent/{agent_id}")
+async def get_documents_for_agent(agent_id: str):
+    """Retrieve all documents associated with a specific agent.
+
+    This endpoint returns metadata for all documents that belong to the agent,
+    including document IDs, names, categories, and timestamps.
+
+    Args:
+        agent_id: Unique identifier of the agent
+
+    Returns:
+        dict: List of documents with their metadata
+
+    Raises:
+        HTTPException: If agent not found or retrieval fails
+    """
+    # Verify agent exists
+    agent_dao = get_agent_dao()
+    agent = agent_dao.get_agent_by_id(agent_id)
+
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+    try:
+        # Fetch all documents for this agent
+        document_dao = get_document_dao()
+        documents = document_dao.get_by_agent_id(agent_id)
+
+        # Convert to response format
+        document_list = []
+        for doc in documents:
+            try:
+                document_list.append({
+                    "id": doc.id,
+                    "name": doc.name,
+                    "categories": doc.categories if doc.categories else [],
+                    "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                    "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+                })
+            except AttributeError as attr_err:
+                logger.error(f"Document missing required field: {attr_err}, doc: {doc}")
+                # Skip this document and continue with others
+                continue
+
+        logger.info(f"Retrieved {len(document_list)} documents for agent '{agent_id}'")
+
+        return {
+            "agent_id": agent_id,
+            "document_count": len(document_list),
+            "documents": document_list,
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving documents for agent '{agent_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.delete("/documents/{document_id}")
+async def delete_document(document_id: str):
+    """Delete a document and all its associated context chunks.
+
+    This endpoint permanently removes a document and cascades the deletion
+    to all context chunks associated with it.
+
+    Args:
+        document_id: Unique identifier of the document to delete
+
+    Returns:
+        dict: Success message with deletion details
+
+    Raises:
+        HTTPException: If document not found or deletion fails
+    """
+    try:
+        document_dao = get_document_dao()
+        
+        # Check if document exists first
+        document = document_dao.get_by_id(document_id)
+        if not document:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Document '{document_id}' not found"
+            )
+
+        # Delete the document (this also deletes associated contexts)
+        success = document_dao.delete(document_id)
+
+        if success:
+            logger.info(f"Successfully deleted document '{document_id}'")
+            return {
+                "message": "Document deleted successfully",
+                "document_id": document_id,
+                "document_name": document.name,
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete document '{document_id}'"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting document '{document_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e

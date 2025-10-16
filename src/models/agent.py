@@ -111,4 +111,4 @@ class Agent(BaseModel):
         Returns:
             True if the key is authorized, False otherwise
         """
-        return key in self.access_key
+        return not self.access_key or key in self.access_key

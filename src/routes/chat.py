@@ -57,7 +57,7 @@ async def ask(command: Command):
             )
 
         # Validate access key if agent requires it
-        if agent.access_key and command.access_key not in agent.access_key:
+        if not agent.is_access_key_valid(command.access_key):
             return JSONResponse(
                 content={"message": "Access denied. Invalid access key."},
                 status_code=403,
@@ -148,7 +148,7 @@ async def ask_transcribe(
         )
 
     # Validate access
-    if agent.access_key and command.access_key not in agent.access_key:
+    if not agent.is_access_key_valid(command.access_key):
         return JSONResponse(
             content={"message": "Access denied. Invalid access key."},
             status_code=403,
