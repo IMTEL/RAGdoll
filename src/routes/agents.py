@@ -1,28 +1,36 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi_jwt_auth import AuthJWT
 
 from src.access_service.factory import AccessServiceConfig, access_service_factory
+from src.auth.auth_service.factory import auth_service_factory
 from src.config import Config
 from src.llm import get_models
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.models.model import Model
 from src.rag_service.dao import get_agent_dao
+from src.rag_service.dao.factory import get_user_dao
 from src.rag_service.embeddings import get_available_embedding_models
 
 
 config = Config()
 router = APIRouter()
-# Repository for agent storage
+
+
+user_dao = get_user_dao()
+agent_dao = get_agent_dao()
+
 access_service = access_service_factory(
     AccessServiceConfig(config.ACCESS_SERVICE, get_agent_dao())
 )
+auth_service = auth_service_factory(config.AUTH_SERVICE)
 
 
-# Create a new agent
-@router.post("/agents/", response_model=Agent)
-def create_agent(agent: Agent):
+# Update agent
+@router.post("/update-agent/", response_model=Agent)
+def create_agent(agent: Agent, authorize: AuthJWT = Depends()):
     """Create a new agent configuration.
 
     Args:
@@ -32,7 +40,19 @@ def create_agent(agent: Agent):
         Agent: The created agent
     """
     try:
+        # Check if agent exists
+        if agent_dao.get_agent_by_id(agent.id) is None:
+            # Authenticate and get user
+            user = auth_service.get_authenticated_user(authorize)
+            agent = get_agent_dao().add_agent(agent)
+            # Add new agent id to owned agents
+            user.owned_agents.append(agent.id)
+            user_dao.set_user(user)
+            return agent
+
+        auth_service.auth(authorize, agent.id)
         return get_agent_dao().add_agent(agent)
+
     except ValueError as e:
         raise HTTPException(
             status_code=404,
@@ -42,18 +62,21 @@ def create_agent(agent: Agent):
 
 # Get all agents
 @router.get("/agents/", response_model=list[Agent])
-def get_agents():
+def get_agents(authorize: AuthJWT = Depends()):
     """Retrieve all agent configurations.
 
     Returns:
         list[Agent]: All stored agents
     """
-    return get_agent_dao().get_agents()
+    user = auth_service.get_authenticated_user(authorize)
+
+    # returns all agents, owned by the user
+    return [get_agent_dao().get_agent_by_id(agent_id) for agent_id in user.owned_agents]
 
 
 # Get a specific agent by ID
-@router.get("/agents/{agent_id}", response_model=Agent)
-def get_agent(agent_id: str):
+@router.get("/fetch-agent", response_model=Agent)
+def get_agent(agent_id: str, authorize: AuthJWT = Depends()):
     """Retrieve a specific agent by ID.
 
     Args:
@@ -65,7 +88,9 @@ def get_agent(agent_id: str):
     Raises:
         HTTPException: If agent not found
     """
+    auth_service.auth(authorize, agent_id)
     agent = get_agent_dao().get_agent_by_id(agent_id)
+
     if agent is None:
         raise HTTPException(
             status_code=404, detail=f"Agent with id {agent_id} not found"
@@ -77,8 +102,14 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, agent_id: str, expiry_date: str | None = None):
+def new_access_key(
+    name: str,
+    agent_id: str,
+    expiry_date: str | None = None,
+    authorize: AuthJWT = Depends(),
+):
     try:
+        auth_service.auth(authorize, agent_id)
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
         else:
@@ -94,7 +125,10 @@ def new_access_key(name: str, agent_id: str, expiry_date: str | None = None):
 
 
 @router.get("/revoke-accesskey")
-def revoke_access_key(access_key_id: str, agent_id: str):
+def revoke_access_key(
+    access_key_id: str, agent_id: str, authorize: AuthJWT = Depends()
+):
+    auth_service.auth(authorize, agent_id)
     try:
         return access_service.revoke_key(agent_id, access_key_id)
     except Exception as e:
@@ -102,7 +136,8 @@ def revoke_access_key(access_key_id: str, agent_id: str):
 
 
 @router.get("/get-accesskeys", response_model=list[AccessKey])
-def get_access_keys(agent_id: str):
+def get_access_keys(agent_id: str, authorize: AuthJWT = Depends()):
+    auth_service.auth(authorize, agent_id)
     agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(
@@ -112,8 +147,9 @@ def get_access_keys(agent_id: str):
 
 
 @router.get("/get_models", response_model=list[Model])
-def fetch_models():
+def fetch_models(authorize: AuthJWT = Depends()):
     """Returns all usable models."""
+    authorize.jwt_required()  # Require login, but nothing else
     return get_models()
 
 

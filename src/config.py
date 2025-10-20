@@ -67,11 +67,26 @@ class Config:
             "MONGODB_CONTEXT_COLLECTION", "contexts"
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
+        self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
 
         # TODO: Fetch models from IDUN's endpoint
         self.IDUN_MODELS = os.getenv(
             "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
         ).split(",")
+
+        ##Security
+        self.SESSION_TOKEN_TTL = os.getenv("SESSION_TOKEN_TTL", "5")  # Minutes
+        self.REFRESH_TOKEN_TTL = os.getenv("REFRESH_TOKEN_TTL", "14")  # Days
+        self.JWT_TOKEN_SECRET = os.getenv(
+            "SESSION_JWT_TOKEN_SECRET",
+            "set-your--random-secret-atleast-32-bytes",
+        )
+        self.AUTH_SERVICE = os.getenv("AUTH_SERVICE", "service")
+
+        self.GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "set your id here")
+        self.GOOGLE_CLIENT_SECRET = os.getenv(
+            "GOOGLE_CLIENT_SECRET", "set your secret here"
+        )
 
         self.FERNET_KEY = os.getenv("FERNET_KEY", "")
 

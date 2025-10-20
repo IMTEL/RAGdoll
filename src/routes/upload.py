@@ -1,8 +1,11 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi_jwt_auth import AuthJWT
 
+from src.auth.auth_service.factory import auth_service_factory
+from src.config import Config
 from src.context_upload import process_file_and_store
 from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.dao.factory import get_agent_dao, get_document_dao
@@ -12,12 +15,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+config = Config()
 
-@router.post("/upload/agent/{agent_id}")
+auth_service = auth_service_factory(config.AUTH_SERVICE)
+
+
+@router.post("/upload/agent")
 async def upload_document_for_agent(
-    agent_id: str,
-    file: UploadFile = File(...),  # noqa: B008
-    access_key: str = Form(...),
+    agent_id: str, file: UploadFile = File(...), authorize: AuthJWT = Depends()
 ):
     """Upload a document for a specific agent with role-based access control.
 
@@ -28,7 +33,6 @@ async def upload_document_for_agent(
     Args:
         agent_id: Unique identifier of the agent
         file: The uploaded document file (txt, md)
-        access_key: API key authorized to modify this agent
 
     Returns:
         dict: Success message with document details
@@ -40,15 +44,12 @@ async def upload_document_for_agent(
         raise HTTPException(status_code=400, detail="No file uploaded")
 
     # Verify agent exists and access key is valid
+    auth_service.auth(authorize, agent_id)
     agent_dao = get_agent_dao()
     agent = agent_dao.get_agent_by_id(agent_id)
 
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
-
-    # TODO: Re-enable access key check
-    # if not agent.is_access_key_valid(access_key):
-    #     raise HTTPException(status_code=403, detail="Invalid access key")
 
     # Create the directory if it does not exist
     temp_files_dir = Path("temp_files")
@@ -74,6 +75,7 @@ async def upload_document_for_agent(
         # Delete temporary file
         file_location.unlink()
 
+        logger.info(f"Uploaded file: {file.filename} for agent: {agent_id}")
         logger.info(f"Uploaded file: {file.filename} for agent: {agent_id}")
 
         if success:
@@ -111,8 +113,8 @@ async def upload_document_for_agent(
             file_location.unlink()
 
 
-@router.get("/documents/agent/{agent_id}")
-async def get_documents_for_agent(agent_id: str):
+@router.get("/documents/agent")
+async def get_documents_for_agent(agent_id: str, authorize: AuthJWT = Depends()):
     """Retrieve all documents associated with a specific agent.
 
     This endpoint returns metadata for all documents that belong to the agent,
@@ -127,6 +129,8 @@ async def get_documents_for_agent(agent_id: str):
     Raises:
         HTTPException: If agent not found or retrieval fails
     """
+    auth_service.auth(authorize, agent_id)
+
     # Verify agent exists
     agent_dao = get_agent_dao()
     agent = agent_dao.get_agent_by_id(agent_id)
@@ -187,8 +191,10 @@ async def get_documents_for_agent(agent_id: str):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.delete("/documents/{document_id}")
-async def delete_document(document_id: str):
+@router.delete("/documents/")
+async def delete_document(
+    document_id: str, agent_id: str, authorize: AuthJWT = Depends()
+):
     """Delete a document and all its associated context chunks.
 
     This endpoint permanently removes a document and cascades the deletion
@@ -204,6 +210,7 @@ async def delete_document(document_id: str):
     Raises:
         HTTPException: If document not found or deletion fails
     """
+    auth_service.auth(authorize, agent_id)
     try:
         document_dao = get_document_dao()
         agent_dao = get_agent_dao()
@@ -217,6 +224,8 @@ async def delete_document(document_id: str):
 
         # Get the agent that owns this document
         agent = agent_dao.get_agent_by_id(document.agent_id)
+        if agent.id != agent_id:
+            raise HTTPException(status_code=401, detail="Missmatch in agent_ids")
 
         if agent:
             updated = False
@@ -224,6 +233,7 @@ async def delete_document(document_id: str):
                 if document_id in role.document_access:
                     role.document_access.remove(document_id)
                     updated = True
+
 
             if updated:
                 agent_dao.add_agent(agent)  # This updates the existing agent
