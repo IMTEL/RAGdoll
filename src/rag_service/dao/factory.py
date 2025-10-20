@@ -17,6 +17,10 @@ from src.rag_service.dao.document.base import DocumentDAO
 from src.rag_service.dao.document.mongodb_document_dao import (
     MongoDBDocumentDAO,
 )
+from src.rag_service.dao.user.base import UserDao
+from src.rag_service.dao.user.mongodb_user_dao import MongoDBUserDao
+from tests.mocks.mock_agent_dao import MockAgentDAO
+from tests.mocks.mock_user_dao import MockUserDao
 
 
 config = Config()
@@ -76,7 +80,31 @@ def get_agent_dao() -> AgentDAO:
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
                 "Supported types: 'mongodb', 'mock'"
             )
+        
+def get_user_dao() -> UserDao:
+    """Get the configured agent DAO implementation.
 
+    Returns:
+        AgentDAO: The DAO instance based on RAG_DATABASE_SYSTEM config
+
+    Raises:
+        ValueError: If an invalid database type is configured
+
+    Supported types:
+        - 'mongodb': Production MongoDB implementation
+        - 'mock': Mock implementation for testing
+    """
+    match config.RAG_DATABASE_SYSTEM.lower():
+        case "mock":
+            return MockUserDao()
+        case "mongodb":
+            return MongoDBUserDao()
+        case _:
+            raise ValueError(
+                f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
+                "Supported types: 'mongodb', 'mock'"
+            )
+        
 
 def get_document_dao() -> DocumentDAO:
     """Get the configured document DAO implementation.

@@ -32,6 +32,7 @@ dependencies = [
     "uvicorn==0.34.0",
     "bcrypt==3.2.0",
     "cryptography>=46.0.2",
+    "fastapi-jwt-auth-compat==1.0.1"
 ]
 
 [dependency-groups]
