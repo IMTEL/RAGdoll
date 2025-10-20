@@ -1,6 +1,16 @@
 """Agent domain models for AI agent configurations."""
 
 from pydantic import BaseModel, Field
+import logging
+
+from ..utils.crypto_utils import (
+    encrypt_str,
+    decrypt_value,
+    hash_access_key,
+    verify_access_key,
+)
+
+logger = logging.getLogger(__name__)
 
 from src.models.accesskey import AccessKey
 
@@ -84,13 +94,125 @@ class Agent(BaseModel):
                 return role
         return None
 
+    def get_corpus_for_roles(self, role_names: list[str]) -> list[str]:
+        """Get the combined corpus accessible by the given roles.
+
+        Args:
+            role_names: List of role names to check
+
+        Returns:
+            List of corpus document IDs accessible by any of the roles
+        """
+        corpus_indices = set()
+        for role_name in role_names:
+            role = self.get_role_by_name(role_name)
+            if role:
+                corpus_indices.update(role.subset_of_corpa)
+
+        # Validate indices and return corpus documents
+        invalid_indices = [i for i in corpus_indices if i >= len(self.corpa)]
+        if invalid_indices:
+            if len(self.corpa) == 0:
+                valid_range = "none (corpa is empty)"
+            else:
+                valid_range = f"0-{len(self.corpa) - 1}"
+            logger.warning(
+                f"Invalid corpus indices for agent '{self.name}': {invalid_indices}. "
+                f"Valid range: {valid_range}"
+            )
+
+        return [self.corpa[i] for i in corpus_indices if i < len(self.corpa)]
+
+    @classmethod
+    def create_with_encryption(
+        cls,
+        name: str,
+        description: str,
+        prompt: str,
+        llm_model: str,
+        embedding_model: str,
+        last_updated: str,
+        plain_llm_api_key: str,
+        plain_access_keys: list[str] | None = None,
+        **kwargs
+    ) -> "Agent":
+        """Create an Agent with automatic encryption of sensitive data.
+
+        This helper builds an Agent instance, encrypts the provided LLM API key
+        and optionally hashes provided access keys before returning the model.
+        """
+        if not plain_llm_api_key:
+            raise ValueError("plain_llm_api_key must not be empty")
+
+        # Create agent with placeholder encrypted key (will be replaced)
+        agent = cls(
+            name=name,
+            description=description,
+            prompt=prompt,
+            llm_model=llm_model,
+            embedding_model=embedding_model,
+            last_updated=last_updated,
+            llm_api_key="placeholder",
+            **kwargs,
+        )
+
+        # Set encrypted API key
+        agent.set_llm_api_key(plain_llm_api_key)
+
+        # Add hashed access keys
+        if plain_access_keys:
+            for access_key in plain_access_keys:
+                agent.add_access_key(access_key)
+
+        return agent
+
+    def set_llm_api_key(self, plain_api_key: str) -> None:
+        """Encrypt and store the LLM API key.
+
+        Args:
+            plain_api_key: The plain text API key to encrypt and store
+        """
+        if not plain_api_key:
+            raise ValueError("plain_api_key must not be empty")
+        self.llm_api_key = encrypt_str(plain_api_key)
+
+    def get_llm_api_key(self) -> str:
+        """Decrypt and return the LLM API key.
+
+        Returns:
+            The decrypted API key
+        """
+        return decrypt_value(self.llm_api_key)
+
+    def add_access_key(self, plain_access_key: str) -> None:
+        """Hash and add an access key to the authorized list.
+
+        Args:
+            plain_access_key: The plain text access key to hash and store
+        """
+        if not plain_access_key:
+            raise ValueError("plain_access_key must not be empty")
+        hashed_key = hash_access_key(plain_access_key)
+        # bcrypt hashes are ASCII-safe, so we can store directly as UTF-8 string
+        hashed_key_str = hashed_key.decode("utf-8")
+        self.access_key.append(hashed_key_str)
+
     def is_access_key_valid(self, key: str) -> bool:
         """Verify if the provided access key is authorized for this agent.
 
         Args:
-            key: The access key to validate
+            key: The plain text access key to validate
 
         Returns:
             True if the key is authorized, False otherwise
         """
-        return not self.access_key or key in self.access_key
+        for hashed_key_str in self.access_key:
+            try:
+                # Convert UTF-8 string back to bytes
+                hashed_key = hashed_key_str.encode("utf-8")
+                if verify_access_key(key, hashed_key):
+                    return True
+            except Exception:
+                # Skip invalid hash entries
+                continue
+        return False
