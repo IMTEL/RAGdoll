@@ -65,7 +65,7 @@ def test_pipeline(mock_llm):
 
     command = Command(
         agent_id="507f1f77bcf86cd799439011",  # Dummy agent ID for testing
-        active_role_ids=["user"],
+        active_role_id="user",
         chat_log=[Message(role="user", content="Why does salmon swim upstream?")],
     )
 

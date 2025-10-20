@@ -26,24 +26,24 @@ def sample_agent() -> Agent:
         name="Test MongoDB Agent",
         description="A test agent for MongoDB DAO testing",
         prompt="You are a helpful test assistant. User info: {user_information}",
-        corpa=["doc1", "doc2", "doc3"],
+        corpus=["doc1", "doc2", "doc3"],
         roles=[
             Role(
                 name="admin",
                 description="Administrator with full access",
-                subset_of_corpa=[0, 1, 2],
+                subset_of_corpus=[0, 1, 2],
             ),
             Role(
                 name="user",
                 description="Regular user with limited access",
-                subset_of_corpa=[1],
+                subset_of_corpus=[1],
             ),
         ],
         llm_model="gpt-4",
         llm_temperature=0.8,
         llm_max_tokens=2000,
         llm_api_key="test-mongodb-key",
-        access_key=["mongodb-key-1", "mongodb-key-2"],
+        access_key=[],
         retrieval_method="semantic",
         embedding_model="text-embedding-ada-002",
         status="active",
@@ -102,7 +102,7 @@ class TestMongoDBAgentDAOCreate:
             name="Second Agent",
             description="Another test agent",
             prompt="Different prompt",
-            corpa=["doc4"],
+            corpus=["doc4"],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.5,
@@ -155,7 +155,7 @@ class TestMongoDBAgentDAORetrieve:
             name="Agent 2",
             description="Second agent",
             prompt="Prompt 2",
-            corpa=[],
+            corpus=[],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.7,
@@ -218,9 +218,9 @@ class TestMongoDBAgentDAORetrieve:
         assert retrieved_agent is not None
         assert len(retrieved_agent.roles) == 2
         assert retrieved_agent.roles[0].name == "admin"
-        assert retrieved_agent.roles[0].subset_of_corpa == [0, 1, 2]
+        assert retrieved_agent.roles[0].subset_of_corpus == [0, 1, 2]
         assert retrieved_agent.roles[1].name == "user"
-        assert retrieved_agent.roles[1].subset_of_corpa == [1]
+        assert retrieved_agent.roles[1].subset_of_corpus == [1]
 
     def test_agent_corpa_preserved(
         self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
@@ -232,7 +232,7 @@ class TestMongoDBAgentDAORetrieve:
         retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
 
         assert retrieved_agent is not None
-        assert retrieved_agent.corpa == ["doc1", "doc2", "doc3"]
+        assert retrieved_agent.corpus == ["doc1", "doc2", "doc3"]
 
 
 class TestMongoDBAgentDAOEdgeCases:
@@ -244,7 +244,7 @@ class TestMongoDBAgentDAOEdgeCases:
             name="No Roles Agent",
             description="Agent without roles",
             prompt="Simple prompt",
-            corpa=["doc1"],
+            corpus=["doc1"],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.7,
@@ -270,7 +270,7 @@ class TestMongoDBAgentDAOEdgeCases:
             name="No Corpus Agent",
             description="Agent without corpus",
             prompt="Simple prompt",
-            corpa=[],
+            corpus=[],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.7,
@@ -288,7 +288,7 @@ class TestMongoDBAgentDAOEdgeCases:
         agents = mongodb_repo.get_agents()
 
         assert len(agents) == 1
-        assert agents[0].corpa == []
+        assert agents[0].corpus == []
 
 
 class TestMongoDBAgentDAOUpdate:
@@ -301,6 +301,7 @@ class TestMongoDBAgentDAOUpdate:
         # Create agent
         created_agent = mongodb_repo.add_agent(sample_agent)
         agent_id = created_agent.id
+        assert agent_id is not None
         # Update agent
         updated_agent = Agent(**created_agent.model_dump())
         updated_agent.name = "Updated MongoDB Agent"

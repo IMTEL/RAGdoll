@@ -14,7 +14,6 @@ permissions:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     env:
       ENV: ${{secrets.ENV}}
@@ -53,28 +52,21 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t chat-service .
+        docker build -t ragdoll-backend .
 
     - name: Run Docker container
       run: |
-        docker run -d -p 8000:8000 --name chat-service chat-service
-        
-    # - name: Lint with flake8
-    #   run: |
-    #     continue-on-error: true
-    #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-    #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-    #     flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
-        
-    # - name: Check if 'Lint with flake8' step failed
-    #   if: steps.flake8.outcome != 'success'
-    #   run: |
-    #     echo "flake8 fails"
-    #     exit 1
-      
-    - name: Test with pytest
+        docker run -d -p 8000:8000 --name ragdoll-backend ragdoll-backend
+
+    - name: Lint with Ruff
+      id: ruff
       run: |
-        docker exec chat-service pytest
+        continue-on-error: true
+        uv run ruff check
+
+    - name: Run tests
+      run: |
+        docker exec chat-service uv run pytest
 
     - name: Stop Docker container
       run: |

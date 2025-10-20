@@ -12,26 +12,27 @@ from ..utils.crypto_utils import (
 
 logger = logging.getLogger(__name__)
 
+from src.models.accesskey import AccessKey
+
 
 class Role(BaseModel):
-    """Role within an agent that defines access to specific corpus subsets.
+    """Role within an agent that defines access to specific document categories.
 
-    A role determines which parts of the agent's knowledge base (corpus)
-    a particular interaction can access. This enables fine-grained control
-    over what information is available for RAG retrieval.
+    A role determines which parts of the agent's knowledge base
+    a particular interaction can access by specifying document categories.
+    This enables fine-grained control over what information is available for RAG retrieval.
 
     Attributes:
         name: Unique identifier for the role (e.g., "admin", "user", "viewer")
         description: Human-readable explanation of the role's purpose
-        subset_of_corpa: Indices into the agent's corpa list indicating which
-                        documents this role can access
+        categories: Document categories that this role can access
     """
 
     name: str = Field(..., description="Unique role identifier")
     description: str = Field(..., description="Role purpose and permissions")
-    subset_of_corpa: list[int] = Field(
+    document_access: list[str] = Field(
         default_factory=list,
-        description="Indices of corpus documents accessible to this role",
+        description="Identifiers of documents this role can access",
     )
 
 
@@ -39,16 +40,16 @@ class Agent(BaseModel):
     """AI Agent configuration for RAG-enabled conversational systems.
 
     An agent encapsulates all configuration needed to create a specialized
-    AI assistant with access to specific knowledge bases (corpus) and
-    role-based access control.
+    AI assistant with access to specific knowledge bases and
+    role-based access control. Documents are managed through DocumentDAO
+    and linked to this agent via agent_id.
 
     Attributes:
         id: Unique identifier for the agent
         name: Human-readable agent name
         description: Agent's purpose and capabilities
         prompt: System prompt that defines the agent's personality and instructions
-        corpa: List of document IDs or knowledge base identifiers
-        roles: Role definitions for access control
+        roles: Role definitions for category-based access control
         llm_provider: LLM service provider (e.g., "idun", "openai", "google")
         llm_model: Model identifier (e.g., "gpt-4", "gemini-pro")
         llm_temperature: Sampling temperature (0.0-2.0)
@@ -66,17 +67,13 @@ class Agent(BaseModel):
     name: str
     description: str
     prompt: str
-    corpa: list[str] = Field(default_factory=list)
     roles: list[Role] = Field(default_factory=list)
     llm_provider: str = Field(default="idun")
     llm_model: str
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=1000, gt=0)
     llm_api_key: str = Field(..., description="LLM service API key")
-    access_key: list[str] = Field(
-        default_factory=list,
-        description="API keys authorized to use this agent",
-    )
+    access_key: list[AccessKey]
     retrieval_method: str = Field(default="semantic")
     embedding_model: str
     status: str = Field(default="active")

@@ -24,6 +24,13 @@ class Config:
         self.path = path
         self.ENV = os.getenv("ENV", "dev")
 
+        self.RAGDOLL_CONFIG_API_URL = os.getenv(
+            "RAGDOLL_CONFIG_API_URL", "http://localhost:3000"
+        )
+        self.RAGDOLL_CHAT_API_URL = os.getenv(
+            "RAGDOLL_CHAT_API_URL", "http://localhost:3001"
+        )
+
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
@@ -33,6 +40,7 @@ class Config:
             "IDUN_API_URL", "https://idun-llm.hpc.ntnu.no/api/chat/completions"
         )
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
+        self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
         self.RAG_DATABASE_SYSTEM = os.getenv(
@@ -47,6 +55,9 @@ class Config:
         )
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
+        self.MONGODB_DOCUMENTS_COLLECTION = os.getenv(
+            "MONGODB_DOCUMENTS_COLLECTION", "documents"
+        )
         self.MONGODB_CONTEXT_COLLECTION = os.getenv(
             "MONGODB_CONTEXT_COLLECTION", "contexts"
         )
