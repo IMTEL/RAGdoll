@@ -30,7 +30,7 @@ def compute_embedding(text: str) -> list[float]:
 
 
 def process_file_and_store(
-    file_path: str, agent_id: str, document_id: str | None = None
+    file_path: str, agent_id: str, document_id: str | None = None, file_size_bytes: int | None = None
 ) -> tuple[bool, str]:
     """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
@@ -50,6 +50,7 @@ def process_file_and_store(
         file_path (str): Path to the text or markdown file.
         agent_id (str): Agent ID that owns this document.
         document_id (str | None): Optional document ID for updates.
+        file_size_bytes (int | None): Size of the file in bytes. If None, will be computed from file_path.
 
     Returns:
         tuple[bool, str]: (Success status, Document ID)
@@ -98,6 +99,10 @@ def process_file_and_store(
     # Use the file's basename as the document name.
     document_name = os.path.basename(file_path)
 
+    # Compute file size if not provided
+    if file_size_bytes is None:
+        file_size_bytes = os.path.getsize(file_path)
+
     # Get database instances
     document_dao = get_document_dao()
     context_dao = get_context_dao()
@@ -136,6 +141,7 @@ def process_file_and_store(
                 id=document_id,
                 name=document_name,
                 agent_id=agent_id,
+                size_bytes=file_size_bytes,
             )
             document_dao.create(doc)
 

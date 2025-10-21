@@ -53,15 +53,18 @@ async def upload_document_for_agent(
     temp_files_dir = Path("temp_files")
     temp_files_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save the file temporarily
+    # Save the file temporarily and capture its size
     file_location = temp_files_dir / Path(file.filename).name
+    file_content = file.file.read()
+    file_size_bytes = len(file_content)
+    
     with open(file_location, "wb") as buffer:
-        buffer.write(file.file.read())
+        buffer.write(file_content)
 
     try:
-        # Process and store/update document
+        # Process and store/update document with file size
         success, document_id = process_file_and_store(
-            str(file_location), agent_id
+            str(file_location), agent_id, file_size_bytes=file_size_bytes
         )
 
         # Delete temporary file
@@ -125,9 +128,22 @@ async def get_documents_for_agent(agent_id: str):
         document_list = []
         for doc in documents:
             try:
+                # Format size in a human-readable way
+                size_bytes = getattr(doc, 'size_bytes', 0)
+                if size_bytes < 1024:
+                    size_str = f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    size_str = f"{size_bytes / 1024:.2f} KB"
+                elif size_bytes < 1024 * 1024 * 1024:
+                    size_str = f"{size_bytes / (1024 * 1024):.2f} MB"
+                else:
+                    size_str = f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+                
                 document_list.append({
                     "id": doc.id,
                     "name": doc.name,
+                    "size": size_str,
+                    "size_bytes": size_bytes,
                     "created_at": doc.created_at.isoformat() if doc.created_at else None,
                     "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
                 })
@@ -191,6 +207,8 @@ async def delete_document(document_id: str):
             if updated:
                 agent_dao.add_agent(agent)  # This updates the existing agent
                 logger.info(f"Removed document '{document_id}' from agent '{agent.id}' roles")
+            else:
+                logger.info(f"Document '{document_id}' not found in any roles of agent '{agent.id}'")
 
         # Delete the document (this also deletes associated contexts)
         success = document_dao.delete(document_id)
