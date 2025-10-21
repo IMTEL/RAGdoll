@@ -30,6 +30,8 @@ dependencies = [
     "typer>=0.19.2",
     "unstructured[all-docs]>=0.18.15",
     "uvicorn==0.34.0",
+    "bcrypt==3.2.0",
+    "cryptography>=46.0.2",
 ]
 
 [dependency-groups]
@@ -51,7 +53,7 @@ markers = [
 ]
 addopts = "--cov=src --cov-report=term-missing"
 
-[tool.pytest.env]
+[tool.pytest_env]
 ENV = "dev"
 MOCK_RAG_DATABASE_SYSTEM = "mock"
 

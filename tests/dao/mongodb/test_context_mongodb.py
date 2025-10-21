@@ -1,3 +1,5 @@
+# FIXME: These tests are outdated and need to be revised.
+
 import pytest
 
 from src.rag_service.context import Context

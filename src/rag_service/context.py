@@ -7,7 +7,6 @@ class Context(BaseModel):
     Attributes:
         text: The text content of the context
         document_name: Name of the source document
-        category: Category or corpus identifier for filtering
         document_id: Unique identifier for the document
         chunk_id: Unique identifier for this specific chunk (if chunked)
         chunk_index: Position of this chunk in the document (0-indexed)
@@ -22,7 +21,6 @@ class Context(BaseModel):
 
     text: str
     document_name: str
-    category: str
     document_id: str | None = Field(default=None)
     chunk_id: str | None = Field(default=None)
     chunk_index: int | None = Field(default=None)

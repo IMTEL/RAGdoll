@@ -10,6 +10,7 @@ from bson import ObjectId
 from src.config import Config
 from src.models.agent import Agent, Role
 from src.rag_service.dao import MongoDBAgentDAO
+from src.utils.crypto_utils import decrypt_value
 
 
 @pytest.fixture
@@ -182,8 +183,8 @@ class TestMongoDBAgentDAORetrieve:
     ):
         """Test successfully retrieving an agent by ID."""
         # Create agent and get its ID
-        result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
-        agent_id = str(result.inserted_id)
+        result = mongodb_repo.add_agent(sample_agent)
+        agent_id = str(result.id)
 
         # Retrieve by ID
         retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
@@ -209,8 +210,8 @@ class TestMongoDBAgentDAORetrieve:
         self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
     ):
         """Test that agent roles are correctly preserved."""
-        result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
-        agent_id = str(result.inserted_id)
+        result = mongodb_repo.add_agent(sample_agent)
+        agent_id = str(result.id)
 
         retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
 
@@ -225,8 +226,8 @@ class TestMongoDBAgentDAORetrieve:
         self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
     ):
         """Test that agent corpus list is correctly preserved."""
-        result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
-        agent_id = str(result.inserted_id)
+        result = mongodb_repo.add_agent(sample_agent)
+        agent_id = str(result.id)
 
         retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
 
@@ -335,3 +336,85 @@ class TestMongoDBAgentDAOUpdate:
         invalid_agent.name = "Should Fail"
         with pytest.raises(ValueError):
             mongodb_repo.add_agent(invalid_agent)
+
+
+@pytest.mark.integration
+def test_add_agent_encrypts_api_key(mongodb_repo, sample_agent):
+    """Test that add_agent encrypts the llm_api_key before storing."""
+    original_key = sample_agent.llm_api_key
+
+    # Add the agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Retrieve raw document from MongoDB
+    agent_doc = mongodb_repo.collection.find_one({"_id": ObjectId(saved_agent.id)})
+
+    # Verify the stored key is encrypted (different from original)
+    assert agent_doc["llm_api_key"] != original_key, "API key should be encrypted"
+
+    # Verify we can decrypt it back to the original
+    decrypted_key = decrypt_value(agent_doc["llm_api_key"])
+    assert decrypted_key == original_key, "Decrypted key should match original"
+
+
+@pytest.mark.integration
+def test_get_agent_by_id_decrypts_api_key(mongodb_repo, sample_agent):
+    """Test that get_agent_by_id decrypts the llm_api_key when retrieving."""
+    original_key = sample_agent.llm_api_key
+
+    # Add the agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Retrieve the agent
+    retrieved_agent = mongodb_repo.get_agent_by_id(saved_agent.id)
+
+    # Verify the retrieved key is decrypted
+    assert retrieved_agent.llm_api_key == original_key, "API key should be decrypted"
+
+
+@pytest.mark.integration
+def test_get_agents_keeps_api_keys_encrypted(mongodb_repo, sample_agent):
+    """Test that get_agents keeps llm_api_key encrypted for security."""
+    original_key = sample_agent.llm_api_key
+
+    # Add the agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Retrieve all agents
+    all_agents = mongodb_repo.get_agents()
+
+    # Find our test agent
+    test_agent = next((a for a in all_agents if a.id == saved_agent.id), None)
+
+    assert test_agent is not None, "Test agent should be in results"
+    assert test_agent.llm_api_key != original_key, "API key should remain encrypted"
+
+    # Verify it's still the encrypted value
+    agent_doc = mongodb_repo.collection.find_one({"_id": ObjectId(saved_agent.id)})
+    assert test_agent.llm_api_key == agent_doc["llm_api_key"], (
+        "Should match encrypted DB value"
+    )
+
+
+@pytest.mark.integration
+def test_update_agent_re_encrypts_api_key(mongodb_repo, sample_agent):
+    """Test that updating an agent re-encrypts the llm_api_key."""
+    # Add initial agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Update the API key
+    new_key = "sk-new-test-key-456"
+    saved_agent.llm_api_key = new_key
+
+    # Update the agent
+    updated_agent = mongodb_repo.add_agent(saved_agent)
+
+    # Retrieve raw document
+    agent_doc = mongodb_repo.collection.find_one({"_id": ObjectId(updated_agent.id)})
+
+    # Verify the stored key is encrypted
+    assert agent_doc["llm_api_key"] != new_key, "Updated API key should be encrypted"
+
+    # Verify decryption works
+    decrypted_key = decrypt_value(agent_doc["llm_api_key"])
+    assert decrypted_key == new_key, "Decrypted key should match new key"

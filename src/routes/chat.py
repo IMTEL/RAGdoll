@@ -27,7 +27,7 @@ async def ask(command: Command):
     """Process a user question using the specified agent and roles.
 
     This endpoint:
-    1. Receives a Command with agent_id and active_role_ids
+    1. Receives a Command with agent_id and active_role_id
     2. Retrieves the agent configuration from the DAO
     3. Validates access permissions
     4. Performs RAG retrieval based on role-specific corpus access
@@ -35,7 +35,7 @@ async def ask(command: Command):
 
     Request body should be a JSON Command object with:
     - agent_id: MongoDB ObjectId of the agent
-    - active_role_ids: List of role names (e.g., ["admin", "user"])
+    - active_role_id: Name of the active agent role
     - access_key: Optional API key for authorization
     - chat_log: Conversation history
     - Other context fields (scene_name, user_information, etc.)
@@ -56,22 +56,21 @@ async def ask(command: Command):
                 status_code=400,
             )
 
-        # Validate access key if agent requires it
-        if agent.access_key and command.access_key not in agent.access_key:
-            return JSONResponse(
-                content={"message": "Access denied. Invalid access key."},
-                status_code=403,
-            )
+        # TODO: Validate access key if agent requires it
+        # if not agent.is_access_key_valid(command.access_key):
+        #     return JSONResponse(
+        #         content={"message": "Access denied. Invalid access key."},
+        #         status_code=403,
+        #     )
 
-        # Validate that requested roles exist in the agent
-        for role_id in command.active_role_ids:
-            if agent.get_role_by_name(role_id) is None:
-                return JSONResponse(
-                    content={
-                        "message": f"Role '{role_id}' not found in agent '{agent.name}'."
-                    },
-                    status_code=400,
-                )
+        # Validate that requested role exists in the agent
+        if command.active_role_id and agent.get_role_by_name(command.active_role_id) is None:
+            return JSONResponse(
+                content={
+                    "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."
+                },
+                status_code=400,
+            )
 
         # Generate response using agent configuration and role-based RAG
         response = assemble_prompt_with_agent(command, agent)
@@ -148,7 +147,7 @@ async def ask_transcribe(
         )
 
     # Validate access
-    if agent.access_key and command.access_key not in agent.access_key:
+    if not agent.is_access_key_valid(command.access_key):
         return JSONResponse(
             content={"message": "Access denied. Invalid access key."},
             status_code=403,
