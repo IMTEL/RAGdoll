@@ -7,7 +7,7 @@
 services:
   # FastAPI Backend Service
   chat-service:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: ragdoll-backend
@@ -29,7 +29,6 @@ services:
       - MONGODB_DATABASE=${MONGODB_DATABASE}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
-      - MONGODB_SESSION_COLLECTION=${MONGODB_SESSION_COLLECTION}
       - MONGODB_USER_COLLECTION=${MONGODB_USER_COLLECTION}
       - RAG_DATABASE_SYSTEM=mongodb
 
@@ -50,4 +49,3 @@ services:
 
 volumes:
   mongo-data: {}
- 

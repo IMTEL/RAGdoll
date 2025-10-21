@@ -1,3 +1,5 @@
+import logging
+
 from bson import ObjectId
 from pymongo import MongoClient
 
@@ -7,6 +9,7 @@ from src.rag_service.dao.user.base import UserDao
 
 
 config = Config()
+logger = logging.getLogger(__name__)
 
 
 class MongoDBUserDao(UserDao):
@@ -51,7 +54,8 @@ class MongoDBUserDao(UserDao):
                 user_doc.pop("_id", None)
                 return User(**user_doc)
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"An exception occured when trying to fetch user : {e}")
             return None
 
     def get_user_by_provider(
@@ -65,7 +69,10 @@ class MongoDBUserDao(UserDao):
                 user_doc.pop("_id", None)
                 return User(**user_doc)
             return None
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                f"An exception occured when trying to fetch user by provider: {e}"
+            )
             return None
 
     def is_reachable(self) -> bool:
@@ -73,5 +80,5 @@ class MongoDBUserDao(UserDao):
             self.client.admin.command("ping")
             return True
         except Exception as e:
-            print(f"Failed to ping MongoDB: {e}")
+            logger.error(f"Failed to ping MongoDB: {e}")
             return False
