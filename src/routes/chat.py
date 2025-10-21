@@ -56,12 +56,12 @@ async def ask(command: Command):
                 status_code=400,
             )
 
-        # Validate access key if agent requires it
-        if not agent.is_access_key_valid(command.access_key):
-            return JSONResponse(
-                content={"message": "Access denied. Invalid access key."},
-                status_code=403,
-            )
+        # TODO: Validate access key if agent requires it
+        # if not agent.is_access_key_valid(command.access_key):
+        #     return JSONResponse(
+        #         content={"message": "Access denied. Invalid access key."},
+        #         status_code=403,
+        #     )
 
         # Validate that requested role exists in the agent
         if command.active_role_id and agent.get_role_by_name(command.active_role_id) is None:
