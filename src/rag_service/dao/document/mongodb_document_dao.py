@@ -119,6 +119,7 @@ class MongoDBDocumentDAO(DocumentDAO):
             "_id": document.id,
             "name": document.name,
             "agent_id": document.agent_id,
+            "size_bytes": document.size_bytes,
             "created_at": document.created_at,
             "updated_at": document.updated_at,
         }
@@ -255,6 +256,7 @@ class MongoDBDocumentDAO(DocumentDAO):
             id=str(doc["_id"]),  # Convert ObjectId to string
             name=doc.get("name", "Unnamed Document"),  # Default if name is missing
             agent_id=doc.get("agent_id", ""),
+            size_bytes=doc.get("size_bytes", 0),
             created_at=doc.get("created_at", datetime.now()),
             updated_at=doc.get("updated_at", datetime.now()),
         )
