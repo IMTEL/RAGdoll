@@ -51,6 +51,7 @@ from pymongo import ASCENDING, MongoClient
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.dao.context.base import ContextDAO
+from src.rag_service.dao.context.hybrid_search import hybrid_search
 from src.rag_service.embeddings import similarity_search
 
 
@@ -71,7 +72,7 @@ class MongoDBContextDAO(ContextDAO):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
-        self.similarity_threshold = 0.5
+        self.similarity_threshold = 0.5 # lower = more similar
 
         # Create indexes for efficient querying
         self._create_indexes()
@@ -97,7 +98,9 @@ class MongoDBContextDAO(ContextDAO):
     def get_context_for_agent(
         self,
         agent_id: str,
-        embedding: list[float],
+        query_embedding: list[float],
+        query_text: str,
+        keyword_query_text: str | None = None,
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
@@ -112,7 +115,10 @@ class MongoDBContextDAO(ContextDAO):
 
         Args:
             agent_id (str): Agent identifier
-            embedding (list[float]): Query embedding vector
+            query_embedding (list[float]): Query embedding vector
+            query_text (str): Full query text for vector search (includes context)
+            keyword_query_text (str | None): Simplified query text for BM25 keyword search.
+                                              If None, uses query_text for both searches.
             documents (list[str] | None): Optional list of document IDs to filter by.
                                            If None, searches all agent's documents.
                                            If provided, only documents with at least one
@@ -129,82 +135,24 @@ class MongoDBContextDAO(ContextDAO):
         available_documents = documents if documents is not None else []
         if not agent_id:
             raise ValueError("agent_id cannot be empty")
-        if not embedding:
+        if not query_embedding:
             raise ValueError("Embedding cannot be empty")
         print("Available documents for filtering:", available_documents)
-        # Build filter for vectorSearch
-        # This requires the vector index to have filter fields configured (see module docstring)
-        # Filter by agent_id and optionally restrict to provided document_ids
-        search_filter = {"agent_id": {"$eq": agent_id}}
-        search_filter["document_id"] = {"$in": available_documents}
-
-        # Build MongoDB aggregation pipeline with vector search
-        pipeline = [
-            {
-                "$vectorSearch": {
-                    "index": "embeddings",
-                    "path": "embedding",
-                    "queryVector": embedding,
-                    "numCandidates": num_candidates,
-                    "limit": top_k,
-                    "filter": search_filter,
-                }
-            },
-        ]
-
-        try:
-            documents = list(self.collection.aggregate(pipeline))
-        except Exception as e:
-            logger.error(f"Vector search failed: {e}. Check Atlas configuration.")
-            # Fallback: use post-filtering if vector search with filters fails
-            logger.warning(
-                "Falling back to post-filtering (slower). Consider upgrading cluster tier."
-            )
-            pipeline_no_filter = [
-                {
-                    "$vectorSearch": {
-                        "index": "embeddings",
-                        "path": "embedding",
-                        "queryVector": embedding,
-                        "numCandidates": num_candidates * 3,  # Get more candidates for filtering
-                        "limit": top_k * 10,  # Get more results for post-filtering
-                    }
-                },
-            ]
-            documents = list(self.collection.aggregate(pipeline_no_filter))
-        print(f"Found {len(documents)} documents from vector search for agent {agent_id}")
-        results = []
-        for document in documents:
-            # Post-filter by agent_id and document_id if using fallback
-            if document.get("agent_id") != agent_id:
-                continue
-
-            if document.get("document_id") not in available_documents:
-                continue
-            
-            # Additional similarity check
-            similarity = similarity_search(embedding, document["embedding"])
-
-            logger.debug(
-                f"Agent: {agent_id}, Document: {document.get('document_name')}, "
-                f"Document ID: {document.get('document_id')}, Similarity: {similarity}"
-            )
-
-            if similarity > self.similarity_threshold:
-                results.append(
-                    Context(
-                        text=document["text"],
-                        document_name=document["document_name"],
-                        document_id=document.get("document_id"),
-                        chunk_id=document.get("chunk_id"),
-                        chunk_index=document.get("chunk_index"),
-                        total_chunks=document.get("total_chunks", 1),
-                    )
-                )
-
-            # Stop if we have enough results
-            if len(results) >= top_k:
-                break
+        
+        # Use keyword_query_text if provided, otherwise fall back to query_text
+        keyword_text = keyword_query_text if keyword_query_text is not None else query_text
+        
+        results = hybrid_search(
+                    0.9, # 90% vector, 10% keyword
+                    agent_id,
+                    query_embedding, 
+                    query_text,
+                    keyword_text,
+                    available_documents,
+                    self.collection,
+                    self.similarity_threshold,
+                    num_candidates=num_candidates,
+                    top_k=top_k)
 
         return results
 

@@ -19,7 +19,9 @@ class ContextDAO(ABC):
     def get_context_for_agent(
         self,
         agent_id: str,
-        embedding: list[float],
+        query_embedding: list[float],
+        query_text: str,
+        keyword_query_text: str | None = None,
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
@@ -31,7 +33,10 @@ class ContextDAO(ABC):
 
         Args:
             agent_id (str): Agent identifier
-            embedding (list[float]): Query embedding vector for similarity search
+            query_embedding (list[float]): Query embedding vector for similarity search
+            query_text (str): Full query text for vector search (includes context)
+            keyword_query_text (str | None): Simplified query text for BM25 keyword search.
+                                              If None, uses query_text for both searches.
             documents (list[str] | None): Optional list of document IDs to filter by
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return

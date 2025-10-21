@@ -85,11 +85,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     last_user_response = command.chat_log[-1].content if command.chat_log else ""
 
     to_embed: str = (
-        f"CURRENT USER QUESTION: {last_user_response}\n\n"
-        f"CURRENT USER QUESTION (emphasis): {last_user_response}\n\n"
-        f"Agent info: {agent.prompt}\n\n"
-        f"Role info: {role_prompt if role_prompt else 'none'}\n\n"
-        f"Conversation Context:\n{embed_chat_history}"
+        f"{last_user_response}\n"
+        f"{last_user_response}\n"
+        f"{agent.prompt}\n"
+        f"{role_prompt if role_prompt else 'none'}\n"
+        f"{embed_chat_history}"
     )
 
     print(f"Embedding text for retrieval:\n{to_embed}")
@@ -115,11 +115,14 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         embeddings: list[float] = embedding_model.get_embedding(to_embed)
 
         # Retrieve relevant contexts for the agent with optional category filtering
+        # Use full context (to_embed) for semantic search, but just the user question for keyword search
         retrieved_contexts = db.get_context_for_agent(
             agent_id=agent.id
             if agent.id
             else "",  # TODO: Raise error if agent.id is None
-            embedding=embeddings,
+            query_embedding=embeddings,
+            query_text=to_embed,  # Full context for semantic search
+            keyword_query_text=last_user_response,  # Just the user question for BM25
             documents=accessible_documents,
             top_k=3,  # Retrieve top 3 most relevant contexts
         )
