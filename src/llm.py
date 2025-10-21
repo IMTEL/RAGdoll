@@ -69,6 +69,15 @@ class OpenAILLM(LLM):
         )
         return response.choices[0].message.content.strip()
 
+    @staticmethod
+    def get_models() -> list[str]:
+        try:
+            client = OpenAI()
+            models = client.models.list()
+            return [Model("openai", item.id, False, None) for item in models.data]
+        except Exception:
+            return []
+
 
 class GeminiLLM(LLM):
     def __init__(self):
