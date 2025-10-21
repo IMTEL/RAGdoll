@@ -10,7 +10,7 @@ def auth_provider_factory(provider: str, user_db: UserDao) -> AuthProvider:
     match provider:
         case "google":
             return GoogleAuthProvider(
-                web_client_id=config.GOOGLE_CLIENT_ID, domain_name=" ", user_db=user_db
+                web_client_id=config.GOOGLE_CLIENT_ID, user_db=user_db
             )
         case "dev":
             if config.ENV != "dev":

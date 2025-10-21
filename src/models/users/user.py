@@ -13,11 +13,15 @@ class User(BaseModel):
         authentication_provider: who is resposible for authentication this user
         provider_user_id: the id given by the provider
         name: the name of the user
+        email: the email of the user
+        picture: picture for use on the config site
         owned_agents the agent_ids of the agents owned by the user
     """
 
     id: str | None = Field(default=None, description="Unique identifier for the user")
     auth_provider: str
     provider_user_id: str
-    name: str | None
+    name: str | None = None
+    email: str | None = None
+    picture: str | None = None
     owned_agents: list[str] = []

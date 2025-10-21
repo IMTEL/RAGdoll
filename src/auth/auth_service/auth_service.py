@@ -36,6 +36,9 @@ class AuthService(BaseAuthService):
     def auth(self, authorize: AuthJWT, agent_id: str):
         user = self.get_authenticated_user(authorize)
         if agent_id not in user.owned_agents:
+            logger.warning(
+                f"User tried to access agent they don´t own user: {user.id}, agent : {agent_id}"
+            )
             raise HTTPException(status_code=401, detail="Unnauthorized edit of agent")
 
     def get_authenticated_user(self, authorize: AuthJWT) -> User:
@@ -43,6 +46,7 @@ class AuthService(BaseAuthService):
         user_id = authorize.get_jwt_subject()
         user = self.user_db.get_user_by_id(user_id)
         if user is None:
+            logger.warning(f"User with userId: {user_id} does not exist")
             raise HTTPException(
                 status_code=404, detail="Invalid user, could not find user"
             )
