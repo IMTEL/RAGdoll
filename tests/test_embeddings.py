@@ -11,8 +11,8 @@ from src.rag_service.embeddings import (
 
 @pytest.mark.unit
 def test_create_embeddings_model_openai():
-    """Test that create_embeddings_model('openai') returns an instance of OpenAIEmbedding, which implements EmbeddingsModel."""
-    model = create_embeddings_model("openai")
+    """Test that create_embeddings_model('openai:...') returns an instance of OpenAIEmbedding, which implements EmbeddingsModel."""
+    model = create_embeddings_model("openai:text-embedding-3-small")
     assert isinstance(model, EmbeddingsModel), (
         "Should return a subclass of EmbeddingsModel"
     )
@@ -91,15 +91,15 @@ def test_similarity_search_zero_vector():
 
 @pytest.mark.integration
 def test_create_embeddings_model_google():
-    """Test that you can create and recieve a GoogleEmbedding, which implements EmbeddingsModel."""
-    model = create_embeddings_model("google")
+    """Test that you can create and receive a GoogleEmbedding, which implements EmbeddingsModel."""
+    model = create_embeddings_model("gemini:models/text-embedding-004")
     assert isinstance(model, GoogleEmbedding), "Should be a GoogleEmbedding instance"
 
 
 @pytest.mark.integration
 def test_google_embedding_get_embedding():
     """Test that the GoogleEmbedding model can generate embeddings."""
-    model = create_embeddings_model("google")
+    model = create_embeddings_model("gemini:models/text-embedding-004")
     test_text = "This is a test sentence."
 
     embedding = model.get_embedding(test_text)

@@ -97,32 +97,58 @@ class GoogleEmbedding(EmbeddingsModel):
 
 def get_available_embedding_models():
     """Get all available embedding models from all providers."""
-    return (
-        OpenAIEmbedding.get_available_embedding_models()
-        + GoogleEmbedding.get_available_embedding_models()
-    )
+    openai_models = OpenAIEmbedding.get_available_embedding_models() or []
+    google_models = GoogleEmbedding.get_available_embedding_models() or []
+    return openai_models + google_models
 
 
-# TODO: Remake this to use with an agent config
-def create_embeddings_model(embeddings_model: str = "google") -> EmbeddingsModel:
+def create_embeddings_model(
+    embeddings_model: str = "gemini:models/text-embedding-004",
+) -> EmbeddingsModel:
     """Factory for creating embeddings models.
 
     Args:
-        embeddings_model (str, optional): Select embeddings model. Defaults to "openai".
+        embeddings_model (str, optional): Embeddings model in format "provider:model_name".
+                                          Defaults to "gemini:models/text-embedding-004".
+                                          Format differs by provider:
+                                          - OpenAI: "openai:text-embedding-3-small"
+                                          - Gemini: "gemini:models/text-embedding-004" (includes "models/" prefix)
+                                          Examples:
+                                          - "openai:text-embedding-3-small"
+                                          - "openai:text-embedding-3-large"
+                                          - "gemini:models/text-embedding-004"
+                                          - "gemini:models/embedding-001"
 
     Raises:
-        ValueError: _description_
+        ValueError: If provider is not supported or format is invalid
 
     Returns:
-        EmbeddingsModel: _description_
+        EmbeddingsModel: Instance of the appropriate embeddings model
     """
-    match embeddings_model.lower():
+    # Parse provider:model_name format
+    if ":" in embeddings_model:
+        provider, model_name = embeddings_model.split(":", 1)
+        provider = provider.lower().strip()
+        model_name = model_name.strip()
+    else:
+        raise ValueError(
+            f"Embedding '{embeddings_model}' not supported. "
+            "Format must be 'provider:model_name' (e.g., 'openai:text-embedding-3-small' or 'gemini:models/text-embedding-004')"
+        )
+
+    match provider.lower():
         case "openai":
+            if model_name:
+                return OpenAIEmbedding(model_name=model_name)
             return OpenAIEmbedding()
-        case "google":
+        case "google" | "gemini":
+            if model_name:
+                return GoogleEmbedding(model_name=model_name)
             return GoogleEmbedding()
         case _:
-            raise ValueError(f"Embeddings model {embeddings_model} not supported")
+            raise ValueError(
+                f"Embedding provider '{provider}' not supported. Use 'openai' or 'gemini' in the form 'provider:model_name'."
+            )
 
 
 def similarity_search(list_1, list_2):

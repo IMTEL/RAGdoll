@@ -7,7 +7,11 @@ from src.llm import create_llm
 from src.models import Agent
 from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
-from src.rag_service.embeddings import GoogleEmbedding, create_embeddings_model
+from src.rag_service.embeddings import (
+    GoogleEmbedding,
+    OpenAIEmbedding,
+    create_embeddings_model,
+)
 
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
@@ -71,10 +75,10 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     """
 
     # Use agent's prompt as base, with variable substitution
-    embed_chat_history = chat_history_prompt_section(command, limit = 3, include_header = False, include_latest = True)
-    full_chat_history = (
-        chat_history_prompt_section(command)
+    embed_chat_history = chat_history_prompt_section(
+        command, limit=3, include_header=False, include_latest=True
     )
+    full_chat_history = chat_history_prompt_section(command)
 
     # Assemble final prompt
     role_prompt = "Role: " + (
@@ -95,20 +99,40 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     print(f"Embedding text for retrieval:\n{to_embed}")
 
     # Get accessible categories based on active roles
-    accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
+    accessible_documents = (
+        agent.get_role_by_name(command.active_role_id).document_access
+        if command.active_role_id
+        else []
+    )
 
-    print("Accessible documents for role:", accessible_documents, command.active_role_id)
+    print(
+        "Accessible documents for role:", accessible_documents, command.active_role_id
+    )
 
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
     db = get_context_dao()
 
-    # Use agent's configured embedding model, fallback to "google"
-    # embedding_model_name = getattr(agent, "embedding_model", "google")
-    # print("Using embedding model:", embedding_model_name)
-    # embedding_model = create_embeddings_model(embedding_model_name)
-    # TODO: Change to use agent's configured embedding model when we have more than one
-    embedding_model = GoogleEmbedding()
+    # Use agent's configured embedding model
+    embedding_model_config = getattr(agent, "embedding_model")
+    print("Using embedding model:", embedding_model_config)
+
+    # Parse provider:model format (e.g., "openai:text-embedding-3-small" or "gemini:text-embedding-004")
+    if ":" in embedding_model_config:
+        provider, model_name = embedding_model_config.split(":", 1)
+    else:
+        # Fallback: if no colon use default model
+        provider = "gemini"
+        model_name = "text-embedding-004"
+
+    # Create the appropriate embedding model based on provider
+    if provider.lower() == "openai":
+        embedding_model = OpenAIEmbedding(model_name=model_name)
+    elif provider.lower() in ["google", "gemini"]:
+        embedding_model = GoogleEmbedding(model_name=model_name)
+    else:
+        # Fallback to Gemini if provider not recognized
+        embedding_model = GoogleEmbedding(model_name="text-embedding-004")
 
     try:
         # Generate embedding for the user's query
@@ -195,13 +219,18 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "response": parsed_response,
     }
 
-def chat_history_prompt_section(command, limit: int = 100, include_header: bool = True, include_latest: bool = False) -> str:
+
+def chat_history_prompt_section(
+    command, limit: int = 100, include_header: bool = True, include_latest: bool = False
+) -> str:
     chat_history = ""
     if len(command.chat_log) > 1:
         if include_header:
             chat_history += "This is the previous conversation:\n"
         limit_start = max(0, len(command.chat_log) - limit - 1)
-        for msg in command.chat_log[limit_start:(-1 if not include_latest else None)]:  # Exclude latest user message
+        for msg in command.chat_log[
+            limit_start : (-1 if not include_latest else None)
+        ]:  # Exclude latest user message
             chat_history += f"{msg.role.upper()}: {msg.content}\n"
     return chat_history
 
