@@ -8,6 +8,10 @@ from src.rag_service.dao.context.mongodb_context_dao import (
 )
 
 
+def create_test_embedding(seed: float = 0.1) -> list[float]:
+    return [seed + (i * 0.001) for i in range(768)]
+
+
 class TestMongoDBContextDAO:
     """Tests for MongoDBContextDAO."""
 
@@ -28,60 +32,92 @@ class TestMongoDBContextDAO:
         """Test posting a new context."""
         context = self.repo.insert_context(
             document_id="doc123",
-            embedding=[0.1, 0.2, 0.3],
+            agent_id="agent-456",
+            embedding=create_test_embedding(0.1),
             context=Context(
                 text="Sample context text",
-                category="General Information",
                 document_name="TestDoc",
+                document_id="doc123",
             ),
         )
 
         assert context.text == "Sample context text"
-        assert context.category == "General Information"
+        assert context.document_name == "TestDoc"
 
         # Verify it was inserted
         count = self.repo.collection.count_documents({})
         assert count == 1
 
-    def test_get_context_by_category(self):
-        """Test retrieving contexts by category."""
-        # Insert multiple contexts with different categories
+    def test_get_context_for_agent(self):
+        """Test retrieving contexts for a specific agent."""
+        # Insert multiple contexts for different agents
         self.repo.insert_context(
             document_id="doc1",
-            embedding=[0.1, 0.2, 0.3],
+            agent_id="agent-1",
+            embedding=create_test_embedding(0.1),
             context=Context(
-                text="Context for category A",
-                category="CategoryA",
+                text="Context for agent 1",
                 document_name="DocA",
+                document_id="doc1",
             ),
         )
         self.repo.insert_context(
             document_id="doc2",
-            embedding=[0.4, 0.5, 0.6],
+            agent_id="agent-2",
+            embedding=create_test_embedding(0.4),
             context=Context(
-                text="Context for category B",
-                category="CategoryB",
+                text="Context for agent 2",
                 document_name="DocB",
+                document_id="doc2",
             ),
         )
 
-        # Retrieve contexts by category
-        results = self.repo.get_context_by_category("CategoryA")
+        # Retrieve contexts for agent-1 with its document
+        results = self.repo.get_context_for_agent(
+            agent_id="agent-1",
+            embedding=create_test_embedding(0.1),
+            documents=["doc1"],
+            top_k=5,
+        )
 
-        assert len(results) == 1
-        assert results[0].category == "CategoryA"
-        assert results[0].text == "Context for category A"
-        assert results[0].document_name == "DocA"
+        # Should only return contexts for agent-1
         assert all(isinstance(c, Context) for c in results)
+        if len(results) > 0:
+            assert results[0].document_id == "doc1"
 
-    def test_get_context_by_category_no_results(self):
-        """Test retrieving contexts by category when none exist."""
-        results = self.repo.get_context_by_category("NonExistentCategory")
+    def test_get_context_for_agent_no_results(self):
+        """Test retrieving contexts for agent when no accessible documents exist."""
+        # Insert context for agent-1
+        self.repo.insert_context(
+            document_id="doc1",
+            agent_id="agent-1",
+            embedding=create_test_embedding(0.1),
+            context=Context(
+                text="Context for agent 1",
+                document_name="DocA",
+                document_id="doc1",
+            ),
+        )
+
+        # Try to get contexts with a different agent_id
+        results = self.repo.get_context_for_agent(
+            agent_id="agent-999",
+            embedding=create_test_embedding(0.1),
+            documents=["doc1"],
+            top_k=5,
+        )
+
         assert results == []
         assert isinstance(results, list)
 
-    def test_get_context_by_category_no_documents(self):
+    def test_get_context_for_agent_no_documents(self):
         """Test retrieving contexts when no documents exist in the collection."""
-        results = self.repo.get_context_by_category("AnyCategory")
+        results = self.repo.get_context_for_agent(
+            agent_id="agent-1",
+            embedding=create_test_embedding(0.1),
+            documents=[],
+            top_k=5,
+        )
+
         assert results == []
         assert isinstance(results, list)

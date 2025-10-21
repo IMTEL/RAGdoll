@@ -26,7 +26,6 @@ class TestMockDocumentDAO:
         doc = Document(
             name="test_doc.txt",
             agent_id="agent-123",
-            categories=["Technical", "General"],
         )
 
         created = self.repo.create(doc)
@@ -34,7 +33,6 @@ class TestMockDocumentDAO:
         assert created.id is not None
         assert created.name == "test_doc.txt"
         assert created.agent_id == "agent-123"
-        assert created.categories == ["Technical", "General"]
         assert created.created_at is not None
         assert created.updated_at is not None
 
@@ -43,7 +41,6 @@ class TestMockDocumentDAO:
         doc1 = Document(
             name="duplicate.txt",
             agent_id="agent-123",
-            categories=["Cat1"],
         )
         self.repo.create(doc1)
 
@@ -51,7 +48,6 @@ class TestMockDocumentDAO:
         doc2 = Document(
             name="duplicate.txt",
             agent_id="agent-123",
-            categories=["Cat2"],
         )
 
         with pytest.raises(ValueError, match="already exists"):
@@ -62,14 +58,12 @@ class TestMockDocumentDAO:
         doc1 = Document(
             name="shared_name.txt",
             agent_id="agent-1",
-            categories=["Cat1"],
         )
         created1 = self.repo.create(doc1)
 
         doc2 = Document(
             name="shared_name.txt",
             agent_id="agent-2",
-            categories=["Cat2"],
         )
         created2 = self.repo.create(doc2)
 
@@ -79,7 +73,7 @@ class TestMockDocumentDAO:
 
     def test_get_by_id(self):
         """Test retrieving document by ID."""
-        doc = Document(name="doc.txt", agent_id="agent-123", categories=["Cat1"])
+        doc = Document(name="doc.txt", agent_id="agent-123")
         created = self.repo.create(doc)
 
         retrieved = self.repo.get_by_id(created.id)
@@ -97,9 +91,9 @@ class TestMockDocumentDAO:
     def test_get_by_agent_id(self):
         """Test retrieving all documents for an agent."""
         # Create documents for different agents
-        doc1 = Document(name="doc1.txt", agent_id="agent-1", categories=["Cat1"])
-        doc2 = Document(name="doc2.txt", agent_id="agent-1", categories=["Cat2"])
-        doc3 = Document(name="doc3.txt", agent_id="agent-2", categories=["Cat3"])
+        doc1 = Document(name="doc1.txt", agent_id="agent-1")
+        doc2 = Document(name="doc2.txt", agent_id="agent-1")
+        doc3 = Document(name="doc3.txt", agent_id="agent-2")
 
         self.repo.create(doc1)
         self.repo.create(doc2)
@@ -120,7 +114,7 @@ class TestMockDocumentDAO:
 
     def test_get_by_name_and_agent(self):
         """Test retrieving document by name and agent."""
-        doc = Document(name="specific.txt", agent_id="agent-123", categories=["Cat1"])
+        doc = Document(name="specific.txt", agent_id="agent-123")
         created = self.repo.create(doc)
 
         retrieved = self.repo.get_by_name_and_agent("specific.txt", "agent-123")
@@ -134,65 +128,29 @@ class TestMockDocumentDAO:
         result = self.repo.get_by_name_and_agent("missing.txt", "agent-123")
         assert result is None
 
-    def test_get_by_categories(self):
-        """Test retrieving documents by categories."""
-        doc1 = Document(
-            name="doc1.txt", agent_id="agent-1", categories=["Tech", "General"]
-        )
-        doc2 = Document(name="doc2.txt", agent_id="agent-1", categories=["General"])
-        doc3 = Document(name="doc3.txt", agent_id="agent-1", categories=["Training"])
-
-        self.repo.create(doc1)
-        self.repo.create(doc2)
-        self.repo.create(doc3)
-
-        # Get documents with "General" category
-        results = self.repo.get_by_categories(["General"])
-
-        assert len(results) == 2
-        doc_names = {doc.name for doc in results}
-        assert doc_names == {"doc1.txt", "doc2.txt"}
-
-    def test_get_by_categories_multiple(self):
-        """Test retrieving documents matching any of multiple categories."""
-        doc1 = Document(name="doc1.txt", agent_id="agent-1", categories=["Tech"])
-        doc2 = Document(name="doc2.txt", agent_id="agent-1", categories=["General"])
-        doc3 = Document(name="doc3.txt", agent_id="agent-1", categories=["Training"])
-
-        self.repo.create(doc1)
-        self.repo.create(doc2)
-        self.repo.create(doc3)
-
-        # Get documents with "Tech" OR "Training"
-        results = self.repo.get_by_categories(["Tech", "Training"])
-
-        assert len(results) == 2
-        doc_names = {doc.name for doc in results}
-        assert doc_names == {"doc1.txt", "doc3.txt"}
-
     def test_update_document(self):
         """Test updating an existing document."""
         import time
 
-        doc = Document(name="doc.txt", agent_id="agent-123", categories=["Cat1"])
+        doc = Document(name="doc.txt", agent_id="agent-123")
         created = self.repo.create(doc)
 
         # Small delay to ensure timestamp difference
         time.sleep(0.001)
 
-        # Update categories
-        created.categories = ["Cat1", "Cat2", "Cat3"]
+        # Update name
+        created.name = "updated_doc.txt"
         updated = self.repo.update(created)
 
         assert updated.id == created.id
-        assert updated.categories == ["Cat1", "Cat2", "Cat3"]
+        assert updated.name == "updated_doc.txt"
         assert (
             updated.updated_at >= created.created_at
         )  # Use >= to handle fast execution
 
         # Verify update persisted
         retrieved = self.repo.get_by_id(created.id)
-        assert retrieved.categories == ["Cat1", "Cat2", "Cat3"]
+        assert retrieved.name == "updated_doc.txt"
 
     def test_update_nonexistent_document(self):
         """Test updating a document that doesn't exist."""
@@ -200,7 +158,6 @@ class TestMockDocumentDAO:
             id="non-existent-id",
             name="doc.txt",
             agent_id="agent-123",
-            categories=["Cat1"],
         )
 
         with pytest.raises(ValueError, match="not found"):
@@ -208,7 +165,7 @@ class TestMockDocumentDAO:
 
     def test_delete_document(self):
         """Test deleting a document."""
-        doc = Document(name="to_delete.txt", agent_id="agent-123", categories=["Cat1"])
+        doc = Document(name="to_delete.txt", agent_id="agent-123")
         created = self.repo.create(doc)
 
         # Delete the document
@@ -231,7 +188,7 @@ class TestMockDocumentDAO:
         assert dao1 is dao2
 
         # Test that data persists across instances
-        doc = Document(name="test.txt", agent_id="agent-123", categories=["Cat1"])
+        doc = Document(name="test.txt", agent_id="agent-123")
         dao1.create(doc)
 
         docs = dao2.get_by_agent_id("agent-123")
@@ -240,8 +197,8 @@ class TestMockDocumentDAO:
 
     def test_clear(self):
         """Test clearing all documents."""
-        doc1 = Document(name="doc1.txt", agent_id="agent-1", categories=["Cat1"])
-        doc2 = Document(name="doc2.txt", agent_id="agent-2", categories=["Cat2"])
+        doc1 = Document(name="doc1.txt", agent_id="agent-1")
+        doc2 = Document(name="doc2.txt", agent_id="agent-2")
 
         self.repo.create(doc1)
         self.repo.create(doc2)
