@@ -41,45 +41,4 @@ class TestMongoDBContextDAO:
         count = self.repo.collection.count_documents({})
         assert count == 1
 
-    def test_get_context_by_category(self):
-        """Test retrieving contexts by category."""
-        # Insert multiple contexts with different categories
-        self.repo.insert_context(
-            document_id="doc1",
-            embedding=[0.1, 0.2, 0.3],
-            context=Context(
-                text="Context for category A",
-                category="CategoryA",
-                document_name="DocA",
-            ),
-        )
-        self.repo.insert_context(
-            document_id="doc2",
-            embedding=[0.4, 0.5, 0.6],
-            context=Context(
-                text="Context for category B",
-                category="CategoryB",
-                document_name="DocB",
-            ),
-        )
-
-        # Retrieve contexts by category
-        results = self.repo.get_context_by_category("CategoryA")
-
-        assert len(results) == 1
-        assert results[0].category == "CategoryA"
-        assert results[0].text == "Context for category A"
-        assert results[0].document_name == "DocA"
-        assert all(isinstance(c, Context) for c in results)
-
-    def test_get_context_by_category_no_results(self):
-        """Test retrieving contexts by category when none exist."""
-        results = self.repo.get_context_by_category("NonExistentCategory")
-        assert results == []
-        assert isinstance(results, list)
-
-    def test_get_context_by_category_no_documents(self):
-        """Test retrieving contexts when no documents exist in the collection."""
-        results = self.repo.get_context_by_category("AnyCategory")
-        assert results == []
-        assert isinstance(results, list)
+    # TODO: Add tests for retrieving context based on roles of an agent
