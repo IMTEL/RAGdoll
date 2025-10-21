@@ -4,11 +4,12 @@ from fastapi import APIRouter, HTTPException
 
 from src.access_service.factory import AccessServiceConfig, access_service_factory
 from src.config import Config
-from src.llm import get_embedding_models, get_models
+from src.llm import get_models
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.models.model import Model
 from src.rag_service.dao import get_agent_dao
+from src.rag_service.embeddings import get_available_embedding_models
 
 
 config = Config()
@@ -116,7 +117,7 @@ def fetch_models():
     return get_models()
 
 
-@router.get("/get_embedding_models", response_model=list[Model])
+@router.get("/get_embedding_models", response_model=list[str])
 def fetch_embedding_models():
     """Returns all usable embedding models."""
-    return get_embedding_models()
+    return get_available_embedding_models()

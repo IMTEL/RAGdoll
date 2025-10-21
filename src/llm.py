@@ -16,10 +16,6 @@ class LLM(Protocol):
     def get_models() -> list[str]:
         """Returns the models which can be used by the provider."""
 
-    @staticmethod
-    def get_embedding_models() -> list[str]:
-        """Returns the embedding models which can be used by the provider."""
-
 
 class IdunLLM(LLM):
     def __init__(self):
@@ -53,11 +49,6 @@ class IdunLLM(LLM):
         except Exception:
             return []
 
-    @staticmethod
-    def get_embedding_models() -> list[str]:
-        # TODO: Find IDUN embedding models if there are any
-        return []
-
 
 class OpenAILLM(LLM):
     def __init__(self):
@@ -77,30 +68,6 @@ class OpenAILLM(LLM):
             model=self.model, messages=messages
         )
         return response.choices[0].message.content.strip()
-
-    @staticmethod
-    def get_models() -> list[str]:
-        try:
-            client = OpenAI()
-            models = client.models.list()
-            return [Model("openai", item.id, False, None) for item in models.data]
-        except Exception:
-            return []
-
-    @staticmethod
-    def get_embedding_models() -> list[str]:
-        try:
-            client = OpenAI()
-            models = client.models.list()
-            # Filter for embedding models
-            embedding_models = [
-                Model("openai", item.id, False, None)
-                for item in models.data
-                if "embedding" in item.id.lower()
-            ]
-            return embedding_models
-        except Exception:
-            return []
 
 
 class GeminiLLM(LLM):
@@ -126,20 +93,6 @@ class GeminiLLM(LLM):
         except Exception:
             return []
 
-    @staticmethod
-    def get_embedding_models() -> list[str]:
-        try:
-            models = genai.list_models()
-            # Filter for embedding models
-            embedding_models = [
-                Model("gemini", item.name, False, None)
-                for item in models
-                if "embedding" in item.name.lower()
-            ]
-            return embedding_models
-        except Exception:
-            return []
-
 
 class MockLLM(LLM):
     def generate(self, prompt: str) -> str:
@@ -147,10 +100,6 @@ class MockLLM(LLM):
 
     @staticmethod
     def get_models() -> list[str]:
-        return []
-
-    @staticmethod
-    def get_embedding_models() -> list[str]:
         return []
 
 
@@ -167,15 +116,6 @@ def get_models():
     ]
 
     return language_models + IdunLLM.get_models()
-
-
-def get_embedding_models():
-    """Get all available embedding models from all providers."""
-    return (
-        OpenAILLM.get_embedding_models()
-        + GeminiLLM.get_embedding_models()
-        + IdunLLM.get_embedding_models()
-    )
 
 
 def create_llm(llm_provider: str = "idun") -> LLM:

@@ -20,6 +20,14 @@ class EmbeddingsModel(ABC):
             list[float]: The embedding of the text
         """
 
+    @abstractmethod
+    def get_available_embedding_models(self) -> list[str]:
+        """Get the available embedding models.
+
+        Returns:
+            list[str]: The available embedding models
+        """
+
 
 class OpenAIEmbedding(EmbeddingsModel):
     def __init__(self, model_name: str = "text-embedding-3-small"):
@@ -35,6 +43,20 @@ class OpenAIEmbedding(EmbeddingsModel):
             input=text, model=self.model_name, dimensions=768
         )
         return response.data[0].embedding
+
+    def get_available_embedding_models() -> list[str]:
+        try:
+            client = openai.OpenAI()
+            models = client.models.list()
+            # Filter for embedding models
+            embedding_models = [
+                "openai:" + item.id
+                for item in models.data
+                if "embedding" in item.id.lower()
+            ]
+            return embedding_models
+        except Exception:
+            return []
 
 
 class GoogleEmbedding(EmbeddingsModel):
@@ -58,6 +80,27 @@ class GoogleEmbedding(EmbeddingsModel):
             output_dimensionality=768,
         )
         return embedding["embedding"]
+
+    def get_available_embedding_models() -> list[str]:
+        try:
+            models = genai.list_models()
+            # Filter for embedding models
+            embedding_models = [
+                "gemini:" + item.name
+                for item in models
+                if "embedding" in item.name.lower()
+            ]
+            return embedding_models
+        except Exception:
+            return []
+
+
+def get_available_embedding_models():
+    """Get all available embedding models from all providers."""
+    return (
+        OpenAIEmbedding.get_available_embedding_models()
+        + GoogleEmbedding.get_available_embedding_models()
+    )
 
 
 # TODO: Remake this to use with an agent config
