@@ -8,6 +8,10 @@ from src.rag_service.dao.context.mongodb_context_dao import (
 )
 
 
+def create_test_embedding(seed: float = 0.1) -> list[float]:
+    return [seed + (i * 0.001) for i in range(768)]
+
+
 class TestMongoDBContextDAO:
     """Tests for MongoDBContextDAO."""
 
@@ -29,7 +33,7 @@ class TestMongoDBContextDAO:
         context = self.repo.insert_context(
             document_id="doc123",
             agent_id="agent-456",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=create_test_embedding(0.1),
             context=Context(
                 text="Sample context text",
                 document_name="TestDoc",
@@ -50,7 +54,7 @@ class TestMongoDBContextDAO:
         self.repo.insert_context(
             document_id="doc1",
             agent_id="agent-1",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=create_test_embedding(0.1),
             context=Context(
                 text="Context for agent 1",
                 document_name="DocA",
@@ -60,7 +64,7 @@ class TestMongoDBContextDAO:
         self.repo.insert_context(
             document_id="doc2",
             agent_id="agent-2",
-            embedding=[0.4, 0.5, 0.6],
+            embedding=create_test_embedding(0.4),
             context=Context(
                 text="Context for agent 2",
                 document_name="DocB",
@@ -71,7 +75,7 @@ class TestMongoDBContextDAO:
         # Retrieve contexts for agent-1 with its document
         results = self.repo.get_context_for_agent(
             agent_id="agent-1",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=create_test_embedding(0.1),
             documents=["doc1"],
             top_k=5,
         )
@@ -87,7 +91,7 @@ class TestMongoDBContextDAO:
         self.repo.insert_context(
             document_id="doc1",
             agent_id="agent-1",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=create_test_embedding(0.1),
             context=Context(
                 text="Context for agent 1",
                 document_name="DocA",
@@ -98,7 +102,7 @@ class TestMongoDBContextDAO:
         # Try to get contexts with a different agent_id
         results = self.repo.get_context_for_agent(
             agent_id="agent-999",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=create_test_embedding(0.1),
             documents=["doc1"],
             top_k=5,
         )
@@ -110,7 +114,7 @@ class TestMongoDBContextDAO:
         """Test retrieving contexts when no documents exist in the collection."""
         results = self.repo.get_context_for_agent(
             agent_id="agent-1",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=create_test_embedding(0.1),
             documents=[],
             top_k=5,
         )

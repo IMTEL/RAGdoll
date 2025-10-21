@@ -106,7 +106,7 @@ class TestMongoDBAgentDAOCreate:
             llm_temperature=0.5,
             llm_max_tokens=500,
             llm_api_key="key2",
-            access_key=["key"],
+            access_key=[],
             retrieval_method="keyword",
             embedding_model="ada-002",
             status="inactive",
