@@ -15,7 +15,10 @@ from src.rag_service.dao import MongoDBAgentDAO
 @pytest.fixture
 def mongodb_repo() -> MongoDBAgentDAO:
     """Create a MongoDB DAO instance."""
-    return MongoDBAgentDAO()
+    repo = MongoDBAgentDAO()
+    if not repo.is_reachable():
+        pytest.skip("MongoDB is not reachable. Skipping tests.")
+    return repo
 
 
 @pytest.fixture
