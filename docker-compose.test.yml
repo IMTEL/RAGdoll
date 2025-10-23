@@ -1,0 +1,56 @@
+# Docker Compose override file for testing/CI environments
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.test.yml up
+# Or for testing only: docker-compose -f docker-compose.test.yml up
+
+services:
+  # Mock MongoDB for testing purposes
+  mongodb:
+    image: mongo:7.0
+    container_name: ragdoll-mongodb-test
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: testuser
+      MONGO_INITDB_ROOT_PASSWORD: testpassword
+    ports:
+      - "27017:27017"  # Expose for direct test access if needed
+    volumes:
+      - mongo-test-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # Optional: MongoDB Express for debugging (useful for test inspection)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: ragdoll-mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://testuser:testpassword@mongodb:27017
+      ME_CONFIG_BASICAUTH: "false"  # Disable auth for testing
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # For CI/testing, you might want to override or remove the nginx service
+  # and only run chat-service with mock MongoDB
+  chat-service:
+    # Override environment for testing
+    environment:
+      - ENV=dev
+      - RUNNING_TESTS=true
+      - MONGODB_URI=mongodb://testuser:testpassword@mongodb:27017
+      - MONGODB_DATABASE=test_database
+      - MONGODB_CONTEXT_COLLECTION=contexts_test
+      - MONGODB_AGENT_COLLECTION=agents_test
+      - RAG_DATABASE_SYSTEM=mock
+    # In test mode, don't require nginx
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+volumes:
+  mongo-test-data: {}

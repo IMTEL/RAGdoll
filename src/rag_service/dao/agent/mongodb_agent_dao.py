@@ -108,5 +108,5 @@ class MongoDBAgentDAO(AgentDAO):
             self.client.admin.command("ping")
             return True
         except Exception as e:
-            print(f"Failed to ping MongoDB: {e}")
+            print(f"Failed to ping MongoDB: {e}")  # TODO: use logging
             return False

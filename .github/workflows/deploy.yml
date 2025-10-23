@@ -1,0 +1,25 @@
+# TODO: Finish deployment workflow
+
+# name: Deploy  # Deployment Workflow
+
+# on:
+#   push:
+#     branches: [ "main" ]
+
+# permissions:
+#   contents: read
+
+# jobs:
+#   # Deploy on main branch
+#   deploy-check:
+#     runs-on: ubuntu-latest
+#     name: Pre-deployment Check
+#     if: github.ref == 'refs/heads/main'
+
+#     steps:
+#     - uses: actions/checkout@v4
+    
+#     - name: Set up Python 3.11
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: "3.11"
