@@ -27,8 +27,8 @@ jobs:
       run: |
         uv run ruff check src tests
         uv run ruff format --check src tests
-      continue-on-error: true
-    
+      continue-on-error: false
+
   mypy:
     runs-on: ubuntu-latest
     name: Type Checking with Mypy
@@ -44,7 +44,7 @@ jobs:
     - name: Type check with Mypy
       run: |
         uv run mypy src tests
-      continue-on-error: true
+      continue-on-error: false
 
   test:
     runs-on: ubuntu-latest
