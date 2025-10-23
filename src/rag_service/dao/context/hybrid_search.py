@@ -45,7 +45,7 @@ def hybrid_search(alpha: float, # 0 = 100% keyword, 1 = 100% vector, 0.5 = equal
         tokenized_corpus.append(preprocess_text_for_bm25(doc["text"]))
         document_map[doc["document_id"]] = doc
 
-    keyword_searcher = BM25Okapi(tokenized_corpus)
+    keyword_searcher = BM25Okapi(tokenized_corpus) # store in database
     
     # Use separate query for keyword search (typically just the user's question)
     preprocessed_query = preprocess_text_for_bm25(keyword_query_text)
@@ -53,21 +53,21 @@ def hybrid_search(alpha: float, # 0 = 100% keyword, 1 = 100% vector, 0.5 = equal
 
     vector_scores = {}
     for doc, score in vector_results:
-        # FAISS returns distance (lower = more similar), so we convert to similarity
-        # The formula 1/(1+distance) converts distance to similarity (0 to 1 range)
-        normalized_score = 1 / (1 + score)
+        # similarity_search returns cosine similarity (range -1 to 1, where 1 is most similar)
+        # Normalize to 0-1 range: (score + 1) / 2
+        normalized_score = (score + 1) / 2
 
         vector_scores[doc] = normalized_score
 
     bm25_scores = {}
     # Use min-max normalization to handle negative BM25 scores
-    min_score = min(bm25_scores_list) if bm25_scores_list else 0
-    max_score = max(bm25_scores_list) if bm25_scores_list else 1
+    min_score = float(min(bm25_scores_list)) if len(bm25_scores_list) > 0 else 0.0
+    max_score = float(max(bm25_scores_list)) if len(bm25_scores_list) > 0 else 1.0
     score_range = max_score - min_score
     
     for idx, score in enumerate(bm25_scores_list):
         # Min-max normalization: (score - min) / (max - min)
-        normalized_score = (score - min_score) / score_range if score_range > 0 else 0
+        normalized_score = float((score - min_score) / score_range) if score_range > 0 else 0.0
         bm25_scores[vector_results[idx][0]] = normalized_score
 
     hybrid_scores = {}

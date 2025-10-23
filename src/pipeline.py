@@ -13,6 +13,72 @@ from src.rag_service.embeddings import GoogleEmbedding, create_embeddings_model
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
 
 
+def generate_retrieval_query(
+    command: Command, agent: Agent, role_prompt: str = ""
+) -> str:
+    """Generate a standalone query for RAG retrieval from conversation context.
+    
+    This function uses an LLM to synthesize the latest user message along with
+    recent conversation context into a single, focused query that can be used
+    for semantic search.
+    
+    Args:
+        command: Command object containing chat history and context
+        agent: Agent object containing LLM provider configuration
+        role_prompt: Optional role description for context
+        
+    Returns:
+        A standalone query string optimized for RAG retrieval
+    """
+    if not command.chat_log:
+        return ""
+    last_message = command.chat_log[-1].content if command.chat_log else ""
+    recent_context = chat_history_prompt_section(
+        command, 
+        limit=6,
+        include_header=False, 
+        include_latest=True 
+    )
+    
+    if not recent_context:
+        recent_context = "No prior context"
+    
+    summary_prompt = (
+        f"Rewrite this user's latest message as a standalone message that captures all necessary context. This will be used to retrieve relevant information from a knowledge base.\n\n"
+        'Replace any pronouns ("you", "your", "it", "that", etc.) with what the message is referencing from the context.\n\n'
+        'Do not reference the context, do not use pronouns ("you", "your", "it", "that", etc.), ALWAYS include the information directly in the rewritten message.\n\n'
+        f"User message to rewrite: {last_message}\n\n"
+        "CONTEXT:\n"
+        f"Instructions/information given to the agent the user is talking to: {agent.prompt}\n"
+        f"Their role: {role_prompt if role_prompt else 'unspecified'}\n"
+        f"Recent conversation context:\n{recent_context}\n\n"
+        f"Standalone message:"
+    )
+    
+    
+    # summary_prompt += (
+    #     "INSTRUCTIONS:\n"
+    #     "- Create a single, clear search query (1-2 sentences maximum)\n"
+    #     "- Include relevant info from the conversation\n"
+    #     "- Resolve any pronouns or references to earlier messages, or from the agent's instructions/role info if the user is referencing \"you\"\n"
+    #     "- Focus only on what information would be needed to answer the question\n"
+    #     "- Do not include conversational filler or greetings\n\n"
+    #     "- Use the same words as the user message as much as possible\n"
+    #     "Standalone search query:"
+    # )
+    print("Summary prompt for retrieval query generation:\n", summary_prompt)
+
+    try:
+        # Use the same LLM provider as the agent uses for generating responses
+        query_llm = create_llm(agent.llm_provider)
+        standalone_query = query_llm.generate(summary_prompt)
+        print(f"Generated retrieval query: {standalone_query}")
+        return standalone_query.strip()
+    except Exception as e:
+        print(f"Error generating retrieval query: {e}")
+        return last_message
+
+
 def get_answer_from_user(
     answer: str, target: str, question: str, model="gemini"
 ) -> str:
@@ -69,30 +135,27 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     Returns:
         Dictionary with response, function calls, and metadata
     """
-
     # Use agent's prompt as base, with variable substitution
-    embed_chat_history = chat_history_prompt_section(command, limit = 3, include_header = False, include_latest = True)
     full_chat_history = (
-        chat_history_prompt_section(command)
+        chat_history_prompt_section(command, include_latest=True)
     )
 
     # Assemble final prompt
-    role_prompt = "Role: " + (
+    role_prompt = (
         agent.get_role_by_name(command.active_role_id).description
         if command.active_role_id
         else None
     )
     last_user_response = command.chat_log[-1].content if command.chat_log else ""
 
-    to_embed: str = (
-        f"{last_user_response}\n"
-        f"{last_user_response}\n"
-        f"{agent.prompt}\n"
-        f"{role_prompt if role_prompt else 'none'}\n"
-        f"{embed_chat_history}"
+    # Generate a standalone query for RAG retrieval using LLM
+    retrieval_query = generate_retrieval_query(
+        command=command,
+        agent=agent,
+        role_prompt=role_prompt if role_prompt else ""
     )
 
-    print(f"Embedding text for retrieval:\n{to_embed}")
+    print(f"Standalone query for retrieval:\n{retrieval_query}")
 
     # Get accessible categories based on active roles
     accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
@@ -111,18 +174,18 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     embedding_model = GoogleEmbedding()
 
     try:
-        # Generate embedding for the user's query
-        embeddings: list[float] = embedding_model.get_embedding(to_embed)
+        # Generate embedding for the standalone retrieval query
+        embeddings: list[float] = embedding_model.get_embedding(retrieval_query)
 
         # Retrieve relevant contexts for the agent with optional category filtering
-        # Use full context (to_embed) for semantic search, but just the user question for keyword search
+        # Use the standalone query for both semantic and keyword search
         retrieved_contexts = db.get_context_for_agent(
             agent_id=agent.id
             if agent.id
             else "",  # TODO: Raise error if agent.id is None
             query_embedding=embeddings,
-            query_text=to_embed,  # Full context for semantic search
-            keyword_query_text=last_user_response,  # Just the user question for BM25
+            query_text=retrieval_query,  # Standalone query for semantic search
+            keyword_query_text=retrieval_query,  # Standalone query for BM25
             documents=accessible_documents,
             top_k=3,  # Retrieve top 3 most relevant contexts
         )
@@ -132,8 +195,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     print(f"Retrieved {len(retrieved_contexts)} contexts for agent {agent.name}")
 
-    prompt = "INSTRUCTIONS: " + agent.prompt
-    prompt += ("\n" + role_prompt) if role_prompt else ""
+    prompt = ""
+    if last_user_response:
+        prompt += "\nRESPOND TO THIS NEW USER MESSAGE: " + last_user_response + "\n"
+    prompt += "Important information/instructions to you as the agent: " + agent.prompt + "\n"
+    prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
     # Add retrieved context to prompt
     if retrieved_contexts:
         prompt += "\n\nRelevant Information (IMPORTANT: this information is 100% true for your role in your universe, prioritise it over all other sources):\n"
@@ -141,9 +207,6 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         #     prompt += f"\n[Context {idx} from {ctx.document_name}]:\n{ctx.text}\n"
         for ctx in retrieved_contexts:
             prompt += f"\n-{ctx.text}\n"
-
-    if last_user_response:
-        prompt += "\nRESPOND TO THIS NEW USER MESSAGE: " + last_user_response
 
     prompt = full_chat_history + "\n" + prompt
 

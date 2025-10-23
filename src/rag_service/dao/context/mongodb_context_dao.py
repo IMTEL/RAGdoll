@@ -143,7 +143,7 @@ class MongoDBContextDAO(ContextDAO):
         keyword_text = keyword_query_text if keyword_query_text is not None else query_text
         
         results = hybrid_search(
-                    0.9, # 90% vector, 10% keyword
+                    0.75, # 75% vector, 25% keyword
                     agent_id,
                     query_embedding, 
                     query_text,
