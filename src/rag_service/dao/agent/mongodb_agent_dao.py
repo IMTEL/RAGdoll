@@ -6,6 +6,7 @@ from pymongo import MongoClient
 from src.config import Config
 from src.models.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
+from src.utils.crypto_utils import decrypt_value, encrypt_str
 
 
 config = Config()
@@ -33,6 +34,7 @@ class MongoDBAgentDAO(AgentDAO):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
+        agent_dict["llm_api_key"] = encrypt_str(agent.llm_api_key)
 
         if not agent.id:
             # Create new agent
@@ -53,10 +55,10 @@ class MongoDBAgentDAO(AgentDAO):
 
             try:
                 object_id = ObjectId(agent_id)
-            except Exception:
+            except Exception as e:
                 raise ValueError(
                     f"Agent ID '{agent_id}' is not a valid MongoDB ObjectId."
-                )
+                ) from e
 
             result = self.collection.update_one(
                 {"_id": object_id}, {"$set": agent_dict}
@@ -93,6 +95,7 @@ class MongoDBAgentDAO(AgentDAO):
             agent_doc = self.collection.find_one({"_id": ObjectId(agent_id)})
             if agent_doc:
                 agent_doc.pop("_id", None)
+                agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
                 return Agent(**agent_doc)
             return None
         except Exception:

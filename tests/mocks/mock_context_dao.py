@@ -33,31 +33,62 @@ class MockContextDAO(ContextDAO):
             self.collection = self  # For compatibility with code expecting .collection
             MockContextDAO._initialized = True
 
-    def get_context_by_category(self, category: str) -> list[Context]:
-        """Retrieve all contexts matching a category.
+    def get_context_for_agent(
+        self,
+        agent_id: str,
+        embedding: list[float],
+        documents: list[str] | None = None,
+        num_candidates: int = 50,
+        top_k: int = 5,
+    ) -> list[Context]:
+        """Retrieve contexts for an agent using mock similarity.
 
         Args:
-            category (str): The category to filter by
+            agent_id (str): Agent identifier
+            embedding (list[float]): Query embedding vector
+            documents (list[str] | None): List of accessible documents
+            num_candidates (int): Number of initial candidates to consider
+            top_k (int): Maximum number of results to return
 
         Returns:
-            list[Context]: All contexts with matching category
+            list[Context]: Top matching contexts for the agent
 
         Raises:
-            ValueError: If category is None or empty
+            ValueError: If agent_id or embedding is empty
         """
-        if not category:
-            raise ValueError("Category cannot be empty")
+        if not agent_id:
+            raise ValueError("agent_id cannot be empty")
+        if not embedding:
+            raise ValueError("Embedding cannot be empty")
 
         results = []
-        for document in self.data:
-            if document.get("category") == category:
+        for document in self.data[:num_candidates]:  # Limit to num_candidates
+            # Check if document belongs to agent
+            if document.get("agent_id") != agent_id:
+                continue
+
+            # Filter by documents if provided
+            if documents and document.get("_id") not in documents:
+                continue
+
+            # Mock similarity - returns high value for testing
+            similarity = 0.9
+            if similarity > self.similarity_threshold:
+                doc_name = document.get("document_name", "default_document_name")
                 results.append(
                     Context(
                         text=document["text"],
-                        document_name=document["document_name"],
-                        category=document["category"],
+                        document_name=doc_name,
+                        categories=document.get("categories", []),
+                        document_id=document.get("document_id"),
+                        chunk_id=document.get("chunk_id"),
+                        chunk_index=document.get("chunk_index"),
+                        total_chunks=document.get("total_chunks", 1),
                     )
                 )
+            # Limit results to top_k
+            if len(results) >= top_k:
+                break
         return results
 
     def get_context(self, document_id: str, embedding: list[float]) -> list[Context]:
@@ -90,9 +121,10 @@ class MockContextDAO(ContextDAO):
                     Context(
                         text=document["text"],
                         document_name=doc_name,
-                        category=document.get(
-                            "category", f"npc_{document.get('npc', 'Unknown')}"
-                        ),
+                        document_id=document.get("document_id"),
+                        chunk_id=document.get("chunk_id"),
+                        chunk_index=document.get("chunk_index"),
+                        total_chunks=document.get("total_chunks", 1),
                     )
                 )
         return results
@@ -100,30 +132,38 @@ class MockContextDAO(ContextDAO):
     def insert_context(
         self,
         document_id: str,
+        agent_id: str,
         embedding: list[float],
         context: Context,
     ) -> Context:
         """Store a new context in memory."""
         text = context.text
         document_name = context.document_name
-        category = context.category
 
         if not document_id:
             raise ValueError("document_id cannot be empty")
-        if not category:
-            raise ValueError("Category cannot be empty")
+        if not agent_id:
+            raise ValueError("agent_id cannot be empty")
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
-        self.data.append(
-            {
-                "text": text,
-                "document_name": document_name,
-                "category": category,
-                "embedding": embedding,
-                "document_id": document_id,
-            }
-        )
+        document = {
+            "text": text,
+            "document_name": document_name,
+            "embedding": embedding,
+            "document_id": document_id,
+            "agent_id": agent_id,
+        }
+
+        # Add optional chunking fields if present
+        if context.chunk_id is not None:
+            document["chunk_id"] = context.chunk_id
+        if context.chunk_index is not None:
+            document["chunk_index"] = context.chunk_index
+        if context.total_chunks is not None:
+            document["total_chunks"] = context.total_chunks
+
+        self.data.append(document)
         return context
 
     def is_reachable(self) -> bool:
@@ -133,6 +173,33 @@ class MockContextDAO(ContextDAO):
             bool: Always True for in-memory storage
         """
         return True
+
+    # TODO: REMOVE - For MongoDB compatibility in context upload
+    def delete_many(self, filter_dict: dict) -> object:
+        """Delete multiple documents matching a filter (for compatibility with MongoDB).
+
+        Args:
+            filter_dict: Dictionary with filter criteria (e.g., {"document_id": "123"})
+
+        Returns:
+            Object with deleted_count attribute
+        """
+
+        class DeleteResult:
+            def __init__(self, deleted_count: int):
+                self.deleted_count = deleted_count
+
+        initial_count = len(self.data)
+
+        # Filter out documents that match the criteria
+        if "document_id" in filter_dict:
+            document_id = filter_dict["document_id"]
+            self.data = [
+                doc for doc in self.data if doc.get("document_id") != document_id
+            ]
+
+        deleted_count = initial_count - len(self.data)
+        return DeleteResult(deleted_count)
 
     def clear(self):
         """Clear all stored data. Useful for test cleanup."""

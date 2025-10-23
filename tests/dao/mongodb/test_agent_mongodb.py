@@ -10,6 +10,7 @@ from bson import ObjectId
 from src.config import Config
 from src.models.agent import Agent, Role
 from src.rag_service.dao import MongoDBAgentDAO
+from src.utils.crypto_utils import decrypt_value
 
 
 # Global flag to skip all tests if MongoDB is unreachable
@@ -40,24 +41,23 @@ def sample_agent() -> Agent:
         name="Test MongoDB Agent",
         description="A test agent for MongoDB DAO testing",
         prompt="You are a helpful test assistant. User info: {user_information}",
-        corpa=["doc1", "doc2", "doc3"],
         roles=[
             Role(
                 name="admin",
                 description="Administrator with full access",
-                subset_of_corpa=[0, 1, 2],
+                document_access=["doc-id-1", "doc-id-2", "doc-id-3"],
             ),
             Role(
                 name="user",
                 description="Regular user with limited access",
-                subset_of_corpa=[1],
+                document_access=["doc-id-2"],
             ),
         ],
         llm_model="gpt-4",
         llm_temperature=0.8,
         llm_max_tokens=2000,
         llm_api_key="test-mongodb-key",
-        access_key=["mongodb-key-1", "mongodb-key-2"],
+        access_key=[],
         retrieval_method="semantic",
         embedding_model="text-embedding-ada-002",
         status="active",
@@ -116,13 +116,12 @@ class TestMongoDBAgentDAOCreate:
             name="Second Agent",
             description="Another test agent",
             prompt="Different prompt",
-            corpa=["doc4"],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.5,
             llm_max_tokens=500,
             llm_api_key="key2",
-            access_key=["key"],
+            access_key=[],
             retrieval_method="keyword",
             embedding_model="ada-002",
             status="inactive",
@@ -169,7 +168,6 @@ class TestMongoDBAgentDAORetrieve:
             name="Agent 2",
             description="Second agent",
             prompt="Prompt 2",
-            corpa=[],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.7,
@@ -197,8 +195,8 @@ class TestMongoDBAgentDAORetrieve:
     ):
         """Test successfully retrieving an agent by ID."""
         # Create agent and get its ID
-        result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
-        agent_id = str(result.inserted_id)
+        result = mongodb_repo.add_agent(sample_agent)
+        agent_id = str(result.id)
 
         # Retrieve by ID
         retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
@@ -224,29 +222,21 @@ class TestMongoDBAgentDAORetrieve:
         self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
     ):
         """Test that agent roles are correctly preserved."""
-        result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
-        agent_id = str(result.inserted_id)
+        result = mongodb_repo.add_agent(sample_agent)
+        agent_id = str(result.id)
 
         retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
 
         assert retrieved_agent is not None
         assert len(retrieved_agent.roles) == 2
         assert retrieved_agent.roles[0].name == "admin"
-        assert retrieved_agent.roles[0].subset_of_corpa == [0, 1, 2]
+        assert retrieved_agent.roles[0].document_access == [
+            "doc-id-1",
+            "doc-id-2",
+            "doc-id-3",
+        ]
         assert retrieved_agent.roles[1].name == "user"
-        assert retrieved_agent.roles[1].subset_of_corpa == [1]
-
-    def test_agent_corpa_preserved(
-        self, mongodb_repo: MongoDBAgentDAO, sample_agent: Agent
-    ):
-        """Test that agent corpus list is correctly preserved."""
-        result = mongodb_repo.collection.insert_one(sample_agent.model_dump())
-        agent_id = str(result.inserted_id)
-
-        retrieved_agent = mongodb_repo.get_agent_by_id(agent_id)
-
-        assert retrieved_agent is not None
-        assert retrieved_agent.corpa == ["doc1", "doc2", "doc3"]
+        assert retrieved_agent.roles[1].document_access == ["doc-id-2"]
 
 
 class TestMongoDBAgentDAOEdgeCases:
@@ -258,7 +248,6 @@ class TestMongoDBAgentDAOEdgeCases:
             name="No Roles Agent",
             description="Agent without roles",
             prompt="Simple prompt",
-            corpa=["doc1"],
             roles=[],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.7,
@@ -278,14 +267,19 @@ class TestMongoDBAgentDAOEdgeCases:
         assert len(agents) == 1
         assert agents[0].roles == []
 
-    def test_agent_with_empty_corpa(self, mongodb_repo: MongoDBAgentDAO):
-        """Test creating and retrieving agent with no corpus."""
+    def test_agent_with_empty_document_access(self, mongodb_repo: MongoDBAgentDAO):
+        """Test creating and retrieving agent with roles that have empty document access."""
         agent = Agent(
-            name="No Corpus Agent",
-            description="Agent without corpus",
+            name="Empty Document Access Agent",
+            description="Agent with roles but no document access",
             prompt="Simple prompt",
-            corpa=[],
-            roles=[],
+            roles=[
+                Role(
+                    name="limited",
+                    description="Role with no document access",
+                    document_access=[],
+                )
+            ],
             llm_model="gpt-3.5-turbo",
             llm_temperature=0.7,
             llm_max_tokens=1000,
@@ -302,7 +296,8 @@ class TestMongoDBAgentDAOEdgeCases:
         agents = mongodb_repo.get_agents()
 
         assert len(agents) == 1
-        assert agents[0].corpa == []
+        assert len(agents[0].roles) == 1
+        assert agents[0].roles[0].document_access == []
 
 
 class TestMongoDBAgentDAOUpdate:
@@ -315,6 +310,7 @@ class TestMongoDBAgentDAOUpdate:
         # Create agent
         created_agent = mongodb_repo.add_agent(sample_agent)
         agent_id = created_agent.id
+        assert agent_id is not None
         # Update agent
         updated_agent = Agent(**created_agent.model_dump())
         updated_agent.name = "Updated MongoDB Agent"
@@ -349,3 +345,85 @@ class TestMongoDBAgentDAOUpdate:
         invalid_agent.name = "Should Fail"
         with pytest.raises(ValueError):
             mongodb_repo.add_agent(invalid_agent)
+
+
+@pytest.mark.integration
+def test_add_agent_encrypts_api_key(mongodb_repo, sample_agent):
+    """Test that add_agent encrypts the llm_api_key before storing."""
+    original_key = sample_agent.llm_api_key
+
+    # Add the agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Retrieve raw document from MongoDB
+    agent_doc = mongodb_repo.collection.find_one({"_id": ObjectId(saved_agent.id)})
+
+    # Verify the stored key is encrypted (different from original)
+    assert agent_doc["llm_api_key"] != original_key, "API key should be encrypted"
+
+    # Verify we can decrypt it back to the original
+    decrypted_key = decrypt_value(agent_doc["llm_api_key"])
+    assert decrypted_key == original_key, "Decrypted key should match original"
+
+
+@pytest.mark.integration
+def test_get_agent_by_id_decrypts_api_key(mongodb_repo, sample_agent):
+    """Test that get_agent_by_id decrypts the llm_api_key when retrieving."""
+    original_key = sample_agent.llm_api_key
+
+    # Add the agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Retrieve the agent
+    retrieved_agent = mongodb_repo.get_agent_by_id(saved_agent.id)
+
+    # Verify the retrieved key is decrypted
+    assert retrieved_agent.llm_api_key == original_key, "API key should be decrypted"
+
+
+@pytest.mark.integration
+def test_get_agents_keeps_api_keys_encrypted(mongodb_repo, sample_agent):
+    """Test that get_agents keeps llm_api_key encrypted for security."""
+    original_key = sample_agent.llm_api_key
+
+    # Add the agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Retrieve all agents
+    all_agents = mongodb_repo.get_agents()
+
+    # Find our test agent
+    test_agent = next((a for a in all_agents if a.id == saved_agent.id), None)
+
+    assert test_agent is not None, "Test agent should be in results"
+    assert test_agent.llm_api_key != original_key, "API key should remain encrypted"
+
+    # Verify it's still the encrypted value
+    agent_doc = mongodb_repo.collection.find_one({"_id": ObjectId(saved_agent.id)})
+    assert test_agent.llm_api_key == agent_doc["llm_api_key"], (
+        "Should match encrypted DB value"
+    )
+
+
+@pytest.mark.integration
+def test_update_agent_re_encrypts_api_key(mongodb_repo, sample_agent):
+    """Test that updating an agent re-encrypts the llm_api_key."""
+    # Add initial agent
+    saved_agent = mongodb_repo.add_agent(sample_agent)
+
+    # Update the API key
+    new_key = "sk-new-test-key-456"
+    saved_agent.llm_api_key = new_key
+
+    # Update the agent
+    updated_agent = mongodb_repo.add_agent(saved_agent)
+
+    # Retrieve raw document
+    agent_doc = mongodb_repo.collection.find_one({"_id": ObjectId(updated_agent.id)})
+
+    # Verify the stored key is encrypted
+    assert agent_doc["llm_api_key"] != new_key, "Updated API key should be encrypted"
+
+    # Verify decryption works
+    decrypted_key = decrypt_value(agent_doc["llm_api_key"])
+    assert decrypted_key == new_key, "Decrypted key should match new key"

@@ -33,19 +33,18 @@ class TestAgentEndpoints:
             "name": "Test Assistant",
             "description": "An assistant for testing",
             "prompt": "You are a helpful test assistant",
-            "corpa": ["doc1", "doc2"],
             "roles": [
                 {
                     "name": "user",
                     "description": "Standard user",
-                    "subset_of_corpa": [0, 1],
+                    "document_access": ["doc-id-1", "doc-id-2"],
                 }
             ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
             "llm_api_key": "sk-test123",
-            "access_key": ["key1"],
+            "access_key": [],
             "retrieval_method": "semantic",
             "embedding_model": "text-embedding-ada-002",
             "status": "active",
@@ -88,15 +87,18 @@ class TestAgentEndpoints:
             "name": "Agent One",
             "description": "First agent",
             "prompt": "Prompt 1",
-            "corpa": ["doc1"],
             "roles": [
-                {"name": "user", "description": "User role", "subset_of_corpa": [0]}
+                {
+                    "name": "user",
+                    "description": "User role",
+                    "document_access": ["doc-id-1"],
+                }
             ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.5,
             "llm_max_tokens": 500,
             "llm_api_key": "sk-key1",
-            "access_key": ["key1"],
+            "access_key": [],
             "retrieval_method": "semantic",
             "embedding_model": "text-embedding-ada-002",
             "status": "active",
@@ -109,15 +111,18 @@ class TestAgentEndpoints:
             "name": "Agent Two",
             "description": "Second agent",
             "prompt": "Prompt 2",
-            "corpa": ["doc2"],
             "roles": [
-                {"name": "admin", "description": "Admin role", "subset_of_corpa": [0]}
+                {
+                    "name": "admin",
+                    "description": "Admin role",
+                    "document_access": ["doc-id-2"],
+                }
             ],
             "llm_model": "gpt-4",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
             "llm_api_key": "sk-key2",
-            "access_key": ["key2"],
+            "access_key": [],
             "retrieval_method": "keyword",
             "embedding_model": "text-embedding-ada-002",
             "status": "inactive",
@@ -145,13 +150,14 @@ class TestAgentEndpoints:
             "name": "Specific Agent",
             "description": "Agent to retrieve by ID",
             "prompt": "Test prompt",
-            "corpa": ["doc1"],
-            "roles": [{"name": "user", "description": "User", "subset_of_corpa": [0]}],
+            "roles": [
+                {"name": "user", "description": "User", "document_access": ["doc-id-1"]}
+            ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
             "llm_api_key": "sk-test",
-            "access_key": ["key1"],
+            "access_key": [],
             "retrieval_method": "semantic",
             "embedding_model": "text-embedding-ada-002",
             "status": "active",
@@ -184,20 +190,23 @@ class TestAgentEndpoints:
             "name": "Integrity Test Agent",
             "description": "Testing data integrity",
             "prompt": "You are testing data integrity",
-            "corpa": ["corpus1", "corpus2", "corpus3"],
             "roles": [
                 {
                     "name": "admin",
                     "description": "Admin role",
-                    "subset_of_corpa": [0, 1, 2],
+                    "document_access": ["doc-id-1", "doc-id-2", "doc-id-3"],
                 },
-                {"name": "user", "description": "User role", "subset_of_corpa": [1]},
+                {
+                    "name": "user",
+                    "description": "User role",
+                    "document_access": ["doc-id-2"],
+                },
             ],
             "llm_model": "gpt-4",
             "llm_temperature": 0.8,
             "llm_max_tokens": 2000,
             "llm_api_key": "sk-integrity-test",
-            "access_key": ["key1", "key2", "key3"],
+            "access_key": [],
             "retrieval_method": "hybrid",
             "embedding_model": "text-embedding-ada-002",
             "status": "testing",
@@ -224,8 +233,11 @@ class TestAgentEndpoints:
         assert retrieved["name"] == agent_data["name"]
         assert retrieved["description"] == agent_data["description"]
         assert retrieved["prompt"] == agent_data["prompt"]
-        assert retrieved["corpa"] == agent_data["corpa"]
         assert len(retrieved["roles"]) == 2
+        assert (
+            retrieved["roles"][0]["document_access"]
+            == agent_data["roles"][0]["document_access"]
+        )
         assert retrieved["llm_model"] == agent_data["llm_model"]
         assert retrieved["llm_temperature"] == agent_data["llm_temperature"]
         assert retrieved["llm_max_tokens"] == agent_data["llm_max_tokens"]

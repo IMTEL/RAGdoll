@@ -7,7 +7,10 @@ from src.llm import create_llm
 from src.models import Agent
 from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
-from src.rag_service.embeddings import create_embeddings_model
+from src.rag_service.embeddings import GoogleEmbedding, create_embeddings_model
+
+
+CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
 
 
 def get_answer_from_user(
@@ -66,48 +69,80 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     Returns:
         Dictionary with response, function calls, and metadata
     """
-    # Extract the user's question from chat log
-    # to_embed: str = (
-    #     str(command.chat_log[-1].content) if command.chat_log else "No user message"
-    # )
-
-    # Get accessible corpus based on active roles
-    accessible_corpus = agent.get_corpus_for_roles(command.active_role_ids)
-
-    # If no roles specified, use all corpus
-    if not command.active_role_ids and agent.corpa:
-        accessible_corpus = agent.corpa
-
-    # Perform RAG retrieval from accessible corpus
-    # db = get_context_dao()
-    # TODO: Update embedding model based on agent configuration
-    # embedding_model = create_embeddings_model()
-    # embeddings: list[float] = embedding_model.get_embedding(to_embed)
-
-    # TODO: Update context retrieval to filter by accessible_corpus
-    # For now, retrieve context normally
-    # TODO: uncomment when embedding model is fixed
-    # context = db.get_context("hello", embeddings)
-    context = None
-
-    chat_history = ""
-    if len(command.chat_log) > 1:
-        chat_history += "This is the previous conversation:\n"
-        for msg in command.chat_log[:-1]:  # Exclude latest user message
-            chat_history += f"{msg.role.upper()}: {msg.content}\n"
 
     # Use agent's prompt as base, with variable substitution
-    base_prompt = agent.prompt.format(chat_log=chat_history)
+    embed_chat_history = chat_history_prompt_section(command, limit = 3, include_header = False, include_latest = True)
+    full_chat_history = (
+        chat_history_prompt_section(command)
+    )
 
     # Assemble final prompt
-    prompt = base_prompt
+    role_prompt = "Role: " + (
+        agent.get_role_by_name(command.active_role_id).description
+        if command.active_role_id
+        else None
+    )
     last_user_response = command.chat_log[-1].content if command.chat_log else ""
 
-    if context:
-        prompt += "\nContext: " + context
+    to_embed: str = (
+        f"CURRENT USER QUESTION: {last_user_response}\n\n"
+        f"CURRENT USER QUESTION (emphasis): {last_user_response}\n\n"
+        f"Agent info: {agent.prompt}\n\n"
+        f"Role info: {role_prompt if role_prompt else 'none'}\n\n"
+        f"Conversation Context:\n{embed_chat_history}"
+    )
+
+    print(f"Embedding text for retrieval:\n{to_embed}")
+
+    # Get accessible categories based on active roles
+    accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
+
+    print("Accessible documents for role:", accessible_documents, command.active_role_id)
+
+    # Perform RAG retrieval from accessible documents
+    retrieved_contexts = []
+    db = get_context_dao()
+
+    # Use agent's configured embedding model, fallback to "google"
+    # embedding_model_name = getattr(agent, "embedding_model", "google")
+    # print("Using embedding model:", embedding_model_name)
+    # embedding_model = create_embeddings_model(embedding_model_name)
+    # TODO: Change to use agent's configured embedding model when we have more than one
+    embedding_model = GoogleEmbedding()
+
+    try:
+        # Generate embedding for the user's query
+        embeddings: list[float] = embedding_model.get_embedding(to_embed)
+
+        # Retrieve relevant contexts for the agent with optional category filtering
+        retrieved_contexts = db.get_context_for_agent(
+            agent_id=agent.id
+            if agent.id
+            else "",  # TODO: Raise error if agent.id is None
+            embedding=embeddings,
+            documents=accessible_documents,
+            top_k=3,  # Retrieve top 3 most relevant contexts
+        )
+    except Exception as e:
+        print(f"Error retrieving context: {e}")
+        retrieved_contexts = []
+
+    print(f"Retrieved {len(retrieved_contexts)} contexts for agent {agent.name}")
+
+    prompt = "INSTRUCTIONS: " + agent.prompt
+    prompt += ("\n" + role_prompt) if role_prompt else ""
+    # Add retrieved context to prompt
+    if retrieved_contexts:
+        prompt += "\n\nRelevant Information (IMPORTANT: this information is 100% true for your role in your universe, prioritise it over all other sources):\n"
+        # for idx, ctx in enumerate(retrieved_contexts, 1):
+        #     prompt += f"\n[Context {idx} from {ctx.document_name}]:\n{ctx.text}\n"
+        for ctx in retrieved_contexts:
+            prompt += f"\n-{ctx.text}\n"
 
     if last_user_response:
-        prompt += "\nUser Response: " + last_user_response
+        prompt += "\nRESPOND TO THIS NEW USER MESSAGE: " + last_user_response
+
+    prompt = full_chat_history + "\n" + prompt
 
     print(f"Prompt sent to LLM:\n{prompt}")
 
@@ -141,15 +176,34 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "created": int(time.time()),
         "model": llm_provider,
         "agent_id": command.agent_id,
-        "active_roles": command.active_role_ids,
-        "accessible_corpus": accessible_corpus,
+        "active_role": command.active_role_id,
+        "accessible_documents": accessible_documents,
+        "context_used": [
+            {
+                "document_name": ctx.document_name,
+                "chunk_index": ctx.chunk_index,
+                "content": ctx.text[:CONTEXT_TRUNCATE_LENGTH],
+            }
+            for ctx in retrieved_contexts
+        ],
         "metadata": {
             "response_length": len(parsed_response),
             "agent_name": agent.name,
+            "num_context_retrieved": len(retrieved_contexts),
         },
         "function_call": function_call,
         "response": parsed_response,
     }
+
+def chat_history_prompt_section(command, limit: int = 100, include_header: bool = True, include_latest: bool = False) -> str:
+    chat_history = ""
+    if len(command.chat_log) > 1:
+        if include_header:
+            chat_history += "This is the previous conversation:\n"
+        limit_start = max(0, len(command.chat_log) - limit - 1)
+        for msg in command.chat_log[limit_start:(-1 if not include_latest else None)]:  # Exclude latest user message
+            chat_history += f"{msg.role.upper()}: {msg.content}\n"
+    return chat_history
 
 
 def assemble_prompt(command: Command, model: str = Config().MODEL) -> dict:

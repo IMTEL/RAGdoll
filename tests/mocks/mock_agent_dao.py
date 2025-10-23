@@ -52,8 +52,10 @@ class MockAgentDAO(AgentDAO):
                 self.agents[index] = agent
             else:
                 raise ValueError(f"Agent ID '{agent.id}' does not exist for update.")
-        except ValueError:
-            raise ValueError(f"Agent ID '{agent.id}' is not a valid index for update.")
+        except ValueError as e:
+            raise ValueError(
+                f"Agent ID '{agent.id}' is not a valid index for update."
+            ) from e
 
         return deepcopy(agent)
 
