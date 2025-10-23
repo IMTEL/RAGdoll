@@ -7,6 +7,7 @@ from src.access_service.base import AbstractAccessService
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
+from src.utils.crypto_utils import hash_access_key, verify_access_key
 
 
 class AccessService(AbstractAccessService):
@@ -38,27 +39,37 @@ class AccessService(AbstractAccessService):
         agent = self.try_get_agent(agent_id)
         key = secrets.token_bytes(32)  # AES-256 32byte secret
         key_str = base64.urlsafe_b64encode(key).decode("ascii")
-        access_key = AccessKey(
+        hashed_key = hash_access_key(key_str)
+
+        stored_access_key = AccessKey(
             id=self.get_unique_access_key_id(agent),
-            key=key_str,
+            key=hashed_key.decode("utf-8"),  # Store the hashed key as string
             name=name,
             expiry_date=expiry_date,
             created=datetime.now(),
             last_use=None,
         )
-        agent.access_key.append(access_key)
+
+        agent.access_key.append(stored_access_key)
         self.agent_database.add_agent(agent)
-        return access_key
+
+        # return the original key to user (not hashed)
+        return AccessKey(
+            id=stored_access_key.id,
+            key=key_str,
+            name=name,
+            expiry_date=expiry_date,
+            created=stored_access_key.created,
+            last_use=None,
+        )
 
     def authenticate(self, agent_id: str, access_key: str) -> bool:
         agent = self.try_get_agent(agent_id)
         access_keys: list[AccessKey] = agent.access_key
 
         for ak in access_keys:
-            if ak.key == access_key:
-                if ak.expiry_date is None:
-                    return True
-                return datetime.now() < ak.expiry_date
+            if verify_access_key(access_key, ak.key.encode("utf-8")):
+                return ak.expiry_date is None or ak.expiry_date > datetime.now()
 
         return False
 

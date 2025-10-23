@@ -4,6 +4,7 @@ import pytest
 
 from src.access_service.factory import AccessServiceConfig, access_service_factory
 from src.models.agent import Agent, Role
+from src.utils.crypto_utils import verify_access_key
 from tests.mocks.mock_agent_dao import MockAgentDAO
 
 
@@ -57,7 +58,14 @@ def test_create_access_key():
     key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
     assert key.name == "test"
     assert key.expiry_date == DEFAULT_DATETIME
-    assert database.get_agent_by_id(agent.id).access_key[0] == key
+
+    stored_key = database.get_agent_by_id(agent.id).access_key[0]
+    assert stored_key.id == key.id
+    assert stored_key.name == key.name
+    assert stored_key.expiry_date == key.expiry_date
+    assert stored_key.key != key.key
+
+    assert verify_access_key(key.key, stored_key.key.encode("utf-8"))
 
 
 @pytest.mark.unit
@@ -66,19 +74,24 @@ def test_create_access_key_no_expiery():
     key = access_service.generate_accesskey("test", None, agent.id)
     assert key.name == "test"
     assert key.expiry_date is None
-    assert database.get_agent_by_id(agent.id).access_key[0] == key
+
+    stored_key = database.get_agent_by_id(agent.id).access_key[0]
+    assert stored_key.id == key.id
+    assert stored_key.key != key.key
+    assert verify_access_key(key.key, stored_key.key.encode("utf-8"))
+
     assert access_service.authenticate(agent_id=agent.id, access_key=key.key)
 
 
 @pytest.mark.unit
 def test_revoke_access_key():
     agent, access_service, database = get_access_service_and_agent()
-    key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
-    assert key.name == "test"
-    assert key.expiry_date == DEFAULT_DATETIME
-    assert database.get_agent_by_id(agent.id).access_key[0] == key
+    returned_key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
 
-    assert access_service.revoke_key(agent.id, key.id)
+    stored_key = database.get_agent_by_id(agent.id).access_key[0]
+    assert verify_access_key(returned_key.key, stored_key.key.encode("utf-8"))
+
+    assert access_service.revoke_key(agent.id, returned_key.id)
     assert len(database.get_agent_by_id(agent.id).access_key) == 0
 
 
@@ -94,13 +107,19 @@ def test_bad_request():
 @pytest.mark.unit
 def test_authenticate_key():
     agent, access_service, database = get_access_service_and_agent()
-    key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
-    assert key.name == "test"
-    assert key.expiry_date == DEFAULT_DATETIME
-    assert database.get_agent_by_id(agent.id).access_key[0] == key
+    returned_key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
 
-    assert access_service.authenticate(agent.id, key.key)
+    assert access_service.authenticate(agent.id, returned_key.key)
 
-    assert access_service.revoke_key(agent.id, key.id)
+    assert access_service.revoke_key(agent.id, returned_key.id)
+    assert not access_service.authenticate(agent.id, returned_key.key)
 
-    assert not access_service.authenticate(agent.id, key.key)
+
+@pytest.mark.unit
+def test_authenticate_rejects_wrong_key():
+    agent, access_service, _ = get_access_service_and_agent()
+    returned_key = access_service.generate_accesskey("test", DEFAULT_DATETIME, agent.id)
+
+    wrong = returned_key.key[:-2] + "AA"
+    assert wrong != returned_key.key
+    assert not access_service.authenticate(agent.id, wrong)
