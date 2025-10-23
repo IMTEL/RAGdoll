@@ -17,7 +17,7 @@ class TestMongoDBContextDAO:
         """Setup and teardown for MongoDB tests."""
         self.repo = MongoDBContextDAO()
 
-        if self.mongodb_found_unreachable and not self.repo.is_reachable():
+        if self.mongodb_found_unreachable or not self.repo.is_reachable():
             self.mongodb_found_unreachable = True
             pytest.skip("MongoDB is not reachable. Skipping tests.")
 
