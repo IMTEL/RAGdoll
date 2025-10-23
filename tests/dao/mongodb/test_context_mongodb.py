@@ -9,12 +9,16 @@ from src.rag_service.dao.context.mongodb_context_dao import (
 class TestMongoDBContextDAO:
     """Tests for MongoDBContextDAO."""
 
+    # Flag to skip all tests if MongoDB is unreachable
+    mongodb_found_unreachable = False
+
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         """Setup and teardown for MongoDB tests."""
         self.repo = MongoDBContextDAO()
 
-        if not self.repo.is_reachable():
+        if self.mongodb_found_unreachable and not self.repo.is_reachable():
+            self.mongodb_found_unreachable = True
             pytest.skip("MongoDB is not reachable. Skipping tests.")
 
         # Clear the collection before and after each test

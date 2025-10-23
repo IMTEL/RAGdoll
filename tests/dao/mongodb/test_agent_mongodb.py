@@ -12,13 +12,25 @@ from src.models.agent import Agent, Role
 from src.rag_service.dao import MongoDBAgentDAO
 
 
+# Global flag to skip all tests if MongoDB is unreachable
+mongodb_found_unreachable = False
+
+
+@pytest.fixture(autouse=True)
+def check_mongodb_reachability():
+    """Skip all tests if MongoDB is not reachable."""
+    repo = MongoDBAgentDAO()
+
+    global mongodb_found_unreachable
+    if mongodb_found_unreachable or not repo.is_reachable():
+        mongodb_found_unreachable = True
+        pytest.skip("MongoDB is not reachable. Skipping all tests.")
+
+
 @pytest.fixture
 def mongodb_repo() -> MongoDBAgentDAO:
     """Create a MongoDB DAO instance."""
-    repo = MongoDBAgentDAO()
-    if not repo.is_reachable():
-        pytest.skip("MongoDB is not reachable. Skipping tests.")
-    return repo
+    return MongoDBAgentDAO()
 
 
 @pytest.fixture
