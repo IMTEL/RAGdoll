@@ -6,10 +6,11 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from src.access_service.factory import access_service_factory
+from src.access_service.factory import AccessServiceConfig, access_service_factory
+from src.config import Config
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
@@ -18,8 +19,14 @@ from src.pipeline import assemble_prompt_with_agent
 from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+config = Config()
 agent_dao = get_agent_dao()
+
+access_service = access_service_factory(
+    AccessServiceConfig(config.ACCESS_SERVICE, agent_dao)
+)
 
 
 @router.post("/ask", response_model=Command)
@@ -55,6 +62,10 @@ async def ask(command: Command):
                 content={"message": f"Agent with id '{command.agent_id}' not found."},
                 status_code=400,
             )
+
+        # Auth
+        if not access_service.authenticate(agent.id, command.access_key):
+            raise HTTPException(status_code=401, details="Unauthorized, check logs")
 
         # Validate that requested role exists in the agent
         if (
