@@ -76,7 +76,7 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, agent_id: str , expiry_date: str | None = None):
+def new_access_key(name: str, agent_id: str, expiry_date: str | None = None):
     try:
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
@@ -107,7 +107,10 @@ def get_access_keys(agent_id: str):
         raise HTTPException(
             status_code=404, detail=f" agent of id not found {agent_id}"
         )
-    return agent.access_key
+    access_keys = agent.access_key
+    for access_key in access_keys:
+        access_key.key = None
+    return access_keys
 
 
 @router.get("/get_models", response_model=list[Model])
