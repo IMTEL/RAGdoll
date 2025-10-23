@@ -32,7 +32,6 @@ dependencies = [
     "uvicorn==0.34.0",
     "bcrypt==3.2.0",
     "cryptography>=46.0.2",
-    "rank-bm25>=0.2.2",
 ]
 
 [dependency-groups]

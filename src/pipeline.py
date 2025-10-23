@@ -44,12 +44,12 @@ def generate_retrieval_query(
         recent_context = "No prior context"
     
     summary_prompt = (
-        f"Rewrite this user's latest message as a standalone message that captures all necessary context. This will be used to retrieve relevant information from a knowledge base.\n\n"
-        'Replace any pronouns ("you", "your", "it", "that", etc.) with what the message is referencing from the context.\n\n'
-        'Do not reference the context, do not use pronouns ("you", "your", "it", "that", etc.), ALWAYS include the information directly in the rewritten message.\n\n'
+        f"Rewrite this user's latest message as a standalone message that captures all necessary context. This will be used to retrieve relevant information from a knowledge base."
+        'Replace any pronouns ("you", "your", "it", "that", etc.) with what the message is referencing from the context.'
+        'Do not reference the context, do not use pronouns ("you", "your", "it", "that", etc.), do not reference the role prompt or character prompt, ALWAYS include the information directly in the rewritten message.'
         f"User message to rewrite: {last_message}\n\n"
         "CONTEXT:\n"
-        f"Instructions/information given to the agent the user is talking to: {agent.prompt}\n"
+        f"Prompt given to the character the user is talking to: {agent.prompt}\n"
         f"Their role: {role_prompt if role_prompt else 'unspecified'}\n"
         f"Recent conversation context:\n{recent_context}\n\n"
         f"Standalone message:"
@@ -198,11 +198,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     prompt = ""
     if last_user_response:
         prompt += "\nRESPOND TO THIS NEW USER MESSAGE: " + last_user_response + "\n"
-    prompt += "Important information/instructions to you as the agent: " + agent.prompt + "\n"
+    prompt += "You are playing a character, and should respond to that character. This is your prompt: " + agent.prompt + "\n"
     prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
     # Add retrieved context to prompt
     if retrieved_contexts:
-        prompt += "\n\nRelevant Information (IMPORTANT: this information is 100% true for your role in your universe, prioritise it over all other sources):\n"
+        prompt += "\n\nRelevant Information (IMPORTANT: this information is 100% true for your role in your world, prioritise it over all other sources):\n"
         # for idx, ctx in enumerate(retrieved_contexts, 1):
         #     prompt += f"\n[Context {idx} from {ctx.document_name}]:\n{ctx.text}\n"
         for ctx in retrieved_contexts:
