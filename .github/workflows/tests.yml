@@ -2,9 +2,9 @@ name: Tests and Lint
 
 on:
   push:
-    branches: [ "main", "dev", "feature/ci"]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main", "dev"]
+    branches: [ "main", "dev" ]
 
 permissions:
   contents: read
