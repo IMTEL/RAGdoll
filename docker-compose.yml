@@ -1,9 +1,7 @@
-version: "3.9"
-
 services:
   # Reverse proxy handling HTTPS with NTNU cert
   nginx:
-    image: nginx:stable
+    image: nginx:1.27-alpine  # Pinned version with Alpine for reduced size
     container_name: ragdoll-nginx
     depends_on:
       - chat-service
@@ -15,7 +13,21 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - /root/iplvr.it.ntnu.no.crt:/etc/ssl/certs/server.crt:ro
       - /root/iplvr.it.ntnu.no.key:/etc/ssl/private/server.key:ro
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # FastAPI backend
   chat-service:
@@ -35,14 +47,34 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 1G
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # MongoDB (internal only)
   mongodb:
-    image: mongo:latest
+    image: mongo:7.0  # Pinned to specific version for reproducibility
     container_name: mongodb
     volumes:
       - mongo-data:/data/db
+      # Optional: restore from backup on startup
+      # - ./backups:/backups:ro
+    environment:
+      # Consider using secrets for production
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-changeme}
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -50,6 +82,14 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
-  mongo-data: {}
+  mongo-data:
+    driver: local
+    # For production, consider using named volumes with backup strategies
+    # or external storage providers
