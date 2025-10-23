@@ -10,7 +10,7 @@ class AccessKey(BaseModel):
     """
 
     id: str
-    key: str
+    key: str | None
     name: str
     expiry_date: datetime | None
     created: datetime | None
