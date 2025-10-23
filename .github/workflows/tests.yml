@@ -1,0 +1,122 @@
+name: Tests and Lint
+
+on:
+  push:
+    branches: [ "main", "dev", "feature/ci"]
+  pull_request:
+    branches: [ "main", "dev"]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint & Format Check
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        uv sync --dev
+
+    - name: Lint with Ruff
+      run: |
+        uv run ruff check src tests
+        uv run ruff format --check src tests
+      continue-on-error: true
+    
+  mypy:
+    runs-on: ubuntu-latest
+    name: Type Checking with Mypy
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        uv sync --dev
+
+    - name: Type check with Mypy
+      run: |
+        uv run mypy src tests
+      continue-on-error: true
+
+  test:
+    runs-on: ubuntu-latest
+    name: Tests
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: testuser
+          MONGO_INITDB_ROOT_PASSWORD: testpassword
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 27017:27017
+
+    env:
+      MOCK_MONGODB_DATABASE: test_database
+      MOCK_RAG_DATABASE_SYSTEM: mock
+      MONGODB_CONTEXT_COLLECTION: contexts
+      MONGODB_AGENT_COLLECTION: agents
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create .env file
+      # Test configuration (always use for CI)
+      run: |
+        echo "ENV = dev" >> .env
+        echo "RUNNING_TESTS = true" >> .env
+        echo "MOCK_MONGODB_URI = ${{ secrets.MOCK_MONGODB_URI || 'mongodb://testuser:testpassword@mongodb:27017' }}" >> .env
+        echo "MONGODB_DATABASE = 'test_database'" >> .env
+        echo "MONGODB_CONTEXT_COLLECTION = 'contexts'" >> .env
+        echo "MONGODB_AGENT_COLLECTION = 'agents'" >> .env
+        echo "MOCK_RAG_DATABASE_SYSTEM = 'mock'" >> .env
+
+        echo "GEMINI_API_KEY = ${{secrets.GEMINI_API_KEY}}" >> .env
+        echo "GEMINI_MODEL = gemini-2.0-flash-lite" >> .env
+
+        echo "OPENAI_API_KEY = ${{secrets.OPENAI_API_KEY}}" >> .env
+        echo "GPT_MODEL = gpt-4o-mini" >> .env
+
+    - name: Set up environment
+      run: |
+        uv sync
+
+    - name: Verify MongoDB connection
+      run: |
+        python -c "
+        import socket
+        import time
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        for i in range(30):
+            try:
+                result = sock.connect_ex(('localhost', 27017))
+                if result == 0:
+                    print('MongoDB is available')
+                    break
+            except:
+                pass
+            time.sleep(1)
+        sock.close()
+        "
+    
+    - name: Run tests with pytest
+      run: |
+        uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        fail_ci_if_error: false
+        verbose: true
+      continue-on-error: true
