@@ -9,6 +9,7 @@ This module handles the main chat functionality including:
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
+from src.access_service.factory import access_service_factory
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
@@ -16,7 +17,6 @@ from src.models.chat.command import (
 from src.pipeline import assemble_prompt_with_agent
 from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
-
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 agent_dao = get_agent_dao()
@@ -55,13 +55,6 @@ async def ask(command: Command):
                 content={"message": f"Agent with id '{command.agent_id}' not found."},
                 status_code=400,
             )
-
-        # TODO: Validate access key if agent requires it
-        # if not agent.is_access_key_valid(command.access_key):
-        #     return JSONResponse(
-        #         content={"message": "Access denied. Invalid access key."},
-        #         status_code=403,
-        #     )
 
         # Validate that requested role exists in the agent
         if (
@@ -147,13 +140,6 @@ async def ask_transcribe(
         return JSONResponse(
             content={"message": f"Agent with id '{command.agent_id}' not found."},
             status_code=400,
-        )
-
-    # Validate access
-    if not agent.is_access_key_valid(command.access_key):
-        return JSONResponse(
-            content={"message": "Access denied. Invalid access key."},
-            status_code=403,
         )
 
     # Generate response
