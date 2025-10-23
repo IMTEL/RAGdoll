@@ -53,9 +53,6 @@ jobs:
     services:
       mongodb:
         image: mongo:7.0
-        env:
-          MONGO_INITDB_ROOT_USERNAME: testuser
-          MONGO_INITDB_ROOT_PASSWORD: testpassword
         options: >-
           --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
@@ -64,12 +61,6 @@ jobs:
         ports:
           - 27017:27017
 
-    env:
-      MOCK_MONGODB_DATABASE: test_database
-      MOCK_RAG_DATABASE_SYSTEM: mock
-      MONGODB_CONTEXT_COLLECTION: contexts
-      MONGODB_AGENT_COLLECTION: agents
-    
     steps:
     - uses: actions/checkout@v4
 
@@ -78,7 +69,7 @@ jobs:
       run: |
         echo "ENV = dev" >> .env
         echo "RUNNING_TESTS = true" >> .env
-        echo "MOCK_MONGODB_URI = ${{ secrets.MOCK_MONGODB_URI || 'mongodb://testuser:testpassword@mongodb:27017' }}" >> .env
+        echo "MOCK_MONGODB_URI = 'mongodb://mongodb:27017'" >> .env
         echo "MONGODB_DATABASE = 'test_database'" >> .env
         echo "MONGODB_CONTEXT_COLLECTION = 'contexts'" >> .env
         echo "MONGODB_AGENT_COLLECTION = 'agents'" >> .env
@@ -112,15 +103,7 @@ jobs:
             time.sleep(1)
         sock.close()
         "
-    
+
     - name: Run tests with pytest
       run: |
         uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage.xml
-        fail_ci_if_error: false
-        verbose: true
-      continue-on-error: true
