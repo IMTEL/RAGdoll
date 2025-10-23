@@ -73,7 +73,6 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     Returns:
         Dictionary with response, function calls, and metadata
     """
-
     # Use agent's prompt as base, with variable substitution
     embed_chat_history = chat_history_prompt_section(
         command, limit=3, include_header=False, include_latest=True
@@ -114,7 +113,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     db = get_context_dao()
 
     # Use agent's configured embedding model
-    embedding_model_config = getattr(agent, "embedding_model")
+    embedding_model_config = agent.embedding_model
     print("Using embedding model:", embedding_model_config)
 
     # Parse provider:model format (e.g., "openai:text-embedding-3-small" or "gemini:text-embedding-004")

@@ -6,6 +6,7 @@ from numpy import dot
 from numpy.linalg import norm
 
 from src.config import Config
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 
 
 class EmbeddingsModel(ABC):
@@ -39,10 +40,25 @@ class OpenAIEmbedding(EmbeddingsModel):
 
     def get_embedding(self, text: str) -> list[float]:
         text = text.replace("\n", " ")
-        response = self.client.embeddings.create(
-            input=text, model=self.model_name, dimensions=768
-        )
-        return response.data[0].embedding
+        try:
+            response = self.client.embeddings.create(
+                input=text, model=self.model_name, dimensions=768
+            )
+            return response.data[0].embedding
+        except openai.AuthenticationError as e:
+            raise EmbeddingAPIError("OpenAI", self.model_name, e) from e
+        except openai.PermissionDeniedError as e:
+            raise EmbeddingAPIError("OpenAI", self.model_name, e) from e
+        except openai.RateLimitError as e:
+            raise EmbeddingAPIError("OpenAI", self.model_name, e) from e
+        except openai.NotFoundError as e:
+            raise EmbeddingError(
+                f"OpenAI embedding model '{self.model_name}' not found. "
+                "Please verify the model name is correct.",
+                e,
+            ) from e
+        except Exception as e:
+            raise EmbeddingError(f"Error getting OpenAI embedding: {e!s}", e) from e
 
     def get_available_embedding_models() -> list[str]:
         try:
@@ -73,23 +89,58 @@ class GoogleEmbedding(EmbeddingsModel):
 
     def get_embedding(self, text: str) -> list[float]:
         text = text.replace("\n", " ")
-        embedding = genai.embed_content(
-            model=self.model_name,
-            content=text,
-            task_type="retrieval_query",
-            output_dimensionality=768,
-        )
-        return embedding["embedding"]
+        try:
+            embedding = genai.embed_content(
+                model=self.model_name,
+                content=text,
+                task_type="retrieval_query",
+                output_dimensionality=768,
+            )
+            return embedding["embedding"]
+        except Exception as e:
+            # Check if it's an authentication or permission error
+            error_msg = str(e).lower()
+            if (
+                "api key" in error_msg
+                or "authentication" in error_msg
+                or "permission" in error_msg
+                or "unauthorized" in error_msg
+                or "forbidden" in error_msg
+                or "alts creds" in error_msg  # Google Cloud authentication error
+                or "not running on gcp" in error_msg
+                or "quota exceeded" in error_msg  # Rate limit / quota errors
+                or "rate limit" in error_msg
+                or "429" in error_msg  # HTTP 429 Too Many Requests
+            ):
+                raise EmbeddingAPIError("Gemini", self.model_name, e) from e
+            elif (
+                "not found" in error_msg
+                or "invalid model" in error_msg
+                or "does not support" in error_msg  # Method not supported
+                or "embedtext" in error_msg  # Old API method
+            ):
+                raise EmbeddingError(
+                    f"Gemini embedding model '{self.model_name}' not found or incompatible. "
+                    "Please verify the model name is correct and supports the embedContent API.",
+                    e,
+                ) from e
+            else:
+                raise EmbeddingError(f"Error getting Gemini embedding: {e!s}", e) from e
 
     def get_available_embedding_models() -> list[str]:
         try:
             models = genai.list_models()
-            # Filter for embedding models
-            embedding_models = [
-                "gemini:" + item.name
-                for item in models
-                if "embedding" in item.name.lower()
-            ]
+            # Filter for embedding models that support embedContent (not the old embedText API)
+            # Exclude models/gemini-embedding-exp (alias that doesn't work consistently)
+            embedding_models = []
+            for item in models:
+                if (
+                    "embedding" in item.name.lower()
+                    and "embedContent" in item.supported_generation_methods
+                    and item.name
+                    != "models/gemini-embedding-exp"  # Exclude the alias version
+                ):
+                    embedding_models.append("gemini:" + item.name)
             return embedding_models
         except Exception:
             return []
@@ -113,7 +164,8 @@ def create_embeddings_model(
                                           Format differs by provider:
                                           - OpenAI: "openai:text-embedding-3-small"
                                           - Gemini: "gemini:models/text-embedding-004" (includes "models/" prefix)
-                                          Examples:
+
+    Examples:
                                           - "openai:text-embedding-3-small"
                                           - "openai:text-embedding-3-large"
                                           - "gemini:models/text-embedding-004"

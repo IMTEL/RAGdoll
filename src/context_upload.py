@@ -3,6 +3,7 @@ import os
 import uuid
 
 from src.config import Config
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.context import Context
 from src.rag_service.dao.factory import get_context_dao, get_document_dao
 from src.rag_service.embeddings import create_embeddings_model
@@ -98,6 +99,13 @@ def process_file_and_store(
     # TODO: For chunked documents, compute embeddings per chunk
     try:
         embedding = compute_embedding(text, embedding_model)
+    except (EmbeddingAPIError, EmbeddingError):
+        # Re-raise embedding-specific errors so they can be handled properly
+        raise
+    except ValueError as e:
+        # Invalid embedding model format
+        logger.error(f"Invalid embedding model format for file '{file_path}': {e}")
+        raise EmbeddingError(f"Invalid embedding model configuration: {e!s}", e) from e
     except Exception as e:
         logger.error(f"Error computing embedding for file '{file_path}': {e}")
         return False, ""

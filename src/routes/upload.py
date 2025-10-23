@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.context_upload import process_file_and_store
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.dao.factory import get_agent_dao, get_document_dao
 
 
@@ -88,6 +89,19 @@ async def upload_document_for_agent(
         else:
             raise HTTPException(status_code=500, detail="Failed to process document")
 
+    except EmbeddingAPIError as e:
+        logger.error(f"Embedding API authentication error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Embedding API authentication failed: {e!s}. "
+            f"Please verify the API key for {e.provider} has access to model '{e.model}'.",
+        ) from e
+    except EmbeddingError as e:
+        logger.error(f"Embedding error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Embedding error: {e!s}",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
