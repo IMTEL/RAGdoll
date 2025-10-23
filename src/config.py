@@ -49,9 +49,7 @@ class Config:
         self.MONGODB_URI = os.getenv(
             self._prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
-        self.MONGODB_DATABASE = os.getenv(
-            self._prod_or_mock_env("MONGODB_DATABASE"), "test_database"
-        )
+        self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
 
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
@@ -60,6 +58,7 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
+        # TODO: Fetch models from IDUN's endpoint
         self.IDUN_MODELS = os.getenv(
             "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
         ).split(",")

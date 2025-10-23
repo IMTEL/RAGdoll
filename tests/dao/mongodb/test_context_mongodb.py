@@ -13,6 +13,10 @@ class TestMongoDBContextDAO:
     def setup_and_teardown(self):
         """Setup and teardown for MongoDB tests."""
         self.repo = MongoDBContextDAO()
+
+        if not self.repo.is_reachable():
+            pytest.skip("MongoDB is not reachable. Skipping tests.")
+
         # Clear the collection before and after each test
         self.repo.collection.delete_many({})
         yield
