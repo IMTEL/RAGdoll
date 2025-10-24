@@ -4,12 +4,15 @@ import nltk
 import pytest
 
 
+import_error: ImportError | None = None
+
 try:  # TODO: fix missing packages
     from src.scraper_service.scraper import ScrapedDocument, ScraperService
 except ImportError as e:
-    pytest.skip(f"Could not import ScraperService: {e}")
+    import_error = e
 
 
+@pytest.mark.skipif(import_error is not None, reason=f"ImportError: {import_error}")
 class TestScraperService:
     """Test cases for the ScraperService class."""
 
