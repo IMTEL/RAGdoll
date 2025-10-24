@@ -1,7 +1,9 @@
 import importlib
 import os
 import sys
+
 import pytest
+
 
 # Ensure required third-party packages are available; skip the test module if not.
 pytest.importorskip("cryptography")
@@ -118,7 +120,9 @@ def test_invalid_fernet_key_raises_on_import(monkeypatch):
 
 
 def test_reads_fernet_key_from_env(monkeypatch):
-    """If the environment already provides a FERNET_KEY (e.g. from .env),
+    """Test.
+
+    If the environment already provides a FERNET_KEY (e.g. from .env),
     ensure the module uses it. This test will be skipped when the env var
     isn't present because it's specifically validating reading from the
     environment/.env file.
@@ -137,7 +141,7 @@ def test_reads_fernet_key_from_env(monkeypatch):
         if os.path.exists(env_path):
             # Parse the file for a single FERNET_KEY entry only (no execution,
             # no other variables loaded).
-            with open(env_path, "r", encoding="utf-8") as fh:
+            with open(env_path, encoding="utf-8") as fh:
                 for line in fh:
                     line = line.strip()
                     if not line or line.startswith("#"):
@@ -147,14 +151,15 @@ def test_reads_fernet_key_from_env(monkeypatch):
                         if k.strip() == "FERNET_KEY":
                             # strip optional surrounding quotes
                             val = v.strip()
-                            if (val.startswith('"') and val.endswith('"')
-                            ):
+                            if val.startswith('"') and val.endswith('"'):
                                 val = val[1:-1]
                             key_value = val
                             break
 
     if not key_value:
-        pytest.skip("FERNET_KEY not present in environment or .env; skipping env-read test")
+        pytest.skip(
+            "FERNET_KEY not present in environment or .env; skipping env-read test"
+        )
 
     # Ensure the module will be imported fresh and will pick up the env value
     # We set it using monkeypatch so the shell environment is not modified.

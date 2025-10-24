@@ -13,6 +13,21 @@ from src.rag_service.dao import MongoDBAgentDAO
 from src.utils.crypto_utils import decrypt_value
 
 
+# Global flag to skip all tests if MongoDB is unreachable
+mongodb_found_unreachable = False
+
+
+@pytest.fixture(autouse=True)
+def check_mongodb_reachability():
+    """Skip all tests if MongoDB is not reachable."""
+    repo = MongoDBAgentDAO()
+
+    global mongodb_found_unreachable
+    if mongodb_found_unreachable or not repo.is_reachable():
+        mongodb_found_unreachable = True
+        pytest.skip("MongoDB is not reachable. Skipping all tests.")
+
+
 @pytest.fixture
 def mongodb_repo() -> MongoDBAgentDAO:
     """Create a MongoDB DAO instance."""
@@ -215,7 +230,11 @@ class TestMongoDBAgentDAORetrieve:
         assert retrieved_agent is not None
         assert len(retrieved_agent.roles) == 2
         assert retrieved_agent.roles[0].name == "admin"
-        assert retrieved_agent.roles[0].document_access == ["doc-id-1", "doc-id-2", "doc-id-3"]
+        assert retrieved_agent.roles[0].document_access == [
+            "doc-id-1",
+            "doc-id-2",
+            "doc-id-3",
+        ]
         assert retrieved_agent.roles[1].name == "user"
         assert retrieved_agent.roles[1].document_access == ["doc-id-2"]
 

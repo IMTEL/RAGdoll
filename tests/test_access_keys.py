@@ -84,7 +84,7 @@ def test_revoke_access_key():
 
 @pytest.mark.unit
 def test_bad_request():
-    agent, access_service, database = get_access_service_and_agent()
+    agent, access_service, _ = get_access_service_and_agent()
     with pytest.raises(ValueError):
         access_service.generate_accesskey(
             "test", datetime(2000, 2, 23, 0, 0, 0), agent.id

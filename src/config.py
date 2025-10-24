@@ -24,6 +24,12 @@ class Config:
         self.path = path
         self.ENV = os.getenv("ENV", "dev")
 
+        # Flag to indicate if tests are running.
+        # Environment variable is set in pyproject.toml under [tool.pytest_env]
+        self.RUNNING_TESTS = os.getenv("RUNNING_TESTS", "false").lower() == "true"
+
+        if self.RUNNING_TESTS:  # Ensure tests always run in 'dev' environment
+            self.ENV = "dev"
         self.RAGDOLL_CONFIG_API_URL = os.getenv(
             "RAGDOLL_CONFIG_API_URL", "http://localhost:3000"
         )
@@ -44,15 +50,14 @@ class Config:
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
         self.RAG_DATABASE_SYSTEM = os.getenv(
-            prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
+            self._prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
         )
 
         self.MONGODB_URI = os.getenv(
-            prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
+            self._prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
-        self.MONGODB_DATABASE = os.getenv(
-            prod_or_mock_env("MONGODB_DATABASE"), "test_database"
-        )
+        self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
+
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
         self.MONGODB_DOCUMENTS_COLLECTION = os.getenv(
@@ -63,22 +68,46 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
+        # TODO: Fetch models from IDUN's endpoint
         self.IDUN_MODELS = os.getenv(
             "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
         ).split(",")
 
+        self.FERNET_KEY = os.getenv("FERNET_KEY", "")
 
-def prod_or_mock_env(env_var: str) -> str:
-    """Determine whether to use production or mock environment variable.
+        if not self.FERNET_KEY:
+            raise RuntimeError("FERNET_KEY is missing from environment variables")
 
-    Args:
-        env_var (str): The environment variable to check.
+        self.FERNET_KEY = self.FERNET_KEY.strip()
 
-    Returns:
-        str: "MOCK_" + env_var if in dev mode, else env_var.
-    """
-    env = os.getenv("ENV", "dev")
-    if env == "dev":
-        return "MOCK_" + env_var
+        self._validate_collection_names()
 
-    return env_var
+    def _prod_or_mock_env(self, env_var: str) -> str:
+        """Determine whether to use production or mock environment variable.
+
+        Args:
+            env_var (str): The environment variable to check.
+
+        Returns:
+            str: "MOCK_" + env_var if in dev mode, else env_var.
+        """
+        if self.ENV == "dev":
+            return "MOCK_" + env_var
+
+        return env_var
+
+    def _validate_collection_names(self):
+        """Validate that MongoDB collection names are mutually exclusive."""
+        names = [
+            self.MONGODB_CONTEXT_COLLECTION,
+            self.MONGODB_AGENT_COLLECTION,
+            # TODO: add document collection
+        ]
+
+        total_names = len(names)
+
+        if len(set(names)) != total_names:
+            raise ValueError(
+                "MongoDB collection names must be mutually exclusive. "
+                f"Current names: {names}"
+            )

@@ -39,15 +39,11 @@ def sample_agent() -> Agent:
         prompt="You are a helpful assistant",
         roles=[
             Role(
-                name="admin", 
-                description="Administrator role", 
-                document_access=["doc-id-1", "doc-id-2"]
+                name="admin",
+                description="Administrator role",
+                document_access=["doc-id-1", "doc-id-2"],
             ),
-            Role(
-                name="user", 
-                description="User role", 
-                document_access=["doc-id-2"]
-            ),
+            Role(name="user", description="User role", document_access=["doc-id-2"]),
         ],
         llm_model="gpt-3.5-turbo",
         llm_temperature=0.7,
@@ -210,7 +206,9 @@ class TestMockAgentDAO:
         assert retrieved.description == sample_agent.description
         assert retrieved.prompt == sample_agent.prompt
         assert len(retrieved.roles) == len(sample_agent.roles)
-        assert retrieved.roles[0].document_access == sample_agent.roles[0].document_access
+        assert (
+            retrieved.roles[0].document_access == sample_agent.roles[0].document_access
+        )
         assert retrieved.llm_model == sample_agent.llm_model
         assert retrieved.llm_temperature == sample_agent.llm_temperature
         assert retrieved.llm_max_tokens == sample_agent.llm_max_tokens

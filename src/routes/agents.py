@@ -76,7 +76,7 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, agent_id: str , expiry_date: str | None = None):
+def new_access_key(name: str, agent_id: str, expiry_date: str | None = None):
     try:
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
