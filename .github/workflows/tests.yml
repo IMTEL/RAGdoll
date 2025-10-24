@@ -75,6 +75,10 @@ jobs:
         
         # Access Service
         ACCESS_SERVICE=mock
+
+        # Fernet key for encryption
+        FERNET_KEY=${{ secrets.FERNET_KEY }}
+
         EOF
 
     - name: Build and start services with Docker Compose
