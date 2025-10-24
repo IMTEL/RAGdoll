@@ -30,7 +30,10 @@ def compute_embedding(text: str) -> list[float]:
 
 
 def process_file_and_store(
-    file_path: str, agent_id: str, document_id: str | None = None, file_size_bytes: int | None = None
+    file_path: str,
+    agent_id: str,
+    document_id: str | None = None,
+    file_size_bytes: int | None = None,
 ) -> tuple[bool, str]:
     """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
@@ -57,9 +60,7 @@ def process_file_and_store(
     """
     from src.models.rag import Document
 
-    logger.info(
-        f"Starting file processing for: {file_path} with agent_id: {agent_id}"
-    )
+    logger.info(f"Starting file processing for: {file_path} with agent_id: {agent_id}")
 
     # Verify file exists
     if not os.path.exists(file_path):
@@ -164,9 +165,7 @@ def process_file_and_store(
         logger.error(f"Error inserting context into database: {e}")
         return False, ""
 
-    logger.info(
-        f"Successfully stored '{document_name}' into the database."
-    )
+    logger.info(f"Successfully stored '{document_name}' into the database.")
 
     return True, document_id
 

@@ -1,18 +1,19 @@
 """Agent domain models for AI agent configurations."""
 
-from pydantic import BaseModel, Field
 import logging
 
-from ..utils.crypto_utils import (
-    encrypt_str,
+from pydantic import BaseModel, Field
+
+from src.models.accesskey import AccessKey
+from src.utils.crypto_utils import (
     decrypt_value,
+    encrypt_str,
     hash_access_key,
     verify_access_key,
 )
 
-logger = logging.getLogger(__name__)
 
-from src.models.accesskey import AccessKey
+logger = logging.getLogger(__name__)
 
 
 class Role(BaseModel):
@@ -134,7 +135,7 @@ class Agent(BaseModel):
         last_updated: str,
         plain_llm_api_key: str,
         plain_access_keys: list[str] | None = None,
-        **kwargs
+        **kwargs,
     ) -> "Agent":
         """Create an Agent with automatic encryption of sensitive data.
 

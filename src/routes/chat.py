@@ -64,7 +64,10 @@ async def ask(command: Command):
         #     )
 
         # Validate that requested role exists in the agent
-        if command.active_role_id and agent.get_role_by_name(command.active_role_id) is None:
+        if (
+            command.active_role_id
+            and agent.get_role_by_name(command.active_role_id) is None
+        ):
             return JSONResponse(
                 content={
                     "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."

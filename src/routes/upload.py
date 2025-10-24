@@ -57,7 +57,7 @@ async def upload_document_for_agent(
     file_location = temp_files_dir / Path(file.filename).name
     file_content = file.file.read()
     file_size_bytes = len(file_content)
-    
+
     with open(file_location, "wb") as buffer:
         buffer.write(file_content)
 
@@ -70,9 +70,7 @@ async def upload_document_for_agent(
         # Delete temporary file
         file_location.unlink()
 
-        logger.info(
-            f"Uploaded file: {file.filename} for agent: {agent_id}"
-        )
+        logger.info(f"Uploaded file: {file.filename} for agent: {agent_id}")
 
         if success:
             return {
@@ -129,7 +127,7 @@ async def get_documents_for_agent(agent_id: str):
         for doc in documents:
             try:
                 # Format size in a human-readable way
-                size_bytes = getattr(doc, 'size_bytes', 0)
+                size_bytes = getattr(doc, "size_bytes", 0)
                 if size_bytes < 1024:
                     size_str = f"{size_bytes} B"
                 elif size_bytes < 1024 * 1024:
@@ -138,15 +136,21 @@ async def get_documents_for_agent(agent_id: str):
                     size_str = f"{size_bytes / (1024 * 1024):.2f} MB"
                 else:
                     size_str = f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
-                
-                document_list.append({
-                    "id": doc.id,
-                    "name": doc.name,
-                    "size": size_str,
-                    "size_bytes": size_bytes,
-                    "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                    "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
-                })
+
+                document_list.append(
+                    {
+                        "id": doc.id,
+                        "name": doc.name,
+                        "size": size_str,
+                        "size_bytes": size_bytes,
+                        "created_at": doc.created_at.isoformat()
+                        if doc.created_at
+                        else None,
+                        "updated_at": doc.updated_at.isoformat()
+                        if doc.updated_at
+                        else None,
+                    }
+                )
             except AttributeError as attr_err:
                 logger.error(f"Document missing required field: {attr_err}, doc: {doc}")
                 # Skip this document and continue with others
@@ -185,30 +189,33 @@ async def delete_document(document_id: str):
     try:
         document_dao = get_document_dao()
         agent_dao = get_agent_dao()
-        
+
         # Check if document exists first
         document = document_dao.get_by_id(document_id)
         if not document:
             raise HTTPException(
-                status_code=404, 
-                detail=f"Document '{document_id}' not found"
+                status_code=404, detail=f"Document '{document_id}' not found"
             )
 
         # Get the agent that owns this document
         agent = agent_dao.get_agent_by_id(document.agent_id)
-        
+
         if agent:
             updated = False
             for role in agent.roles:
                 if document_id in role.document_access:
                     role.document_access.remove(document_id)
                     updated = True
-            
+
             if updated:
                 agent_dao.add_agent(agent)  # This updates the existing agent
-                logger.info(f"Removed document '{document_id}' from agent '{agent.id}' roles")
+                logger.info(
+                    f"Removed document '{document_id}' from agent '{agent.id}' roles"
+                )
             else:
-                logger.info(f"Document '{document_id}' not found in any roles of agent '{agent.id}'")
+                logger.info(
+                    f"Document '{document_id}' not found in any roles of agent '{agent.id}'"
+                )
 
         # Delete the document (this also deletes associated contexts)
         success = document_dao.delete(document_id)
@@ -223,8 +230,7 @@ async def delete_document(document_id: str):
             }
         else:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete document '{document_id}'"
+                status_code=500, detail=f"Failed to delete document '{document_id}'"
             )
 
     except HTTPException:

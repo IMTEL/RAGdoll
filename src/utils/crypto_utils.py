@@ -1,7 +1,9 @@
 import os
+
 import bcrypt
-from dotenv import load_dotenv
 from cryptography.fernet import Fernet, InvalidToken
+from dotenv import load_dotenv
+
 
 # Read the key from the environment and normalize it
 # Only load .env if FERNET_KEY is not already set (allows tests to override)
@@ -13,8 +15,7 @@ if fernet_key is not None:
     # Strip surrounding whitespace
     fernet_key = fernet_key.strip()
     # Remove surrounding single quotes if present
-    if (fernet_key.startswith('"') and fernet_key.endswith('"')
-    ):
+    if fernet_key.startswith('"') and fernet_key.endswith('"'):
         fernet_key = fernet_key[1:-1].strip()
 
 if not fernet_key:
@@ -26,7 +27,9 @@ try:
     print("Fernet key validation: SUCCESS")
 except Exception as e:
     print(f"Fernet key validation: FAILED - {e}")
-    raise ValueError("FERNET_KEY must be a valid 32-byte url-safe base64-encoded string") from e
+    raise ValueError(
+        "FERNET_KEY must be a valid 32-byte url-safe base64-encoded string"
+    ) from e
 
 
 def encrypt_str(api_key: str) -> str:
@@ -55,10 +58,9 @@ def hash_access_key(access_key: str) -> bytes:
     if not access_key:
         raise ValueError("access_key must not be empty")
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(access_key.encode('utf-8'), salt)
+    return bcrypt.hashpw(access_key.encode("utf-8"), salt)
 
 
 def verify_access_key(access_key: str, hashed: bytes) -> bool:
     """Verify an agent access key against its hash."""
-    return bcrypt.checkpw(access_key.encode('utf-8'), hashed)
-
+    return bcrypt.checkpw(access_key.encode("utf-8"), hashed)
