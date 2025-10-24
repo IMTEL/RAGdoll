@@ -79,8 +79,8 @@ jobs:
 
     - name: Build and start services with Docker Compose
       run: |
-        docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d --build
-      
+        docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --build
+
     - name: Wait for services to be ready
       run: |
         echo "Waiting for chat-service to be ready..."
