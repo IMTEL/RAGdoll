@@ -1,56 +1,30 @@
 # Docker Compose override file for testing/CI environments
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.test.yml up
-# Or for testing only: docker-compose -f docker-compose.test.yml up
+# This file uses MongoDB Atlas for testing with MOCK_MONGODB_URI
 
 services:
-  # Mock MongoDB for testing purposes
-  mongodb:
-    image: mongo:7.0
-    container_name: ragdoll-mongodb-test
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: testuser
-      MONGO_INITDB_ROOT_PASSWORD: testpassword
-    ports:
-      - "27017:27017"  # Expose for direct test access if needed
-    volumes:
-      - mongo-test-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    restart: unless-stopped
-
-  # Optional: MongoDB Express for debugging (useful for test inspection)
-  mongo-express:
-    image: mongo-express:latest
-    container_name: ragdoll-mongo-express
-    ports:
-      - "8081:8081"
-    environment:
-      ME_CONFIG_MONGODB_URL: mongodb://testuser:testpassword@mongodb:27017
-      ME_CONFIG_BASICAUTH: "false"  # Disable auth for testing
-    depends_on:
-      - mongodb
-    restart: unless-stopped
-
-  # For CI/testing, you might want to override or remove the nginx service
-  # and only run chat-service with mock MongoDB
-  chat-service:
-    # Override environment for testing
+  # Override backend-service for testing
+  backend-service:
     environment:
       - ENV=dev
       - RUNNING_TESTS=true
-      - MONGODB_URI=mongodb://testuser:testpassword@mongodb:27017
-      - MONGODB_DATABASE=test_database
-      - MONGODB_CONTEXT_COLLECTION=contexts_test
-      - MONGODB_AGENT_COLLECTION=agents_test
-      - RAG_DATABASE_SYSTEM=mock
-    # In test mode, don't require nginx
-    depends_on:
-      mongodb:
-        condition: service_healthy
+      # Use MongoDB Atlas for testing with MOCK_MONGODB_URI
+      - MONGODB_URI=${MOCK_MONGODB_URI}
+      - MONGODB_DATABASE=${MOCK_MONGODB_DATABASE:-test_database}
+      - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION:-contexts}
+      - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION:-agents}
+      - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION:-documents}
+      - RAG_DATABASE_SYSTEM=mongodb
+      # Test LLM keys (should be set in CI or .env)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-test_key}
+      - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-test_key}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
+      - ACCESS_SERVICE=mock
+    ports:
+      - "8000:8000"  # Expose for testing
 
-volumes:
-  mongo-test-data: {}
+  # Disable nginx in test mode
+  nginx:
+    profiles:
+      - disabled

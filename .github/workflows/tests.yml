@@ -2,7 +2,7 @@ name: Tests and Lint
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "feature/ci-dev" ] # TODO: drop feature/ci-dev later
   pull_request:
     branches: [ "main", "dev" ]
 
@@ -48,62 +48,69 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    name: Tests
-
-    services:
-      mongodb:
-        image: mongo:7.0
-        options: >-
-          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 27017:27017
+    name: Tests with Docker Compose
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Create .env file
-      # Test configuration (always use for CI)
+    - name: Create .env file for testing
       run: |
-        echo "ENV = dev" >> .env
-        echo "RUNNING_TESTS = true" >> .env
-        echo "MOCK_MONGODB_URI = 'mongodb://localhost:27017'" >> .env
-        echo "MONGODB_DATABASE = 'test_database'" >> .env
-        echo "MONGODB_CONTEXT_COLLECTION = 'contexts'" >> .env
-        echo "MONGODB_AGENT_COLLECTION = 'agents'" >> .env
-        echo "MOCK_RAG_DATABASE_SYSTEM = 'mock'" >> .env
+        cat << EOF > .env
+        ENV=dev
+        RUNNING_TESTS=true
+        
+        # LLM Configuration
+        OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        GPT_MODEL=gpt-4o-mini
+        GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        GEMINI_MODEL=gemini-2.0-flash-lite
+        
+        # MongoDB Test Configuration (uses MOCK_MONGODB_URI for Atlas testing)
+        MOCK_MONGODB_URI=${{ secrets.MOCK_MONGODB_URI }}
+        MOCK_MONGODB_DATABASE=test_database
+        MONGODB_CONTEXT_COLLECTION=contexts
+        MONGODB_AGENT_COLLECTION=agents
+        MONGODB_DOCUMENTS_COLLECTION=documents
+        RAG_DATABASE_SYSTEM=mongodb
+        
+        # Access Service
+        ACCESS_SERVICE=mock
+        EOF
 
-        echo "GEMINI_API_KEY = ${{secrets.GEMINI_API_KEY}}" >> .env
-        echo "GEMINI_MODEL = gemini-2.0-flash-lite" >> .env
-
-        echo "OPENAI_API_KEY = ${{secrets.OPENAI_API_KEY}}" >> .env
-        echo "GPT_MODEL = gpt-4o-mini" >> .env
-
-    - name: Set up environment
+    - name: Build and start services with Docker Compose
       run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        uv sync
-
-    - name: Verify MongoDB connection
+        docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d --build
+      
+    - name: Wait for services to be ready
       run: |
-        python -c "
-        import socket
-        import time
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        for i in range(30):
-            try:
-                result = sock.connect_ex(('localhost', 27017))
-                if result == 0:
-                    print('MongoDB is available')
-                    break
-            except:
-                pass
-            time.sleep(1)
-        sock.close()
-        "
+        echo "Waiting for chat-service to be ready..."
+        timeout 60 bash -c 'until curl -s http://localhost:8000/docs > /dev/null; do sleep 2; done'
+        echo "Chat service is ready"
 
-    - name: Run tests with pytest
+    - name: Check service logs
+      if: always()
       run: |
-        uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+        echo "=== Chat Service Logs ==="
+        docker logs ragdoll-backend --tail 50
+
+    - name: Run tests inside container
+      run: |
+        docker exec ragdoll-backend uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+
+    - name: Copy coverage report from container
+      if: always()
+      run: |
+        docker cp ragdoll-backend:/app/coverage.xml ./coverage.xml || echo "No coverage file found"
+
+    - name: Upload coverage to Codecov (optional)
+      if: always()
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+      continue-on-error: true
+
+    - name: Tear down services
+      if: always()
+      run: |
+        docker-compose -f docker-compose.yml -f docker-compose.test.yml down -v

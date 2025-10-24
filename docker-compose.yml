@@ -30,7 +30,7 @@ services:
         max-file: "3"
 
   # FastAPI backend
-  chat-service:
+  backend-service:
     build:
       context: .
       dockerfile: Dockerfile
@@ -39,14 +39,24 @@ services:
       - "8000"  # internal only, Nginx connects here
     environment:
       - ENV=prod
-      - MONGODB_URI=mongodb://mongodb:27017
+      # MongoDB Atlas connection (supports vector search)
+      - MONGODB_URI=${MONGODB_URI}
       - MONGODB_DATABASE=${MONGODB_DATABASE}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
+      - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION}
       - RAG_DATABASE_SYSTEM=mongodb
-    depends_on:
-      mongodb:
-        condition: service_healthy
+      # LLM API Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
+      - IDUN_API_KEY=${IDUN_API_KEY}
+      - IDUN_MODEL=${IDUN_MODEL:-openai/gpt-oss-120b}
+      - IDUN_API_URL=${IDUN_API_URL:-https://idun-llm.hpc.ntnu.no/api/chat/completions}
+      # Access Service
+      - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
+      - FERNET_KEY=${FERNET_KEY}
     # Resource limits for production stability
     deploy:
       resources:
@@ -63,33 +73,5 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # MongoDB (internal only)
-  mongodb:
-    image: mongo:7.0  # Pinned to specific version for reproducibility
-    container_name: mongodb
-    volumes:
-      - mongo-data:/data/db
-      # Optional: restore from backup on startup
-      # - ./backups:/backups:ro
-    environment:
-      # Consider using secrets for production
-      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-changeme}
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-volumes:
-  mongo-data:
-    driver: local
-    # For production, consider using named volumes with backup strategies
-    # or external storage providers
+# Note: MongoDB Atlas is used as external service (cloud-hosted)
+# No local MongoDB container needed for production

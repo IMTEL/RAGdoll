@@ -27,7 +27,7 @@ jobs:
     - name: Check required secrets
       run: |
         # List of required secrets for production
-        REQUIRED_SECRETS="MONGODB_ATLAS_URI MONGODB_DATABASE OPENAI_API_KEY GEMINI_API_KEY"
+        REQUIRED_SECRETS="MONGODB_URI MONGODB_DATABASE OPENAI_API_KEY GEMINI_API_KEY"
         
         echo "Verifying required secrets are configured..."
         # Note: We can't access secret values, but this serves as documentation
@@ -92,7 +92,7 @@ jobs:
         ENV=prod
         
         # MongoDB Atlas (with vector search)
-        MONGODB_ATLAS_URI=${{ secrets.MONGODB_ATLAS_URI }}
+        MONGODB_URI=${{ secrets.MONGODB_URI }}
         MONGODB_DATABASE=${{ secrets.MONGODB_DATABASE }}
         MONGODB_CONTEXT_COLLECTION=${{ secrets.MONGODB_CONTEXT_COLLECTION }}
         MONGODB_AGENT_COLLECTION=${{ secrets.MONGODB_AGENT_COLLECTION }}
