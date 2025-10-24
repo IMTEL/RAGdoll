@@ -73,6 +73,13 @@ class Config:
             "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
         ).split(",")
 
+        self.FERNET_KEY = os.getenv("FERNET_KEY", "")
+
+        if not self.FERNET_KEY:
+            raise RuntimeError("FERNET_KEY is missing from environment variables")
+
+        self.FERNET_KEY = self.FERNET_KEY.strip()
+
         self._validate_collection_names()
 
     def _prod_or_mock_env(self, env_var: str) -> str:

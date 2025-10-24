@@ -1,35 +1,10 @@
-import os
-
 import bcrypt
 from cryptography.fernet import Fernet, InvalidToken
-from dotenv import load_dotenv
+
+from src.config import Config
 
 
-# Read the key from the environment and normalize it
-# Only load .env if FERNET_KEY is not already set (allows tests to override)
-if not os.getenv("FERNET_KEY"):
-    load_dotenv()  # take environment variables from .env file if present
-fernet_key = os.getenv("FERNET_KEY")
-
-if fernet_key is not None:
-    # Strip surrounding whitespace
-    fernet_key = fernet_key.strip()
-    # Remove surrounding single quotes if present
-    if fernet_key.startswith('"') and fernet_key.endswith('"'):
-        fernet_key = fernet_key[1:-1].strip()
-
-if not fernet_key:
-    raise RuntimeError("Fernet Key is missing from .env")
-
-try:
-    # Attempt to construct a Fernet instance to validate the key
-    encryptor = Fernet(fernet_key.encode("utf-8"))
-    print("Fernet key validation: SUCCESS")
-except Exception as e:
-    print(f"Fernet key validation: FAILED - {e}")
-    raise ValueError(
-        "FERNET_KEY must be a valid 32-byte url-safe base64-encoded string"
-    ) from e
+ENCRYPTOR = Fernet(Config().FERNET_KEY.encode("utf-8"))
 
 
 def encrypt_str(api_key: str) -> str:
@@ -40,7 +15,7 @@ def encrypt_str(api_key: str) -> str:
     """
     if not api_key:
         raise ValueError("value must not be empty")
-    token_bytes = encryptor.encrypt(api_key.encode("utf-8"))
+    token_bytes = ENCRYPTOR.encrypt(api_key.encode("utf-8"))
     return token_bytes.decode("utf-8")
 
 
@@ -48,7 +23,7 @@ def decrypt_value(encrypted_value: str) -> str:
     """Decrypt a Fernet token (as a UTF-8 string) back into its readable form."""
     try:
         token_bytes = encrypted_value.encode("utf-8")
-        return encryptor.decrypt(token_bytes).decode("utf-8")
+        return ENCRYPTOR.decrypt(token_bytes).decode("utf-8")
     except InvalidToken as e:
         raise ValueError("Invalid encryption token or wrong Fernet key") from e
 
