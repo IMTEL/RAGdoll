@@ -16,94 +16,40 @@ def hybrid_search(alpha: float, # 0 = 100% keyword, 1 = 100% vector, 0.5 = equal
                   num_candidates: int = 50, 
                   top_k: int = 5) -> list[Context]:
 
-    search_filter = {"agent_id": {"$eq": agent_id}}
-    search_filter["document_id"] = {"$in": available_documents}
-    
-    vector_pipeline = [
-        {
-            "$vectorSearch": {
-                "index": "embeddings",
-                "path": "embedding",
-                "queryVector": embedded_query,
-                "numCandidates": num_candidates,
-                "limit": top_k * 3,
-                "filter": search_filter,
-            }
-        },
-        {
-            "$addFields": {
-                "vector_score": {"$meta": "vectorSearchScore"}
-            }
-        }
-    ]
-
-    keyword_pipeline = [
-        {
-            "$search": {
-                "index": "keyword_search",
-                "compound": {
-                    "must": [
-                        {
-                            "text": {
-                                "query": keyword_query_text,
-                                "path": "text"
-                            }
-                        }
-                    ],
-                    "filter": [
-                        {
-                            "equals": {
-                                "path": "agent_id",
-                                "value": agent_id
-                            }
-                        },
-                        {
-                            "in": {
-                                "path": "document_id",
-                                "value": available_documents
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "$limit": top_k * 3
-        },
-        {
-            "$addFields": {
-                "keyword_score": {"$meta": "searchScore"}
-            }
-        }
-    ]
-
-    vector_results = list(context_collection.aggregate(vector_pipeline))
-    keyword_results = list(context_collection.aggregate(keyword_pipeline))
-
     document_map = {}
     vector_scores = {}
-    keyword_scores = {}
 
-    for doc in vector_results:
-        doc_id = doc["document_id"]
-        vector_scores[doc_id] = doc.get("vector_score", 0)
-        document_map[doc_id] = doc
+    if alpha > 0:
+        vector_scores = vector_search(
+            agent_id,
+            embedded_query,
+            available_documents,
+            context_collection,
+            num_candidates,
+            top_k,
+            document_map,
+        )
+    else:
+        vector_scores = {}
 
-    for doc in keyword_results:
-        doc_id = doc["document_id"]
-        keyword_scores[doc_id] = doc.get("keyword_score", 0)
-        document_map[doc_id] = doc
+    if alpha < 1:
+        keyword_scores = keyword_search(
+            agent_id,
+            keyword_query_text,
+            available_documents,
+            context_collection,
+            top_k,
+            document_map,
+        )
+    else:
+        keyword_scores = {}
 
     all_doc_ids = set(vector_scores.keys()) | set(keyword_scores.keys())
-
     hybrid_scores = {}
     for doc_id in all_doc_ids:
         vector_score = vector_scores.get(doc_id, 0)
         keyword_score = keyword_scores.get(doc_id, 0)
         hybrid_scores[doc_id] = alpha * vector_score + (1 - alpha) * keyword_score
-
-    logger.info(f"Hybrid search: {len(vector_results)} vector results, {len(keyword_results)} keyword results, {len(all_doc_ids)} unique documents")
-    print(f"Hybrid scores: {hybrid_scores}, Vector scores: {vector_scores}, Keyword scores: {keyword_scores}")
 
     top_indices = sorted(hybrid_scores.keys(), key=lambda x: hybrid_scores[x], reverse=True)[:top_k]
     
@@ -127,3 +73,89 @@ def hybrid_search(alpha: float, # 0 = 100% keyword, 1 = 100% vector, 0.5 = equal
             )
 
     return results
+
+def keyword_search(agent_id, keyword_query_text, available_documents, context_collection, top_k, document_map):
+    keyword_scores = {}
+    keyword_pipeline = [
+            {
+                "$search": {
+                    "index": "keyword_search",
+                    "compound": {
+                        "must": [
+                            {
+                                "text": {
+                                    "query": keyword_query_text,
+                                    "path": "text"
+                                }
+                            }
+                        ],
+                        "filter": [
+                            {
+                                "equals": {
+                                    "path": "agent_id",
+                                    "value": agent_id
+                                }
+                            },
+                            {
+                                "in": {
+                                    "path": "document_id",
+                                    "value": available_documents
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "$limit": top_k * 3
+            },
+            {
+                "$addFields": {
+                    "keyword_score": {"$meta": "searchScore"}
+                }
+            }
+        ]
+
+    keyword_results = list(context_collection.aggregate(keyword_pipeline))
+
+    for doc in keyword_results:
+        doc_id = doc["document_id"]
+        keyword_scores[doc_id] = doc.get("keyword_score", 0)
+        document_map[doc_id] = doc
+
+    return keyword_scores
+
+def vector_search(agent_id, embedded_query, available_documents, context_collection, num_candidates, top_k, document_map):
+    vector_scores = {}
+    search_filter = {"agent_id": {"$eq": agent_id}}
+    search_filter["document_id"] = {"$in": available_documents}
+
+    # Ensure limit does not exceed numCandidates (MongoDB Atlas requirement)
+    limit = min(top_k * 3, num_candidates)
+
+    vector_pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": "embeddings",
+                    "path": "embedding",
+                    "queryVector": embedded_query,
+                    "numCandidates": num_candidates,
+                    "limit": limit,
+                    "filter": search_filter,
+                }
+            },
+            {
+                "$addFields": {
+                    "vector_score": {"$meta": "vectorSearchScore"}
+                }
+            }
+        ]
+
+    vector_results = list(context_collection.aggregate(vector_pipeline))
+
+    for doc in vector_results:
+        doc_id = doc["document_id"]
+        vector_scores[doc_id] = doc.get("vector_score", 0)
+        document_map[doc_id] = doc
+
+    return vector_scores

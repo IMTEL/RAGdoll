@@ -54,22 +54,8 @@ def generate_retrieval_query(
         f"Recent conversation context:\n{recent_context}\n\n"
         f"Standalone message:"
     )
-    
-    
-    # summary_prompt += (
-    #     "INSTRUCTIONS:\n"
-    #     "- Create a single, clear search query (1-2 sentences maximum)\n"
-    #     "- Include relevant info from the conversation\n"
-    #     "- Resolve any pronouns or references to earlier messages, or from the agent's instructions/role info if the user is referencing \"you\"\n"
-    #     "- Focus only on what information would be needed to answer the question\n"
-    #     "- Do not include conversational filler or greetings\n\n"
-    #     "- Use the same words as the user message as much as possible\n"
-    #     "Standalone search query:"
-    # )
-    print("Summary prompt for retrieval query generation:\n", summary_prompt)
 
     try:
-        # Use the same LLM provider as the agent uses for generating responses
         query_llm = create_llm(agent.llm_provider)
         standalone_query = query_llm.generate(summary_prompt)
         print(f"Generated retrieval query: {standalone_query}")
@@ -155,12 +141,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         role_prompt=role_prompt if role_prompt else ""
     )
 
-    print(f"Standalone query for retrieval:\n{retrieval_query}")
-
     # Get accessible categories based on active roles
     accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
-
-    print("Accessible documents for role:", accessible_documents, command.active_role_id)
 
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
@@ -187,7 +169,9 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             query_text=retrieval_query,  # Standalone query for semantic search
             keyword_query_text=retrieval_query,  # Standalone query for BM25
             documents=accessible_documents,
-            top_k=3,  # Retrieve top 3 most relevant contexts
+            top_k=agent.top_k,  # Use agent's configured top_k
+            similarity_threshold=agent.similarity_threshold,  # Use agent's configured threshold
+            hybrid_search_alpha=agent.hybrid_search_alpha,  # Use agent's configured alpha
         )
     except Exception as e:
         print(f"Error retrieving context: {e}")
@@ -198,7 +182,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     prompt = ""
     if last_user_response:
         prompt += "\nRESPOND TO THIS NEW USER MESSAGE: " + last_user_response + "\n"
-    prompt += "You are playing a character, and should respond to that character. This is your prompt: " + agent.prompt + "\n"
+    prompt += "You are playing a character, and should respond as that character. This is your prompt: " + agent.prompt + "\n"
     prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
     # Add retrieved context to prompt
     if retrieved_contexts:

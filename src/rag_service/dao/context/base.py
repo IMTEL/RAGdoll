@@ -25,6 +25,8 @@ class ContextDAO(ABC):
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
+        similarity_threshold: float | None = None,
+        hybrid_search_alpha: float | None = None,
     ) -> list[Context]:
         """Retrieve contexts for an agent using semantic similarity.
 
@@ -40,6 +42,10 @@ class ContextDAO(ABC):
             documents (list[str] | None): Optional list of document IDs to filter by
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
+            similarity_threshold (float | None): Minimum similarity score for results.
+                                                  If None, uses implementation default.
+            hybrid_search_alpha (float | None): Weight for hybrid search (0=keyword, 1=vector).
+                                                 If None, uses implementation default.
 
         Returns:
             list[Context]: Most relevant contexts for the agent

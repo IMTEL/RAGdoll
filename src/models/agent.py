@@ -79,6 +79,11 @@ class Agent(BaseModel):
     status: str = Field(default="active")
     response_format: str = Field(default="text")
     last_updated: str
+    
+    # RAG retrieval configuration
+    top_k: int = Field(default=5, gt=0, description="Number of context chunks to retrieve")
+    similarity_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Minimum similarity score for context relevance")
+    hybrid_search_alpha: float = Field(default=0.75, ge=0.0, le=1.0, description="Weight for hybrid search (0=keyword only, 1=vector only)")
 
     def get_role_by_name(self, role_name: str) -> Role | None:
         """Retrieve a role by its name.

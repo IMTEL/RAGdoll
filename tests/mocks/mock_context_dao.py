@@ -42,6 +42,8 @@ class MockContextDAO(ContextDAO):
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
+        similarity_threshold: float | None = None,
+        hybrid_search_alpha: float | None = None,
     ) -> list[Context]:
         """Retrieve contexts for an agent using mock similarity.
 
@@ -54,6 +56,10 @@ class MockContextDAO(ContextDAO):
             documents (list[str] | None): List of accessible documents
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
+            similarity_threshold (float | None): Minimum similarity score for results.
+                                                  If None, uses instance default.
+            hybrid_search_alpha (float | None): Weight for hybrid search (0=keyword, 1=vector).
+                                                 If None, ignored in mock.
 
         Returns:
             list[Context]: Top matching contexts for the agent
@@ -65,6 +71,9 @@ class MockContextDAO(ContextDAO):
             raise ValueError("agent_id cannot be empty")
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
+
+        # Use provided threshold or fall back to instance default
+        threshold = similarity_threshold if similarity_threshold is not None else self.similarity_threshold
 
         results = []
         for document in self.data[:num_candidates]:  # Limit to num_candidates
@@ -78,7 +87,7 @@ class MockContextDAO(ContextDAO):
 
             # Mock similarity - returns high value for testing
             similarity = 0.9
-            if similarity > self.similarity_threshold:
+            if similarity > threshold:
                 doc_name = document.get("document_name", "default_document_name")
                 results.append(
                     Context(

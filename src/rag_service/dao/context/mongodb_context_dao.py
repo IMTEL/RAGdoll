@@ -248,6 +248,8 @@ class MongoDBContextDAO(ContextDAO):
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
+        similarity_threshold: float | None = None,
+        hybrid_search_alpha: float | None = None,
     ) -> list[Context]:
         """Retrieve relevant contexts for an agent using vector similarity.
 
@@ -269,6 +271,10 @@ class MongoDBContextDAO(ContextDAO):
                                            matching ID will be returned.
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
+            similarity_threshold (float | None): Minimum similarity score for results.
+                                                  If None, uses instance default.
+            hybrid_search_alpha (float | None): Weight for hybrid search (0=keyword, 1=vector).
+                                                 If None, uses default value of 0.75.
 
         Returns:
             list[Context]: Top matching contexts for the agent
@@ -283,19 +289,21 @@ class MongoDBContextDAO(ContextDAO):
             raise ValueError("Embedding cannot be empty")
         print("Available documents for filtering:", available_documents)
         
-        # Use keyword_query_text if provided, otherwise fall back to query_text
         keyword_text = keyword_query_text if keyword_query_text is not None else query_text
+        threshold = similarity_threshold if similarity_threshold is not None else self.similarity_threshold
+        alpha = hybrid_search_alpha if hybrid_search_alpha is not None else 0.75
+        adjusted_num_candidates = max(num_candidates, top_k * 3)
         
         results = hybrid_search(
-                    0.75, # 75% vector, 25% keyword
+                    alpha,
                     agent_id,
                     query_embedding, 
                     query_text,
                     keyword_text,
                     available_documents,
                     self.collection,
-                    self.similarity_threshold,
-                    num_candidates=num_candidates,
+                    threshold,
+                    num_candidates=adjusted_num_candidates,
                     top_k=top_k)
 
         return results
