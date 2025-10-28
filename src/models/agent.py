@@ -1,18 +1,19 @@
 """Agent domain models for AI agent configurations."""
 
-from pydantic import BaseModel, Field
 import logging
 
-from ..utils.crypto_utils import (
-    encrypt_str,
+from pydantic import BaseModel, Field
+
+from src.models.accesskey import AccessKey
+from src.utils.crypto_utils import (
     decrypt_value,
+    encrypt_str,
     hash_access_key,
     verify_access_key,
 )
 
-logger = logging.getLogger(__name__)
 
-from src.models.accesskey import AccessKey
+logger = logging.getLogger(__name__)
 
 
 class Role(BaseModel):
@@ -79,11 +80,23 @@ class Agent(BaseModel):
     status: str = Field(default="active")
     response_format: str = Field(default="text")
     last_updated: str
-    
+
     # RAG retrieval configuration
-    top_k: int = Field(default=5, gt=0, description="Number of context chunks to retrieve")
-    similarity_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Minimum similarity score for context relevance")
-    hybrid_search_alpha: float = Field(default=0.75, ge=0.0, le=1.0, description="Weight for hybrid search (0=keyword only, 1=vector only)")
+    top_k: int = Field(
+        default=5, gt=0, description="Number of context chunks to retrieve"
+    )
+    similarity_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Minimum similarity score for context relevance",
+    )
+    hybrid_search_alpha: float = Field(
+        default=0.75,
+        ge=0.0,
+        le=1.0,
+        description="Weight for hybrid search (0=keyword only, 1=vector only)",
+    )
 
     def get_role_by_name(self, role_name: str) -> Role | None:
         """Retrieve a role by its name.
@@ -99,35 +112,7 @@ class Agent(BaseModel):
                 return role
         return None
 
-    def get_corpus_for_roles(self, role_names: list[str]) -> list[str]:
-        """Get the combined corpus accessible by the given roles.
-
-        Args:
-            role_names: List of role names to check
-
-        Returns:
-            List of corpus document IDs accessible by any of the roles
-        """
-        corpus_indices = set()
-        for role_name in role_names:
-            role = self.get_role_by_name(role_name)
-            if role:
-                corpus_indices.update(role.subset_of_corpa)
-
-        # Validate indices and return corpus documents
-        invalid_indices = [i for i in corpus_indices if i >= len(self.corpa)]
-        if invalid_indices:
-            if len(self.corpa) == 0:
-                valid_range = "none (corpa is empty)"
-            else:
-                valid_range = f"0-{len(self.corpa) - 1}"
-            logger.warning(
-                f"Invalid corpus indices for agent '{self.name}': {invalid_indices}. "
-                f"Valid range: {valid_range}"
-            )
-
-        return [self.corpa[i] for i in corpus_indices if i < len(self.corpa)]
-
+    # TODO: Use validators instead of this helper methods for encryption and hashing!!
     @classmethod
     def create_with_encryption(
         cls,
@@ -139,7 +124,7 @@ class Agent(BaseModel):
         last_updated: str,
         plain_llm_api_key: str,
         plain_access_keys: list[str] | None = None,
-        **kwargs
+        **kwargs,
     ) -> "Agent":
         """Create an Agent with automatic encryption of sensitive data.
 

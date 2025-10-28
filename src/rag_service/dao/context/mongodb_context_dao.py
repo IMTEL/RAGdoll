@@ -94,7 +94,7 @@ class MongoDBContextDAO(ContextDAO):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
-        self.similarity_threshold = 0.5 # lower = more similar
+        self.similarity_threshold = 0.5  # lower = more similar
 
         # Create indexes for efficient querying
         self._create_indexes()
@@ -119,24 +119,24 @@ class MongoDBContextDAO(ContextDAO):
 
         # Create Atlas Vector Search index
         self._create_vector_search_index()
-        
+
         # Create Atlas Search index for BM25 keyword search
         self._create_keyword_search_index()
 
     def _create_vector_search_index(self):
         """Create Atlas Vector Search index for semantic similarity queries.
-        
+
         This method attempts to create the vector search index automatically.
         If the index already exists, it will be skipped gracefully.
-        
+
         Note: This requires MongoDB Atlas M10+ cluster tier.
         """
         try:
             # Check if the search index already exists
             existing_indexes = list(self.collection.list_search_indexes())
-            
+
             # Check if 'embeddings' index already exists
-            if any(idx.get('name') == 'embeddings' for idx in existing_indexes):
+            if any(idx.get("name") == "embeddings" for idx in existing_indexes):
                 # logger.info("Vector search index 'embeddings' already exists, skipping creation")
                 return
 
@@ -147,28 +147,28 @@ class MongoDBContextDAO(ContextDAO):
                     {
                         "type": "vector",
                         "path": "embedding",
-                        "numDimensions": 768, #TODO: Support multiple dimension amounts
-                        "similarity": "cosine"
+                        "numDimensions": 768,  # TODO: Support multiple dimension amounts
+                        "similarity": "cosine",
                     },
-                    {
-                        "type": "filter",
-                        "path": "agent_id"
-                    },
-                    {
-                        "type": "filter",
-                        "path": "document_id"
-                    }
+                    {"type": "filter", "path": "agent_id"},
+                    {"type": "filter", "path": "document_id"},
                 ]
             }
 
             # Create the vector search index
             # Note: Vector search index type is automatically inferred from 'fields' structure
             self.collection.create_search_index(
-                {"definition": vector_search_definition, "name": "embeddings", "type": "vectorSearch"}
+                {
+                    "definition": vector_search_definition,
+                    "name": "embeddings",
+                    "type": "vectorSearch",
+                }
             )
-            
-            logger.info("Vector search index 'embeddings' created successfully. "
-                       "Note: It may take a few minutes for the index to be fully built in Atlas.")
+
+            logger.info(
+                "Vector search index 'embeddings' created successfully. "
+                "Note: It may take a few minutes for the index to be fully built in Atlas."
+            )
         except AttributeError:
             # create_search_index might not be available in older pymongo versions
             logger.warning(
@@ -184,18 +184,18 @@ class MongoDBContextDAO(ContextDAO):
 
     def _create_keyword_search_index(self):
         """Create Atlas Search index for BM25 keyword search.
-        
+
         This method attempts to create the keyword search index automatically.
         If the index already exists, it will be skipped gracefully.
-        
+
         Note: This requires MongoDB Atlas (any tier).
         """
         try:
             # Check if the search index already exists
             existing_indexes = list(self.collection.list_search_indexes())
-            
+
             # Check if 'keyword_search' index already exists
-            if any(idx.get('name') == 'keyword_search' for idx in existing_indexes):
+            if any(idx.get("name") == "keyword_search" for idx in existing_indexes):
                 # logger.info("Keyword search index 'keyword_search' already exists, skipping creation")
                 return
 
@@ -206,16 +206,10 @@ class MongoDBContextDAO(ContextDAO):
                 "mappings": {
                     "dynamic": False,
                     "fields": {
-                        "text": {
-                            "type": "string"
-                        },
-                        "agent_id": {
-                            "type": "token"
-                        },
-                        "document_id": {
-                            "type": "token"
-                        }
-                    }
+                        "text": {"type": "string"},
+                        "agent_id": {"type": "token"},
+                        "document_id": {"type": "token"},
+                    },
                 }
             }
 
@@ -223,9 +217,11 @@ class MongoDBContextDAO(ContextDAO):
             self.collection.create_search_index(
                 {"definition": keyword_search_definition, "name": "keyword_search"}
             )
-            
-            logger.info("Keyword search index 'keyword_search' created successfully. "
-                       "Note: It may take a few minutes for the index to be fully built in Atlas.")
+
+            logger.info(
+                "Keyword search index 'keyword_search' created successfully. "
+                "Note: It may take a few minutes for the index to be fully built in Atlas."
+            )
         except AttributeError:
             # create_search_index might not be available in older pymongo versions
             logger.warning(
@@ -288,23 +284,30 @@ class MongoDBContextDAO(ContextDAO):
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
         print("Available documents for filtering:", available_documents)
-        
-        keyword_text = keyword_query_text if keyword_query_text is not None else query_text
-        threshold = similarity_threshold if similarity_threshold is not None else self.similarity_threshold
+
+        keyword_text = (
+            keyword_query_text if keyword_query_text is not None else query_text
+        )
+        threshold = (
+            similarity_threshold
+            if similarity_threshold is not None
+            else self.similarity_threshold
+        )
         alpha = hybrid_search_alpha if hybrid_search_alpha is not None else 0.75
         adjusted_num_candidates = max(num_candidates, top_k * 3)
-        
+
         results = hybrid_search(
-                    alpha,
-                    agent_id,
-                    query_embedding, 
-                    query_text,
-                    keyword_text,
-                    available_documents,
-                    self.collection,
-                    threshold,
-                    num_candidates=adjusted_num_candidates,
-                    top_k=top_k)
+            alpha,
+            agent_id,
+            query_embedding,
+            query_text,
+            keyword_text,
+            available_documents,
+            self.collection,
+            threshold,
+            num_candidates=adjusted_num_candidates,
+            top_k=top_k,
+        )
 
         return results
 

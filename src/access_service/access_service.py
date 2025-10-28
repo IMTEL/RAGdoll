@@ -10,8 +10,8 @@ from src.rag_service.dao.agent.base import AgentDAO
 
 
 class AccessService(AbstractAccessService):
-    def __init__(self, agent_database):
-        self.agent_database: AgentDAO = agent_database
+    def __init__(self, agent_database: AgentDAO):
+        self.agent_database = agent_database
 
     def try_get_agent(self, agent_id: str):
         agent = self.agent_database.get_agent_by_id(agent_id)

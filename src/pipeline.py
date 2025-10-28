@@ -7,7 +7,11 @@ from src.llm import create_llm
 from src.models import Agent
 from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
-from src.rag_service.embeddings import GoogleEmbedding, create_embeddings_model
+from src.rag_service.embeddings import (
+    GoogleEmbedding,
+    OpenAIEmbedding,
+    create_embeddings_model,
+)
 
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
@@ -17,16 +21,16 @@ def generate_retrieval_query(
     command: Command, agent: Agent, role_prompt: str = ""
 ) -> str:
     """Generate a standalone query for RAG retrieval from conversation context.
-    
+
     This function uses an LLM to synthesize the latest user message along with
     recent conversation context into a single, focused query that can be used
     for semantic search.
-    
+
     Args:
         command: Command object containing chat history and context
         agent: Agent object containing LLM provider configuration
         role_prompt: Optional role description for context
-        
+
     Returns:
         A standalone query string optimized for RAG retrieval
     """
@@ -34,15 +38,12 @@ def generate_retrieval_query(
         return ""
     last_message = command.chat_log[-1].content if command.chat_log else ""
     recent_context = chat_history_prompt_section(
-        command, 
-        limit=6,
-        include_header=False, 
-        include_latest=True 
+        command, limit=6, include_header=False, include_latest=True
     )
-    
+
     if not recent_context:
         recent_context = "No prior context"
-    
+
     summary_prompt = (
         f"Rewrite this user's latest message as a standalone message that captures all necessary context. This will be used to retrieve relevant information from a knowledge base."
         'Replace any pronouns ("you", "your", "it", "that", etc.) with what the message is referencing from the context.'
@@ -122,9 +123,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         Dictionary with response, function calls, and metadata
     """
     # Use agent's prompt as base, with variable substitution
-    full_chat_history = (
-        chat_history_prompt_section(command, include_latest=True)
-    )
+    full_chat_history = chat_history_prompt_section(command, include_latest=True)
+    full_chat_history = chat_history_prompt_section(command)
 
     # Assemble final prompt
     role_prompt = (
@@ -136,24 +136,40 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     # Generate a standalone query for RAG retrieval using LLM
     retrieval_query = generate_retrieval_query(
-        command=command,
-        agent=agent,
-        role_prompt=role_prompt if role_prompt else ""
+        command=command, agent=agent, role_prompt=role_prompt if role_prompt else ""
     )
 
     # Get accessible categories based on active roles
-    accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
+    accessible_documents = (
+        agent.get_role_by_name(command.active_role_id).document_access
+        if command.active_role_id
+        else []
+    )
 
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
     db = get_context_dao()
 
-    # Use agent's configured embedding model, fallback to "google"
-    # embedding_model_name = getattr(agent, "embedding_model", "google")
-    # print("Using embedding model:", embedding_model_name)
-    # embedding_model = create_embeddings_model(embedding_model_name)
-    # TODO: Change to use agent's configured embedding model when we have more than one
-    embedding_model = GoogleEmbedding()
+    # Use agent's configured embedding model
+    embedding_model_config = agent.embedding_model
+    print("Using embedding model:", embedding_model_config)
+
+    # Parse provider:model format (e.g., "openai:text-embedding-3-small" or "gemini:text-embedding-004")
+    if ":" in embedding_model_config:
+        provider, model_name = embedding_model_config.split(":", 1)
+    else:
+        # Fallback: if no colon use default model
+        provider = "gemini"
+        model_name = "text-embedding-004"
+
+    # Create the appropriate embedding model based on provider
+    if provider.lower() == "openai":
+        embedding_model = OpenAIEmbedding(model_name=model_name)
+    elif provider.lower() in ["google", "gemini"]:
+        embedding_model = GoogleEmbedding(model_name=model_name)
+    else:
+        # Fallback to Gemini if provider not recognized
+        embedding_model = GoogleEmbedding(model_name="text-embedding-004")
 
     try:
         # Generate embedding for the standalone retrieval query
@@ -182,7 +198,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     prompt = ""
     if last_user_response:
         prompt += "\nRESPOND TO THIS NEW USER MESSAGE: " + last_user_response + "\n"
-    prompt += "You are playing a character, and should respond as that character. This is your prompt: " + agent.prompt + "\n"
+    prompt += (
+        "You are playing a character, and should respond as that character. This is your prompt: "
+        + agent.prompt
+        + "\n"
+    )
     prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
     # Add retrieved context to prompt
     if retrieved_contexts:
@@ -245,13 +265,18 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "response": parsed_response,
     }
 
-def chat_history_prompt_section(command, limit: int = 100, include_header: bool = True, include_latest: bool = False) -> str:
+
+def chat_history_prompt_section(
+    command, limit: int = 100, include_header: bool = True, include_latest: bool = False
+) -> str:
     chat_history = ""
     if len(command.chat_log) > 1:
         if include_header:
             chat_history += "This is the previous conversation:\n"
         limit_start = max(0, len(command.chat_log) - limit - 1)
-        for msg in command.chat_log[limit_start:(-1 if not include_latest else None)]:  # Exclude latest user message
+        for msg in command.chat_log[
+            limit_start : (-1 if not include_latest else None)
+        ]:  # Exclude latest user message
             chat_history += f"{msg.role.upper()}: {msg.content}\n"
     return chat_history
 

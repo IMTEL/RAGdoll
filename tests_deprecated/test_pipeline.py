@@ -3,7 +3,7 @@ import pytest
 from src.models import Agent
 from src.models.chat import Message
 from src.models.chat.command import Command
-from src.pipeline import assemble_prompt, get_answer_from_user, generate_retrieval_query
+from src.pipeline import assemble_prompt, generate_retrieval_query, get_answer_from_user
 from src.rag_service.context import Context
 from src.rag_service.dao import get_context_dao
 from tests.mocks import MockContextDAO
@@ -35,7 +35,7 @@ def create_mock_agent(llm_provider: str = "mock") -> Agent:
         llm_api_key="test-api-key",
         access_key=[],
         embedding_model="test-embedding",
-        last_updated="2025-10-23T00:00:00Z"
+        last_updated="2025-10-23T00:00:00Z",
     )
 
 
@@ -157,41 +157,44 @@ def test_empty_response(monkeypatch):
 def test_generate_retrieval_query_with_context(monkeypatch):
     """Test that generate_retrieval_query creates a standalone query from conversation context."""
     # Set the response for the mock LLM
-    DummyLLM.response = "What are the safety procedures for handling chemicals in the laboratory?"
+    DummyLLM.response = (
+        "What are the safety procedures for handling chemicals in the laboratory?"
+    )
 
     def create_mock_llm(model):
         return DummyLLM(DummyLLM.response)
 
     monkeypatch.setattr("src.pipeline.create_llm", create_mock_llm)
-    
+
     agent = create_mock_agent(llm_provider="gemini")
     command = Command(
         agent_id="507f1f77bcf86cd799439011",
         active_role_id="laboratory_technician",
         chat_log=[
             Message(role="user", content="I'm working in the lab today"),
-            Message(role="assistant", content="Great! Make sure to follow all safety protocols."),
+            Message(
+                role="assistant",
+                content="Great! Make sure to follow all safety protocols.",
+            ),
             Message(role="user", content="What should I do with them?"),
-        ]
+        ],
     )
-    
+
     result = generate_retrieval_query(
-        command=command,
-        agent=agent,
-        role_prompt="Laboratory technician"
+        command=command, agent=agent, role_prompt="Laboratory technician"
     )
-    
-    assert result == "What are the safety procedures for handling chemicals in the laboratory?"
+
+    assert (
+        result
+        == "What are the safety procedures for handling chemicals in the laboratory?"
+    )
     assert len(result) > 0
 
 
 def test_generate_retrieval_query_empty_chat_log():
     """Test that generate_retrieval_query handles empty chat log gracefully."""
     agent = create_mock_agent()
-    command = Command(
-        agent_id="507f1f77bcf86cd799439011",
-        chat_log=[]
-    )
+    command = Command(agent_id="507f1f77bcf86cd799439011", chat_log=[])
     result = generate_retrieval_query(command=command, agent=agent, role_prompt="")
     assert result == ""
 
@@ -204,34 +207,34 @@ def test_generate_retrieval_query_single_message(monkeypatch):
         return DummyLLM(DummyLLM.response)
 
     monkeypatch.setattr("src.pipeline.create_llm", create_mock_llm)
-    
+
     agent = create_mock_agent(llm_provider="idun")
     command = Command(
         agent_id="507f1f77bcf86cd799439011",
         chat_log=[
             Message(role="user", content="What is VR training?"),
-        ]
+        ],
     )
-    
+
     result = generate_retrieval_query(command=command, agent=agent)
     assert result == "What is virtual reality training?"
 
 
 def test_generate_retrieval_query_llm_failure(monkeypatch):
     """Test that generate_retrieval_query falls back to last message on LLM failure."""
+
     def failing_create_llm(model):
         raise Exception("LLM service unavailable")
 
     monkeypatch.setattr("src.pipeline.create_llm", failing_create_llm)
-    
+
     agent = create_mock_agent()
     command = Command(
         agent_id="507f1f77bcf86cd799439011",
         chat_log=[
             Message(role="user", content="What is the weather today?"),
-        ]
+        ],
     )
-    
+
     result = generate_retrieval_query(command=command, agent=agent)
     assert result == "What is the weather today?"
-

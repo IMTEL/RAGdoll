@@ -9,6 +9,7 @@ from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.models.model import Model
 from src.rag_service.dao import get_agent_dao
+from src.rag_service.embeddings import get_available_embedding_models
 
 
 config = Config()
@@ -76,7 +77,7 @@ def get_agent(agent_id: str):
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
-def new_access_key(name: str, agent_id: str , expiry_date: str | None = None):
+def new_access_key(name: str, agent_id: str, expiry_date: str | None = None):
     try:
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
@@ -114,3 +115,9 @@ def get_access_keys(agent_id: str):
 def fetch_models():
     """Returns all usable models."""
     return get_models()
+
+
+@router.get("/get_embedding_models", response_model=list[str])
+def fetch_embedding_models():
+    """Returns all usable embedding models."""
+    return get_available_embedding_models()

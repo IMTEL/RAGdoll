@@ -73,7 +73,11 @@ class MockContextDAO(ContextDAO):
             raise ValueError("Embedding cannot be empty")
 
         # Use provided threshold or fall back to instance default
-        threshold = similarity_threshold if similarity_threshold is not None else self.similarity_threshold
+        threshold = (
+            similarity_threshold
+            if similarity_threshold is not None
+            else self.similarity_threshold
+        )
 
         results = []
         for document in self.data[:num_candidates]:  # Limit to num_candidates

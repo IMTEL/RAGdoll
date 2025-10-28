@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.context_upload import process_file_and_store
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.dao.factory import get_agent_dao, get_document_dao
 
 
@@ -57,22 +58,23 @@ async def upload_document_for_agent(
     file_location = temp_files_dir / Path(file.filename).name
     file_content = file.file.read()
     file_size_bytes = len(file_content)
-    
+
     with open(file_location, "wb") as buffer:
         buffer.write(file_content)
 
     try:
-        # Process and store/update document with file size
+        # Process and store/update document with file size using agent's embedding model
         success, document_id = process_file_and_store(
-            str(file_location), agent_id, file_size_bytes=file_size_bytes
+            str(file_location),
+            agent_id,
+            agent.embedding_model,
+            file_size_bytes=file_size_bytes,
         )
 
         # Delete temporary file
         file_location.unlink()
 
-        logger.info(
-            f"Uploaded file: {file.filename} for agent: {agent_id}"
-        )
+        logger.info(f"Uploaded file: {file.filename} for agent: {agent_id}")
 
         if success:
             return {
@@ -85,6 +87,19 @@ async def upload_document_for_agent(
         else:
             raise HTTPException(status_code=500, detail="Failed to process document")
 
+    except EmbeddingAPIError as e:
+        logger.error(f"Embedding API authentication error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Embedding API authentication failed: {e!s}. "
+            f"Please verify the API key for {e.provider} has access to model '{e.model}'.",
+        ) from e
+    except EmbeddingError as e:
+        logger.error(f"Embedding error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Embedding error: {e!s}",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -129,7 +144,7 @@ async def get_documents_for_agent(agent_id: str):
         for doc in documents:
             try:
                 # Format size in a human-readable way
-                size_bytes = getattr(doc, 'size_bytes', 0)
+                size_bytes = getattr(doc, "size_bytes", 0)
                 if size_bytes < 1024:
                     size_str = f"{size_bytes} B"
                 elif size_bytes < 1024 * 1024:
@@ -138,15 +153,22 @@ async def get_documents_for_agent(agent_id: str):
                     size_str = f"{size_bytes / (1024 * 1024):.2f} MB"
                 else:
                     size_str = f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
-                
-                document_list.append({
-                    "id": doc.id,
-                    "name": doc.name,
-                    "size": size_str,
-                    "size_bytes": size_bytes,
-                    "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                    "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
-                })
+
+                document_list.append(
+                    {
+                        "id": doc.id,
+                        "name": doc.name,
+                        "size": size_str,
+                        "size_bytes": size_bytes,
+                        "created_at": doc.created_at.isoformat()
+                        if doc.created_at
+                        else None,
+                        "updated_at": doc.updated_at.isoformat()
+                        if doc.updated_at
+                        else None,
+                    }
+                )
+
             except AttributeError as attr_err:
                 logger.error(f"Document missing required field: {attr_err}, doc: {doc}")
                 # Skip this document and continue with others
@@ -185,30 +207,33 @@ async def delete_document(document_id: str):
     try:
         document_dao = get_document_dao()
         agent_dao = get_agent_dao()
-        
+
         # Check if document exists first
         document = document_dao.get_by_id(document_id)
         if not document:
             raise HTTPException(
-                status_code=404, 
-                detail=f"Document '{document_id}' not found"
+                status_code=404, detail=f"Document '{document_id}' not found"
             )
 
         # Get the agent that owns this document
         agent = agent_dao.get_agent_by_id(document.agent_id)
-        
+
         if agent:
             updated = False
             for role in agent.roles:
                 if document_id in role.document_access:
                     role.document_access.remove(document_id)
                     updated = True
-            
+
             if updated:
                 agent_dao.add_agent(agent)  # This updates the existing agent
-                logger.info(f"Removed document '{document_id}' from agent '{agent.id}' roles")
+                logger.info(
+                    f"Removed document '{document_id}' from agent '{agent.id}' roles"
+                )
             else:
-                logger.info(f"Document '{document_id}' not found in any roles of agent '{agent.id}'")
+                logger.info(
+                    f"Document '{document_id}' not found in any roles of agent '{agent.id}'"
+                )
 
         # Delete the document (this also deletes associated contexts)
         success = document_dao.delete(document_id)
@@ -223,8 +248,7 @@ async def delete_document(document_id: str):
             }
         else:
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete document '{document_id}'"
+                status_code=500, detail=f"Failed to delete document '{document_id}'"
             )
 
     except HTTPException:
