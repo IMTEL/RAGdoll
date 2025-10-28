@@ -175,11 +175,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     print(f"Prompt sent to LLM:\n{prompt}")
 
-    # Define llm_provider from agent's configuration
-    llm_provider = agent.llm_provider
-    print(agent)
-    # Use agent's configured LLM
-    language_model = create_llm(llm_provider, agent.llm_model)
+    # Use agent's configured LLM with specific model
+    language_model = create_llm(llm_provider=agent.llm_provider, model=agent.llm_model)
     response = language_model.generate(prompt)
 
     # Parse function calls from response
@@ -203,7 +200,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     return {
         "id": str(uuid.uuid4()),
         "created": int(time.time()),
-        "model": llm_provider,
+        "model": agent.llm_model,
         "agent_id": command.agent_id,
         "active_role": command.active_role_id,
         "accessible_documents": accessible_documents,
