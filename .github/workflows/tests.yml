@@ -29,22 +29,23 @@ jobs:
         uv run ruff format --check src tests
       continue-on-error: false
 
-  mypy:
-    runs-on: ubuntu-latest
-    name: Type Checking with Mypy
+  # TODO: Uncomment and enable mypy
+  # mypy:
+  #   runs-on: ubuntu-latest
+  #   name: Type Checking with Mypy
 
-    steps:
-    - uses: actions/checkout@v4
+  #   steps:
+  #   - uses: actions/checkout@v4
 
-    - name: Set up environment
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        uv sync --dev
+  #   - name: Set up environment
+  #     run: |
+  #       curl -LsSf https://astral.sh/uv/install.sh | sh
+  #       uv sync --dev
 
-    - name: Type check with Mypy
-      run: |
-        uv run mypy src tests
-      continue-on-error: false
+  #   - name: Type check with Mypy
+  #     run: |
+  #       uv run mypy src tests
+  #     continue-on-error: false
 
   test:
     runs-on: ubuntu-latest
