@@ -12,8 +12,9 @@ class Config:
     """Configuration class to manage environment variables and model loading."""
 
     _instances: ClassVar[dict[type, "Config"]] = {}
+    _initialized: ClassVar[bool] = False  # Set to True after first initialization
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls):
         if cls not in cls._instances:
             instance = super().__new__(cls)
             cls._instances[cls] = instance
@@ -21,6 +22,11 @@ class Config:
 
     def __init__(self):
         """Load environment variables and set configuration attributes."""
+        if Config._initialized:
+            return  # Avoid re-initialization
+
+        Config._initialized = True
+
         self.ENV = os.getenv("ENV", "dev")
 
         # Flag to indicate if tests are running.
@@ -115,3 +121,4 @@ class Config:
     def _delete_instance__():
         """Delete the singleton instance for testing purposes."""
         Config._instances = {}
+        Config._initialized = False
