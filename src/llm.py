@@ -98,7 +98,7 @@ class IdunLLM(LLM):
             raise
         except Exception as e:
             # Catch any other errors (network issues, JSON parsing, etc.)
-            raise LLMGenerationError("idun", self.model, str(e))
+            raise LLMGenerationError("idun", self.model, str(e)) from e
 
     @staticmethod
     def get_models() -> list[str]:
@@ -131,13 +131,19 @@ class OpenAILLM(LLM):
             )
             return response.choices[0].message.content.strip()
         except AuthenticationError as e:
-            raise LLMAPIError("openai", self.model, "authentication", str(e), 401)
+            raise LLMAPIError(
+                "openai", self.model, "authentication", str(e), 401
+            ) from e
         except PermissionDeniedError as e:
-            raise LLMAPIError("openai", self.model, "authentication", str(e), 403)
+            raise LLMAPIError(
+                "openai", self.model, "authentication", str(e), 403
+            ) from e
         except RateLimitError as e:
-            raise LLMAPIError("openai", self.model, "quota", str(e), 429)
+            raise LLMAPIError("openai", self.model, "quota", str(e), 429) from e
         except NotFoundError as e:
-            raise LLMAPIError("openai", self.model, "model_not_found", str(e), 404)
+            raise LLMAPIError(
+                "openai", self.model, "model_not_found", str(e), 404
+            ) from e
         except APIError as e:
             # Check if it's a token/credit issue
             error_msg = str(e).lower()
@@ -148,10 +154,10 @@ class OpenAILLM(LLM):
             ):
                 raise LLMAPIError(
                     "openai", self.model, "insufficient_tokens", str(e), 402
-                )
-            raise LLMGenerationError("openai", self.model, str(e))
+                ) from e
+            raise LLMGenerationError("openai", self.model, str(e)) from e
         except Exception as e:
-            raise LLMGenerationError("openai", self.model, str(e))
+            raise LLMGenerationError("openai", self.model, str(e)) from e
 
     @staticmethod
     def get_models() -> list[str]:
@@ -187,7 +193,9 @@ class GeminiLLM(LLM):
                 or "unauthorized" in error_msg
                 or "authentication" in error_msg
             ):
-                raise LLMAPIError("gemini", self.model, "authentication", str(e), 401)
+                raise LLMAPIError(
+                    "gemini", self.model, "authentication", str(e), 401
+                ) from e
 
             # Check for quota/rate limit errors
             if (
@@ -195,7 +203,7 @@ class GeminiLLM(LLM):
                 or "rate limit" in error_msg
                 or "resource exhausted" in error_msg
             ):
-                raise LLMAPIError("gemini", self.model, "quota", str(e), 429)
+                raise LLMAPIError("gemini", self.model, "quota", str(e), 429) from e
 
             # Check for model not found errors
             if (
@@ -203,7 +211,9 @@ class GeminiLLM(LLM):
                 or "does not exist" in error_msg
                 or "invalid model" in error_msg
             ):
-                raise LLMAPIError("gemini", self.model, "model_not_found", str(e), 404)
+                raise LLMAPIError(
+                    "gemini", self.model, "model_not_found", str(e), 404
+                ) from e
 
             # Check for insufficient credits/tokens
             if (
@@ -213,10 +223,10 @@ class GeminiLLM(LLM):
             ):
                 raise LLMAPIError(
                     "gemini", self.model, "insufficient_tokens", str(e), 402
-                )
+                ) from e
 
             # Default to generation error
-            raise LLMGenerationError("gemini", self.model, str(e))
+            raise LLMGenerationError("gemini", self.model, str(e)) from e
 
     @staticmethod
     def get_models() -> list[str]:

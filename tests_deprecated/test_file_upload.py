@@ -18,7 +18,7 @@ def test_compute_embedding_calls_model(mock_create_model):
 
 @patch("os.path.exists", return_value=False)
 def test_process_file_not_found(mock_exists):
-    result, doc_id = process_file_and_store(
+    result, _ = process_file_and_store(
         "missing.txt", "test-agent", "gemini:models/text-embedding-004"
     )
     assert result is False
@@ -26,7 +26,7 @@ def test_process_file_not_found(mock_exists):
 
 @patch("os.path.exists", return_value=True)
 def test_process_file_unsupported_type(mock_exists):
-    result, doc_id = process_file_and_store(
+    result, _ = process_file_and_store(
         "file.pdf", "test-agent", "gemini:models/text-embedding-004"
     )
     assert result is False
@@ -40,7 +40,7 @@ def test_process_file_unsupported_type(mock_exists):
 def test_process_file_embedding_failure(
     mock_exists, mock_open_func, mock_embed, mock_context_dao, mock_doc_dao
 ):
-    result, doc_id = process_file_and_store(
+    result, _ = process_file_and_store(
         "file.txt", "test-agent", "gemini:models/text-embedding-004"
     )
     assert result is False

@@ -23,12 +23,14 @@ class LLMAPIError(LLMError):
         original_error: str = "",
         status_code: int = 401,
     ):
-        """Args:
+        """Initialize LLMAPIError.
+
+        Args:
         provider: The LLM provider (openai, gemini, idun)
         model: The model name
         error_type: Type of API error (authentication, quota, model_not_found, insufficient_tokens)
         original_error: The original error message
-        status_code: HTTP status code to return
+        status_code: HTTP status code to return.
         """
         error_messages = {
             "authentication": (
