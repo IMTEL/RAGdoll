@@ -4,6 +4,8 @@ import sys
 
 import pytest
 
+from src.config import Config
+
 
 # Ensure required third-party packages are available; skip the test module if not.
 pytest.importorskip("cryptography")
@@ -38,136 +40,130 @@ def reload_crypto(monkeypatch, key: bytes | None):
     return importlib.import_module("src.utils.crypto_utils")
 
 
-def test_module_import_with_valid_key(monkeypatch):
-    # Generate a fresh key for isolation
-    key = Fernet.generate_key()
-    crypto = reload_crypto(monkeypatch, key)
-    # Basic attributes exist
-    assert hasattr(crypto, "encrypt_str")
-    assert hasattr(crypto, "decrypt_value")
+class TestCryptoUtils:
+    """Tests for src.utils.crypto_utils functions."""
 
+    def test_module_import_with_valid_key(self, monkeypatch):
+        # Generate a fresh key for isolation
+        key = Fernet.generate_key()
+        crypto = reload_crypto(monkeypatch, key)
+        # Basic attributes exist
+        assert hasattr(crypto, "encrypt_str")
+        assert hasattr(crypto, "decrypt_value")
 
-def test_encrypt_decrypt_roundtrip(monkeypatch):
-    # Use a fresh ephemeral key for this test
-    key = Fernet.generate_key()
-    crypto = reload_crypto(monkeypatch, key)
+    def test_encrypt_decrypt_roundtrip(self, monkeypatch):
+        # Use a fresh ephemeral key for this test
+        key = Fernet.generate_key()
+        crypto = reload_crypto(monkeypatch, key)
 
-    secret = "my-super-secret"
-    token = crypto.encrypt_str(secret)
-    assert isinstance(token, str)
-    assert token != secret
+        secret = "my-super-secret"
+        token = crypto.encrypt_str(secret)
+        assert isinstance(token, str)
+        assert token != secret
 
-    decrypted = crypto.decrypt_value(token)
-    assert decrypted == secret
+        decrypted = crypto.decrypt_value(token)
+        assert decrypted == secret
 
+    def test_encrypt_empty_value_raises(self, monkeypatch):
+        key = Fernet.generate_key()
+        crypto = reload_crypto(monkeypatch, key)
 
-def test_encrypt_empty_value_raises(monkeypatch):
-    key = Fernet.generate_key()
-    crypto = reload_crypto(monkeypatch, key)
+        with pytest.raises(ValueError):
+            crypto.encrypt_str("")
 
-    with pytest.raises(ValueError):
-        crypto.encrypt_str("")
+    def test_decrypt_invalid_token_raises(self, monkeypatch):
+        key = Fernet.generate_key()
+        crypto = reload_crypto(monkeypatch, key)
 
+        with pytest.raises(ValueError):
+            crypto.decrypt_value("not-a-token")
 
-def test_decrypt_invalid_token_raises(monkeypatch):
-    key = Fernet.generate_key()
-    crypto = reload_crypto(monkeypatch, key)
+    def test_hash_and_verify_access_key(self, monkeypatch):
+        # Use a fresh ephemeral key for this test (module import requires a key)
+        key = Fernet.generate_key()
+        crypto = reload_crypto(monkeypatch, key)
 
-    with pytest.raises(ValueError):
-        crypto.decrypt_value("not-a-token")
+        access_key = "agent-key-123"
+        hashed = crypto.hash_access_key(access_key)
+        assert isinstance(hashed, (bytes, bytearray))
 
+        assert crypto.verify_access_key(access_key, hashed) is True
+        assert crypto.verify_access_key("wrong-key", hashed) is False
 
-def test_hash_and_verify_access_key(monkeypatch):
-    # Use a fresh ephemeral key for this test (module import requires a key)
-    key = Fernet.generate_key()
-    crypto = reload_crypto(monkeypatch, key)
+    def test_hash_empty_raises(self, monkeypatch):
+        key = Fernet.generate_key()
+        crypto = reload_crypto(monkeypatch, key)
 
-    access_key = "agent-key-123"
-    hashed = crypto.hash_access_key(access_key)
-    assert isinstance(hashed, (bytes, bytearray))
+        with pytest.raises(ValueError):
+            crypto.hash_access_key("")
 
-    assert crypto.verify_access_key(access_key, hashed) is True
-    assert crypto.verify_access_key("wrong-key", hashed) is False
+    def test_missing_fernet_key(self, monkeypatch):
+        # Ensure env is unset and re-importing the module raises
+        monkeypatch.delenv("FERNET_KEY", raising=False)
 
+        # Clear config singleton to force re-read of env var
+        Config._delete_instance__()
 
-def test_hash_empty_raises(monkeypatch):
-    key = Fernet.generate_key()
-    crypto = reload_crypto(monkeypatch, key)
+        with pytest.raises(RuntimeError):
+            Config()
 
-    with pytest.raises(ValueError):
-        crypto.hash_access_key("")
+    def test_invalid_fernet_key_raises_on_import(self, monkeypatch):
+        monkeypatch.setenv("FERNET_KEY", "not-a-valid-key")
+        if "src.utils.crypto_utils" in sys.modules:
+            del sys.modules["src.utils.crypto_utils"]
 
+        with pytest.raises(ValueError):
+            importlib.import_module("src.utils.crypto_utils")
 
-def test_missing_fernet_key_raises_on_import(monkeypatch):
-    # ensure env is unset and re-importing the module raises
-    monkeypatch.delenv("FERNET_KEY", raising=False)
-    # Also prevent load_dotenv from loading the .env file
-    monkeypatch.setattr("dotenv.load_dotenv", lambda: None)
-    if "src.utils.crypto_utils" in sys.modules:
-        del sys.modules["src.utils.crypto_utils"]
+    def test_reads_fernet_key_from_env(self, monkeypatch):
+        """Test.
 
-    with pytest.raises(RuntimeError):
-        importlib.import_module("src.utils.crypto_utils")
+        If the environment already provides a FERNET_KEY (e.g. from .env),
+        ensure the module uses it. This test will be skipped when the env var
+        isn't present because it's specifically validating reading from the
+        environment/.env file.
+        """
+        # Prefer an already-exported FERNET_KEY. If it's not present, try to
+        # read only the FERNET_KEY value from the project's .env file (do not
+        # source or export the whole file). This keeps the key out of the shell
+        # environment while still allowing the test to validate env-based loading.
+        existing = os.environ.get("FERNET_KEY")
+        key_value = existing
+        if not key_value:
+            # locate the project root (one level up from tests/)
+            tests_dir = os.path.dirname(__file__)
+            project_root = os.path.abspath(os.path.join(tests_dir, os.pardir))
+            env_path = os.path.join(project_root, ".env")
+            if os.path.exists(env_path):
+                # Parse the file for a single FERNET_KEY entry only (no execution,
+                # no other variables loaded).
+                with open(env_path, encoding="utf-8") as fh:
+                    for line in fh:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        if "FERNET_KEY" in line and "=" in line:
+                            k, v = line.split("=", 1)
+                            if k.strip() == "FERNET_KEY":
+                                # strip optional surrounding quotes
+                                val = v.strip()
+                                if val.startswith('"') and val.endswith('"'):
+                                    val = val[1:-1]
+                                key_value = val
+                                break
 
+        if not key_value:
+            pytest.skip(
+                "FERNET_KEY not present in environment or .env; skipping env-read test"
+            )
 
-def test_invalid_fernet_key_raises_on_import(monkeypatch):
-    monkeypatch.setenv("FERNET_KEY", "not-a-valid-key")
-    if "src.utils.crypto_utils" in sys.modules:
-        del sys.modules["src.utils.crypto_utils"]
+        # Ensure the module will be imported fresh and will pick up the env value
+        # We set it using monkeypatch so the shell environment is not modified.
+        monkeypatch.setenv("FERNET_KEY", key_value)
+        if "src.utils.crypto_utils" in sys.modules:
+            del sys.modules["src.utils.crypto_utils"]
 
-    with pytest.raises(ValueError):
-        importlib.import_module("src.utils.crypto_utils")
-
-
-def test_reads_fernet_key_from_env(monkeypatch):
-    """Test.
-
-    If the environment already provides a FERNET_KEY (e.g. from .env),
-    ensure the module uses it. This test will be skipped when the env var
-    isn't present because it's specifically validating reading from the
-    environment/.env file.
-    """
-    # Prefer an already-exported FERNET_KEY. If it's not present, try to
-    # read only the FERNET_KEY value from the project's .env file (do not
-    # source or export the whole file). This keeps the key out of the shell
-    # environment while still allowing the test to validate env-based loading.
-    existing = os.environ.get("FERNET_KEY")
-    key_value = existing
-    if not key_value:
-        # locate the project root (one level up from tests/)
-        tests_dir = os.path.dirname(__file__)
-        project_root = os.path.abspath(os.path.join(tests_dir, os.pardir))
-        env_path = os.path.join(project_root, ".env")
-        if os.path.exists(env_path):
-            # Parse the file for a single FERNET_KEY entry only (no execution,
-            # no other variables loaded).
-            with open(env_path, encoding="utf-8") as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if "FERNET_KEY" in line and "=" in line:
-                        k, v = line.split("=", 1)
-                        if k.strip() == "FERNET_KEY":
-                            # strip optional surrounding quotes
-                            val = v.strip()
-                            if val.startswith('"') and val.endswith('"'):
-                                val = val[1:-1]
-                            key_value = val
-                            break
-
-    if not key_value:
-        pytest.skip(
-            "FERNET_KEY not present in environment or .env; skipping env-read test"
-        )
-
-    # Ensure the module will be imported fresh and will pick up the env value
-    # We set it using monkeypatch so the shell environment is not modified.
-    monkeypatch.setenv("FERNET_KEY", key_value)
-    if "src.utils.crypto_utils" in sys.modules:
-        del sys.modules["src.utils.crypto_utils"]
-
-    crypto = importlib.import_module("src.utils.crypto_utils")
-    secret = "env-based-secret"
-    token = crypto.encrypt_str(secret)
-    assert crypto.decrypt_value(token) == secret
+        crypto = importlib.import_module("src.utils.crypto_utils")
+        secret = "env-based-secret"
+        token = crypto.encrypt_str(secret)
+        assert crypto.decrypt_value(token) == secret
