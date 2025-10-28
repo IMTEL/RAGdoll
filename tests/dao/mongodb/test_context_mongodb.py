@@ -21,24 +21,27 @@ class TestMongoDBContextDAO:
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         """Setup and teardown for MongoDB tests."""
-        self.repo = MongoDBContextDAO()
+        self.context_dao = MongoDBContextDAO()
 
-        if self.mongodb_found_unreachable or not self.repo.is_reachable():
+        if self.mongodb_found_unreachable or not self.context_dao.is_reachable():
             self.mongodb_found_unreachable = True
             pytest.skip("MongoDB is not reachable. Skipping tests.")
 
         # Clear the collection before and after each test
-        self.repo.collection.delete_many({})
+        self.context_dao.collection.delete_many({})
         yield
-        self.repo.collection.delete_many({})
+        self.context_dao.collection.delete_many({})
+
+        # Drop the test database after tests
+        self.context_dao.client.drop_database(self.context_dao.db.name)
 
     def test_is_reachable(self):
         """Test that is_reachable returns True."""
-        assert self.repo.is_reachable() is True
+        assert self.context_dao.is_reachable() is True
 
     def test_post_context(self):
         """Test posting a new context."""
-        context = self.repo.insert_context(
+        context = self.context_dao.insert_context(
             document_id="doc123",
             agent_id="agent-456",
             embedding=create_test_embedding(0.1),
@@ -53,13 +56,13 @@ class TestMongoDBContextDAO:
         assert context.document_name == "TestDoc"
 
         # Verify it was inserted
-        count = self.repo.collection.count_documents({})
+        count = self.context_dao.collection.count_documents({})
         assert count == 1
 
     def test_get_context_for_agent(self):
         """Test retrieving contexts for a specific agent."""
         # Insert multiple contexts for different agents
-        self.repo.insert_context(
+        self.context_dao.insert_context(
             document_id="doc1",
             agent_id="agent-1",
             embedding=create_test_embedding(0.1),
@@ -69,7 +72,7 @@ class TestMongoDBContextDAO:
                 document_id="doc1",
             ),
         )
-        self.repo.insert_context(
+        self.context_dao.insert_context(
             document_id="doc2",
             agent_id="agent-2",
             embedding=create_test_embedding(0.4),
@@ -81,7 +84,7 @@ class TestMongoDBContextDAO:
         )
 
         # Retrieve contexts for agent-1 with its document
-        results = self.repo.get_context_for_agent(
+        results = self.context_dao.get_context_for_agent(
             agent_id="agent-1",
             embedding=create_test_embedding(0.1),
             documents=["doc1"],
@@ -96,7 +99,7 @@ class TestMongoDBContextDAO:
     def test_get_context_for_agent_no_results(self):
         """Test retrieving contexts for agent when no accessible documents exist."""
         # Insert context for agent-1
-        self.repo.insert_context(
+        self.context_dao.insert_context(
             document_id="doc1",
             agent_id="agent-1",
             embedding=create_test_embedding(0.1),
@@ -108,7 +111,7 @@ class TestMongoDBContextDAO:
         )
 
         # Try to get contexts with a different agent_id
-        results = self.repo.get_context_for_agent(
+        results = self.context_dao.get_context_for_agent(
             agent_id="agent-999",
             embedding=create_test_embedding(0.1),
             documents=["doc1"],
@@ -120,7 +123,7 @@ class TestMongoDBContextDAO:
 
     def test_get_context_for_agent_no_documents(self):
         """Test retrieving contexts when no documents exist in the collection."""
-        results = self.repo.get_context_for_agent(
+        results = self.context_dao.get_context_for_agent(
             agent_id="agent-1",
             embedding=create_test_embedding(0.1),
             documents=[],

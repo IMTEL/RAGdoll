@@ -20,10 +20,10 @@ mongodb_found_unreachable = False
 @pytest.fixture(autouse=True)
 def check_mongodb_reachability():
     """Skip all tests if MongoDB is not reachable."""
-    repo = MongoDBAgentDAO()
+    agent_dao = MongoDBAgentDAO()
 
     global mongodb_found_unreachable
-    if mongodb_found_unreachable or not repo.is_reachable():
+    if mongodb_found_unreachable or not agent_dao.is_reachable():
         mongodb_found_unreachable = True
         pytest.skip("MongoDB is not reachable. Skipping all tests.")
 
@@ -74,6 +74,9 @@ def cleanup_mongodb(mongodb_dao: MongoDBAgentDAO):
     yield
     # Clear the collection after test
     mongodb_dao.collection.delete_many({})
+
+    # Drop the database to ensure complete cleanup
+    mongodb_dao.client.drop_database(mongodb_dao.db.name)
 
 
 class TestMongoDBAgentDAOConnection:
