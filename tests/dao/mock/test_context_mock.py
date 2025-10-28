@@ -104,3 +104,26 @@ class TestMockContextDAO:
 
         assert results == []
         assert isinstance(results, list)
+
+    def test_singleton_behavior(self):
+        """Test that MockContextDAO behaves as a singleton."""
+        repo1 = MockContextDAO()
+        repo2 = MockContextDAO()
+
+        assert repo1 is repo2
+
+        # Insert context using repo1
+        repo1.insert_context(
+            document_id="doc-singleton",
+            agent_id="agent-singleton",
+            embedding=[0.1, 0.2, 0.3],
+            context=Context(
+                text="Singleton context",
+                document_name="SingletonDoc",
+                document_id="doc-singleton",
+            ),
+        )
+
+        # Verify that repo2 sees the same data
+        assert len(repo2.data) == 1
+        assert repo2.data[0]["document_id"] == "doc-singleton"
