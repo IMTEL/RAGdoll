@@ -100,7 +100,7 @@ jobs:
 
     - name: Run tests inside container
       run: |
-        docker exec ragdoll-backend uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+        docker exec ragdoll-backend uv run pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing
 
     - name: Copy coverage report from container
       if: always()
@@ -118,4 +118,4 @@ jobs:
     - name: Tear down services
       if: always()
       run: |
-        docker compose -f docker-compose.yml -f docker-compose.test.yml down
+        docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
