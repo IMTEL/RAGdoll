@@ -13,10 +13,10 @@ def reset_config_singleton():
     affecting other tests.
     """
     # Reset the singleton instance before the test
-    Config._instance = None
+    Config._delete_instance__()
     yield
     # Reset after the test as well
-    Config._instance = None
+    Config._delete_instance__()
 
 
 class TestConfigSingleton:

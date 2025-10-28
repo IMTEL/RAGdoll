@@ -4,8 +4,10 @@ from copy import deepcopy
 
 from src.models.agent import Agent
 from src.rag_service.dao import AgentDAO
+from src.utils import singleton
 
 
+@singleton
 class MockAgentDAO(AgentDAO):
     """In-memory mock implementation of AgentDAO for testing.
 
@@ -13,20 +15,9 @@ class MockAgentDAO(AgentDAO):
     Uses singleton pattern to ensure tests can clear shared state.
     """
 
-    _instance = None
-    _initialized = False
-
-    def __new__(cls):
-        """Ensure only one instance exists (singleton pattern)."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        """Initialize empty agent storage (only once for singleton)."""
-        if not MockAgentDAO._initialized:
-            self.agents: list[Agent] = []
-            MockAgentDAO._initialized = True
+        """Initialize empty agent storage."""
+        self.agents: list[Agent] = []
 
     def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in memory or updates if the agentID already exists.

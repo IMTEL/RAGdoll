@@ -6,8 +6,10 @@ of a real DAO without requiring actual database connections.
 
 from src.rag_service.context import Context
 from src.rag_service.dao import ContextDAO
+from src.utils import singleton
 
 
+@singleton
 class MockContextDAO(ContextDAO):
     """In-memory singleton implementation of ContextDAO for testing.
 
@@ -15,23 +17,11 @@ class MockContextDAO(ContextDAO):
     instances using the singleton pattern.
     """
 
-    _instance = None  # Singleton instance
-    _initialized = False  # Track initialization status
-
-    def __new__(cls):
-        """Ensure only one instance exists (singleton pattern)."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        """Initialize the mock DAO (only once)."""
-        # Prevent reinitialization
-        if not MockContextDAO._initialized:
-            self.data = []  # In-memory storage
-            self.similarity_threshold = 0.7
-            self.collection = self  # For compatibility with code expecting .collection
-            MockContextDAO._initialized = True
+        """Initialize the mock DAO."""
+        self.data: list[dict] = []  # TODO: Change to list of Contexts
+        self.similarity_threshold = 0.7
+        self.collection = self  # For compatibility with code expecting .collection
 
     def get_context_for_agent(
         self,

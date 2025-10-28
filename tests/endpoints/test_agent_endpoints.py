@@ -6,6 +6,7 @@ to ensure proper HTTP request/response handling.
 import pytest
 from fastapi.testclient import TestClient
 
+from src.config import Config
 from src.main import app
 from tests.mocks import MockAgentDAO
 
@@ -16,12 +17,21 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_mock_dao():
     """Clear mock dao before and after each test."""
+    # Set the environment to use the mock DAO
+    prev_db_system = Config().RAG_DATABASE_SYSTEM
+    Config().RAG_DATABASE_SYSTEM = "mock"
+
+    print("DB CONFIG IN FIXTURE:", Config().RAG_DATABASE_SYSTEM)
+
     repo = MockAgentDAO()
     repo.clear()
 
     yield
 
     repo.clear()
+
+    # Restore previous database system configuration
+    Config().RAG_DATABASE_SYSTEM = prev_db_system
 
 
 class TestAgentEndpoints:
@@ -51,6 +61,8 @@ class TestAgentEndpoints:
             "response_format": "json",
             "last_updated": "2025-10-03T10:00:00Z",
         }
+
+        print("DB CONFIG:", Config().RAG_DATABASE_SYSTEM)
 
         response = client.post("/agents/", json=agent_data)
 
