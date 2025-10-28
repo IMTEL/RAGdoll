@@ -2,15 +2,16 @@
 
 import logging
 from datetime import datetime
-from typing import ClassVar
 
 from src.models.rag import Document
 from src.rag_service.dao.document.base import DocumentDAO
+from src.utils import singleton
 
 
 logger = logging.getLogger(__name__)
 
 
+@singleton
 class MockDocumentDAO(DocumentDAO):
     """In-memory implementation of DocumentDAO for testing.
 
@@ -18,14 +19,8 @@ class MockDocumentDAO(DocumentDAO):
     maintain state across test cases within a session.
     """
 
-    _instance: ClassVar["MockDocumentDAO | None"] = None
-    _documents: ClassVar[dict[str, Document]] = {}
-
-    def __new__(cls):
-        """Ensure singleton pattern for consistent test state."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    def __init__(self) -> None:
+        self._documents: dict[str, Document] = {}
 
     def get_by_id(self, document_id: str) -> Document | None:
         """Fetch a document by its unique ID.

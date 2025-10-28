@@ -3,6 +3,7 @@ import os
 import uuid
 
 from src.config import Config
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.context import Context
 from src.rag_service.dao.factory import get_context_dao, get_document_dao
 from src.rag_service.embeddings import create_embeddings_model
@@ -11,20 +12,21 @@ from src.rag_service.embeddings import create_embeddings_model
 logger = logging.getLogger(__name__)
 
 
-# Load configuration and initialize the SentenceTransformer model.
+# Load configuration
 config = Config()
-embedding_model = create_embeddings_model()
 
 
-def compute_embedding(text: str) -> list[float]:
-    """Computes an embedding for the given text using a SentenceTransformer model.
+def compute_embedding(text: str, embedding_model_str: str) -> list[float]:
+    """Computes an embedding for the given text using the specified embedding model.
 
     Args:
         text (str): The text to embed.
+        embedding_model_str (str): The embedding model to use in format "provider:model_name".
 
     Returns:
         list[float]: The computed embedding as a list of floats.
     """
+    embedding_model = create_embeddings_model(embedding_model_str)
     embeddings = embedding_model.get_embedding(text)
     return embeddings
 
@@ -32,6 +34,7 @@ def compute_embedding(text: str) -> list[float]:
 def process_file_and_store(
     file_path: str,
     agent_id: str,
+    embedding_model: str,
     document_id: str | None = None,
     file_size_bytes: int | None = None,
 ) -> tuple[bool, str]:
@@ -52,6 +55,7 @@ def process_file_and_store(
     Args:
         file_path (str): Path to the text or markdown file.
         agent_id (str): Agent ID that owns this document.
+        embedding_model (str): Embedding model to use in format "provider:model_name".
         document_id (str | None): Optional document ID for updates.
         file_size_bytes (int | None): Size of the file in bytes. If None, will be computed from file_path.
 
@@ -89,10 +93,17 @@ def process_file_and_store(
         logger.error(f"Error reading file '{file_path}': {e}")
         return False, ""
 
-    # Compute the embedding using the actual model.
+    # Compute the embedding using the agent's embedding model.
     # TODO: For chunked documents, compute embeddings per chunk
     try:
-        embedding = compute_embedding(text)
+        embedding = compute_embedding(text, embedding_model)
+    except (EmbeddingAPIError, EmbeddingError):
+        # Re-raise embedding-specific errors so they can be handled properly
+        raise
+    except ValueError as e:
+        # Invalid embedding model format
+        logger.error(f"Invalid embedding model format for file '{file_path}': {e}")
+        raise EmbeddingError(f"Invalid embedding model configuration: {e!s}", e) from e
     except Exception as e:
         logger.error(f"Error computing embedding for file '{file_path}': {e}")
         return False, ""
@@ -174,6 +185,7 @@ if __name__ == "__main__":
     # Example usage of the process_file_and_store function.
     file_path = "src.context_files.salmon.txt"
     agent_id = "test-agent-123"
-    success, doc_id = process_file_and_store(file_path, agent_id)
+    embedding_model = "gemini:models/text-embedding-004"
+    success, doc_id = process_file_and_store(file_path, agent_id, embedding_model)
     if success:
         print(f"Document stored with ID: {doc_id}")

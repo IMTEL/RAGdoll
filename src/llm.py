@@ -129,6 +129,10 @@ class MockLLM(LLM):
     def generate(self, prompt: str) -> str:
         return f"Mocked response for prompt: {prompt}"
 
+    @staticmethod
+    def get_models() -> list[str]:
+        return []
+
 
 def get_models():
     all_models = OpenAILLM.get_models() + GeminiLLM.get_models()

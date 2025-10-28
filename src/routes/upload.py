@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.context_upload import process_file_and_store
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.dao.factory import get_agent_dao, get_document_dao
 
 
@@ -62,9 +63,12 @@ async def upload_document_for_agent(
         buffer.write(file_content)
 
     try:
-        # Process and store/update document with file size
+        # Process and store/update document with file size using agent's embedding model
         success, document_id = process_file_and_store(
-            str(file_location), agent_id, file_size_bytes=file_size_bytes
+            str(file_location),
+            agent_id,
+            agent.embedding_model,
+            file_size_bytes=file_size_bytes,
         )
 
         # Delete temporary file
@@ -83,6 +87,19 @@ async def upload_document_for_agent(
         else:
             raise HTTPException(status_code=500, detail="Failed to process document")
 
+    except EmbeddingAPIError as e:
+        logger.error(f"Embedding API authentication error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Embedding API authentication failed: {e!s}. "
+            f"Please verify the API key for {e.provider} has access to model '{e.model}'.",
+        ) from e
+    except EmbeddingError as e:
+        logger.error(f"Embedding error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Embedding error: {e!s}",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -151,6 +168,7 @@ async def get_documents_for_agent(agent_id: str):
                         else None,
                     }
                 )
+
             except AttributeError as attr_err:
                 logger.error(f"Document missing required field: {attr_err}, doc: {doc}")
                 # Skip this document and continue with others
