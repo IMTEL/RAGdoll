@@ -74,9 +74,7 @@ async def upload_document_for_agent(
         # Delete temporary file
         file_location.unlink()
 
-        logger.info(
-            f"Uploaded file: {file.filename} for agent: {agent_id} using embedding model: {agent.embedding_model}"
-        )
+        logger.info(f"Uploaded file: {file.filename} for agent: {agent_id}")
 
         if success:
             return {
@@ -155,6 +153,21 @@ async def get_documents_for_agent(agent_id: str):
                     size_str = f"{size_bytes / (1024 * 1024):.2f} MB"
                 else:
                     size_str = f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+                document_list.append(
+                    {
+                        "id": doc.id,
+                        "name": doc.name,
+                        "size": size_str,
+                        "size_bytes": size_bytes,
+                        "created_at": doc.created_at.isoformat()
+                        if doc.created_at
+                        else None,
+                        "updated_at": doc.updated_at.isoformat()
+                        if doc.updated_at
+                        else None,
+                    }
+                )
 
                 document_list.append(
                     {

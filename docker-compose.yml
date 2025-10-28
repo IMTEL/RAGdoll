@@ -1,51 +1,77 @@
-# Docker Compose Configuration for RAGdoll Application
-# Purpose: Local development environment orchestration
-# - Runs the FastAPI backend container alongside MongoDB
-# - Use 'docker compose up' for local development with real database
-# - For production deployment, use Dockerfile directly with your orchestration platform
-
 services:
-  # FastAPI Backend Service
-  chat-service:
-    build: 
+  # Reverse proxy handling HTTPS with NTNU cert
+  nginx:
+    image: nginx:1.27-alpine  # Pinned version with Alpine for reduced size
+    container_name: ragdoll-nginx
+    depends_on:
+      - chat-service
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mount static config and SSL certs
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /root/iplvr.it.ntnu.no.crt:/etc/ssl/certs/server.crt:ro
+      - /root/iplvr.it.ntnu.no.key:/etc/ssl/private/server.key:ro
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI backend
+  backend-service:
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: ragdoll-backend
-    ports:
-      - "8000:8000"
-    volumes:
-      # Mount source code for hot-reload during development
-      - .:/app
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    env_file:
-      - .env
+    expose:
+      - "8000"  # internal only, Nginx connects here
     environment:
-      # Production environment (not dev/mock)
       - ENV=prod
-      # MongoDB connection settings
-      - MONGODB_URI=mongodb://mongodb:27017
+      # MongoDB Atlas connection (supports vector search)
+      - MONGODB_URI=${MONGODB_URI}
       - MONGODB_DATABASE=${MONGODB_DATABASE}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
+      - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION}
       - RAG_DATABASE_SYSTEM=mongodb
+      # LLM API Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
+      - IDUN_API_KEY=${IDUN_API_KEY}
+      - IDUN_MODEL=${IDUN_MODEL:-openai/gpt-oss-120b}
+      - IDUN_API_URL=${IDUN_API_URL:-https://idun-llm.hpc.ntnu.no/api/chat/completions}
+      # Access Service
+      - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
+      - FERNET_KEY=${FERNET_KEY}
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 1G
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # MongoDB Database Service
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-volumes:
-  mongo-data: {}
- 
+# Note: MongoDB Atlas is used as external service (cloud-hosted)
+# No local MongoDB container needed for production

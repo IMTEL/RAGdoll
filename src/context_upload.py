@@ -64,9 +64,7 @@ def process_file_and_store(
     """
     from src.models.rag import Document
 
-    logger.info(
-        f"Starting file processing for: {file_path} with agent_id: {agent_id}, embedding_model: {embedding_model}"
-    )
+    logger.info(f"Starting file processing for: {file_path} with agent_id: {agent_id}")
 
     # Verify file exists
     if not os.path.exists(file_path):

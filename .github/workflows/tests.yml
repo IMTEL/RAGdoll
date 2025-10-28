@@ -1,0 +1,120 @@
+name: Tests and Lint
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint & Format Check
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up environment
+      # Install and run uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        uv sync --dev
+
+    - name: Lint with Ruff
+      run: |
+        uv run ruff check src tests
+        uv run ruff format --check src tests
+      continue-on-error: false
+
+  mypy:
+    runs-on: ubuntu-latest
+    name: Type Checking with Mypy
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        uv sync --dev
+
+    - name: Type check with Mypy
+      run: |
+        uv run mypy src tests
+      continue-on-error: false
+
+  test:
+    runs-on: ubuntu-latest
+    name: Tests with Docker Compose
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create .env file for testing
+      run: |
+        cat << EOF > .env
+        ENV=dev
+        RUNNING_TESTS=true
+        
+        # LLM Configuration
+        OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        GPT_MODEL=gpt-4o-mini
+        GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+        GEMINI_MODEL=gemini-2.0-flash-lite
+        
+        # MongoDB Test Configuration (uses MOCK_MONGODB_URI for Atlas testing)
+        MOCK_MONGODB_URI=${{ secrets.MOCK_MONGODB_URI }}
+        MOCK_MONGODB_DATABASE=test_database
+        MONGODB_CONTEXT_COLLECTION=contexts
+        MONGODB_AGENT_COLLECTION=agents
+        MONGODB_DOCUMENTS_COLLECTION=documents
+        RAG_DATABASE_SYSTEM=mongodb
+        
+        # Access Service
+        ACCESS_SERVICE=mock
+
+        # Fernet key for encryption
+        FERNET_KEY=${{ secrets.FERNET_KEY }}
+
+        EOF
+
+    - name: Build and start services with Docker Compose
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --build
+
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for the backend-service to be ready..."
+        timeout 60 bash -c 'until curl -s http://localhost:8000/docs > /dev/null; do sleep 2; done'
+        echo "Backend service is ready"
+
+    - name: Check service logs
+      if: always()
+      run: |
+        echo "=== Chat Service Logs ==="
+        docker logs ragdoll-backend --tail 50
+
+    - name: Run tests inside container
+      run: |
+        docker exec ragdoll-backend uv run pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+
+    - name: Copy coverage report from container
+      if: always()
+      run: |
+        docker cp ragdoll-backend:/app/coverage.xml ./coverage.xml || echo "No coverage file found"
+
+    - name: Upload coverage to Codecov (optional)
+      if: always()
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+      continue-on-error: true
+
+    - name: Tear down services
+      if: always()
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.test.yml down -v
