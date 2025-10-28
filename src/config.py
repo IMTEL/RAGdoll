@@ -68,11 +68,6 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
 
-        # TODO: Fetch models from IDUN's endpoint
-        self.IDUN_MODELS = os.getenv(
-            "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
-        ).split(",")
-
         self.FERNET_KEY = os.getenv("FERNET_KEY", "")
 
         if not self.FERNET_KEY:
