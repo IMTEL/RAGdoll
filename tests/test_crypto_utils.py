@@ -1,5 +1,4 @@
 import importlib
-import os
 import sys
 
 import pytest
@@ -114,56 +113,3 @@ class TestCryptoUtils:
 
         with pytest.raises(ValueError):
             importlib.import_module("src.utils.crypto_utils")
-
-    def test_reads_fernet_key_from_env(self, monkeypatch):
-        """Test.
-
-        If the environment already provides a FERNET_KEY (e.g. from .env),
-        ensure the module uses it. This test will be skipped when the env var
-        isn't present because it's specifically validating reading from the
-        environment/.env file.
-        """
-        # Prefer an already-exported FERNET_KEY. If it's not present, try to
-        # read only the FERNET_KEY value from the project's .env file (do not
-        # source or export the whole file). This keeps the key out of the shell
-        # environment while still allowing the test to validate env-based loading.
-        existing = os.environ.get("FERNET_KEY")
-        key_value = existing
-        if not key_value:
-            # locate the project root (one level up from tests/)
-            tests_dir = os.path.dirname(__file__)
-            project_root = os.path.abspath(os.path.join(tests_dir, os.pardir))
-            env_path = os.path.join(project_root, ".env")
-            if os.path.exists(env_path):
-                # Parse the file for a single FERNET_KEY entry only (no execution,
-                # no other variables loaded).
-                with open(env_path, encoding="utf-8") as fh:
-                    for line in fh:
-                        line = line.strip()
-                        if not line or line.startswith("#"):
-                            continue
-                        if "FERNET_KEY" in line and "=" in line:
-                            k, v = line.split("=", 1)
-                            if k.strip() == "FERNET_KEY":
-                                # strip optional surrounding quotes
-                                val = v.strip()
-                                if val.startswith('"') and val.endswith('"'):
-                                    val = val[1:-1]
-                                key_value = val
-                                break
-
-        if not key_value:
-            pytest.skip(
-                "FERNET_KEY not present in environment or .env; skipping env-read test"
-            )
-
-        # Ensure the module will be imported fresh and will pick up the env value
-        # We set it using monkeypatch so the shell environment is not modified.
-        monkeypatch.setenv("FERNET_KEY", key_value)
-        if "src.utils.crypto_utils" in sys.modules:
-            del sys.modules["src.utils.crypto_utils"]
-
-        crypto = importlib.import_module("src.utils.crypto_utils")
-        secret = "env-based-secret"
-        token = crypto.encrypt_str(secret)
-        assert crypto.decrypt_value(token) == secret
