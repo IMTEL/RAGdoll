@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pytest
 from pytest import MonkeyPatch
 
@@ -12,11 +14,18 @@ def reset_config_singleton():
     allowing tests to independently modify environment variables without
     affecting other tests.
     """
+    original_instance = deepcopy(Config._instances.get(Config, None))
+
     # Reset the singleton instance before the test
     Config._delete_instance__()
     yield
     # Reset after the test as well
     Config._delete_instance__()
+
+    # Preserve the original instance for other tests
+    if original_instance is not None:
+        Config._instances[Config] = original_instance
+        Config._initialized = True
 
 
 class TestConfigSingleton:
