@@ -62,8 +62,6 @@ class TestAgentEndpoints:
             "last_updated": "2025-10-03T10:00:00Z",
         }
 
-        print("DB CONFIG:", Config().RAG_DATABASE_SYSTEM)
-
         response = client.post("/agents/", json=agent_data)
 
         assert response.status_code == 200
