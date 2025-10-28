@@ -169,20 +169,6 @@ async def get_documents_for_agent(agent_id: str):
                     }
                 )
 
-                document_list.append(
-                    {
-                        "id": doc.id,
-                        "name": doc.name,
-                        "size": size_str,
-                        "size_bytes": size_bytes,
-                        "created_at": doc.created_at.isoformat()
-                        if doc.created_at
-                        else None,
-                        "updated_at": doc.updated_at.isoformat()
-                        if doc.updated_at
-                        else None,
-                    }
-                )
             except AttributeError as attr_err:
                 logger.error(f"Document missing required field: {attr_err}, doc: {doc}")
                 # Skip this document and continue with others
