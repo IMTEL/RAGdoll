@@ -42,11 +42,33 @@ class IdunLLM(LLM):
     @staticmethod
     def get_models() -> list[str]:
         try:
-            models = Config().IDUN_MODELS
-            if len(models) == 0:
+            config = Config()
+            headers = {
+                "Authorization": f"Bearer {config.IDUN_API_KEY}",
+            }
+            response = requests.get(
+                "https://idun-llm.hpc.ntnu.no/api/models", headers=headers, timeout=10
+            )
+
+            if response.status_code != 200:
+                print(f"Failed to fetch IDUN models: {response.status_code}")
                 return []
-            return [Model("idun", name, True, None) for name in models]
-        except Exception:
+
+            models_data = response.json()
+            # Extract model IDs from the response
+            # Assuming the response has a 'data' field with model objects
+            if isinstance(models_data, dict) and "data" in models_data:
+                model_list = models_data["data"]
+            else:
+                model_list = models_data
+
+            return [
+                Model("idun", item["id"], True, None)
+                for item in model_list
+                if "id" in item
+            ]
+        except Exception as e:
+            print(f"Error fetching IDUN models: {e}")
             return []
 
 
