@@ -143,7 +143,10 @@ def get_access_keys(agent_id: str, authorize: AuthJWT = Depends()):
         raise HTTPException(
             status_code=404, detail=f" agent of id not found {agent_id}"
         )
-    return agent.access_key
+    access_keys = agent.access_key
+    for access_key in access_keys:
+        access_key.key = None
+    return access_keys
 
 
 @router.get("/get_models", response_model=list[Model])
