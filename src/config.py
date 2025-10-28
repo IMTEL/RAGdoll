@@ -106,7 +106,7 @@ class Config:
         names = [
             self.MONGODB_CONTEXT_COLLECTION,
             self.MONGODB_AGENT_COLLECTION,
-            # TODO: add document collection
+            self.MONGODB_DOCUMENTS_COLLECTION,
         ]
 
         total_names = len(names)
