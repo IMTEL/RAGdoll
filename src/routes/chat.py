@@ -13,6 +13,7 @@ from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
+from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
 from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
@@ -31,7 +32,7 @@ async def ask(command: Command):
     2. Retrieves the agent configuration from the DAO
     3. Validates access permissions
     4. Performs RAG retrieval based on role-specific corpus access
-    5. Generates a response using the agent's LLM configuration
+    5. Generates a response using the agent's configured LLM
 
     Request body should be a JSON Command object with:
     - agent_id: MongoDB ObjectId of the agent
@@ -41,11 +42,16 @@ async def ask(command: Command):
     - Other context fields (scene_name, user_information, etc.)
 
     Returns:
-        JSONResponse with the generated answer
+        JSONResponse with the generated answer and metadata
 
     Raises:
-        400: Invalid command format, agent not found, or access denied
-        500: Processing error
+        400: Invalid command format, agent not found, or role not found
+        401: LLM authentication failed (invalid API key or permissions)
+        402: Insufficient LLM tokens/credits
+        404: LLM model not found or not accessible
+        429: LLM rate limit or quota exceeded
+        503: LLM generation service error
+        500: Other processing errors
     """
     try:
         # Retrieve the agent configuration
@@ -79,6 +85,18 @@ async def ask(command: Command):
         response = assemble_prompt_with_agent(command, agent)
         return JSONResponse(content={"response": response}, status_code=200)
 
+    except LLMAPIError as e:
+        # API-related errors (auth, quota, model not found, insufficient tokens)
+        return JSONResponse(
+            content={"message": str(e)},
+            status_code=e.status_code,
+        )
+    except LLMGenerationError as e:
+        # Generation/service errors
+        return JSONResponse(
+            content={"message": str(e)},
+            status_code=e.status_code,
+        )
     except UnicodeDecodeError:
         return JSONResponse(
             content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."},
