@@ -1,18 +1,26 @@
 import os
+from typing import ClassVar
 
 from dotenv import load_dotenv
 
-from src.utils import singleton
+
+# Initial load of environment variables from .env file
+load_dotenv()
 
 
-@singleton
 class Config:
     """Configuration class to manage environment variables and model loading."""
 
+    _instances: ClassVar[dict[type, "Config"]] = {}
+
+    def __new__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super().__new__(cls)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+
     def __init__(self):
         """Load environment variables and set configuration attributes."""
-        load_dotenv()
-
         self.ENV = os.getenv("ENV", "dev")
 
         # Flag to indicate if tests are running.
@@ -102,3 +110,8 @@ class Config:
                 "MongoDB collection names must be mutually exclusive. "
                 f"Current names: {names}"
             )
+
+    @staticmethod
+    def _delete_instance__():
+        """Delete the singleton instance for testing purposes."""
+        Config._instances = {}
