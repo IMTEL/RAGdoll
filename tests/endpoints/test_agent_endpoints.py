@@ -6,7 +6,6 @@ to ensure proper HTTP request/response handling.
 import pytest
 from fastapi.testclient import TestClient
 
-from src.config import Config
 from src.main import app
 from tests.mocks import MockAgentDAO
 
@@ -17,17 +16,11 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_mock_dao():
     """Clear mock dao before and after each test."""
-    config = Config()
-    # Set environment to use mock DAO
-    prev_value = config.RAG_DATABASE_SYSTEM
-    config.RAG_DATABASE_SYSTEM = "mock"
-
     repo = MockAgentDAO()
     repo.clear()
 
     yield
 
-    config.RAG_DATABASE_SYSTEM = prev_value
     repo.clear()
 
 
@@ -98,7 +91,7 @@ class TestAgentEndpoints:
                 {
                     "name": "user",
                     "description": "User role",
-                    "document_access": ["doc-id-1"]
+                    "document_access": ["doc-id-1"],
                 }
             ],
             "llm_model": "gpt-3.5-turbo",
@@ -122,7 +115,7 @@ class TestAgentEndpoints:
                 {
                     "name": "admin",
                     "description": "Admin role",
-                    "document_access": ["doc-id-2"]
+                    "document_access": ["doc-id-2"],
                 }
             ],
             "llm_model": "gpt-4",
@@ -158,11 +151,7 @@ class TestAgentEndpoints:
             "description": "Agent to retrieve by ID",
             "prompt": "Test prompt",
             "roles": [
-                {
-                    "name": "user",
-                    "description": "User",
-                    "document_access": ["doc-id-1"]
-                }
+                {"name": "user", "description": "User", "document_access": ["doc-id-1"]}
             ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.7,
@@ -210,7 +199,7 @@ class TestAgentEndpoints:
                 {
                     "name": "user",
                     "description": "User role",
-                    "document_access": ["doc-id-2"]
+                    "document_access": ["doc-id-2"],
                 },
             ],
             "llm_model": "gpt-4",
@@ -245,7 +234,10 @@ class TestAgentEndpoints:
         assert retrieved["description"] == agent_data["description"]
         assert retrieved["prompt"] == agent_data["prompt"]
         assert len(retrieved["roles"]) == 2
-        assert retrieved["roles"][0]["document_access"] == agent_data["roles"][0]["document_access"]
+        assert (
+            retrieved["roles"][0]["document_access"]
+            == agent_data["roles"][0]["document_access"]
+        )
         assert retrieved["llm_model"] == agent_data["llm_model"]
         assert retrieved["llm_temperature"] == agent_data["llm_temperature"]
         assert retrieved["llm_max_tokens"] == agent_data["llm_max_tokens"]

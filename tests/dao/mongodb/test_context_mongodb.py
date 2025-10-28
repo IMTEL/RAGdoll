@@ -15,10 +15,18 @@ def create_test_embedding(seed: float = 0.1) -> list[float]:
 class TestMongoDBContextDAO:
     """Tests for MongoDBContextDAO."""
 
+    # Flag to skip all tests if MongoDB is unreachable
+    mongodb_found_unreachable = False
+
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self):
         """Setup and teardown for MongoDB tests."""
         self.repo = MongoDBContextDAO()
+
+        if self.mongodb_found_unreachable or not self.repo.is_reachable():
+            self.mongodb_found_unreachable = True
+            pytest.skip("MongoDB is not reachable. Skipping tests.")
+
         # Clear the collection before and after each test
         self.repo.collection.delete_many({})
         yield

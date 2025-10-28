@@ -41,6 +41,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",
+    "pytest-env>=1.2.0",
     "ruff>=0.13.1",
 ]
 
@@ -54,8 +55,8 @@ markers = [
 addopts = "--cov=src --cov-report=term-missing"
 
 [tool.pytest_env]
-ENV = "dev"
-MOCK_RAG_DATABASE_SYSTEM = "mock"
+RUNNING_TESTS = "true"
+RAG_DATABASE_SYSTEM = "mock"
 
 [tool.coverage.run]
 omit = [

@@ -166,13 +166,16 @@ class MongoDBContextDAO(ContextDAO):
                         "index": "embeddings",
                         "path": "embedding",
                         "queryVector": embedding,
-                        "numCandidates": num_candidates * 3,  # Get more candidates for filtering
+                        # Get more candidates for filtering
+                        "numCandidates": num_candidates * 3,
                         "limit": top_k * 10,  # Get more results for post-filtering
                     }
                 },
             ]
             documents = list(self.collection.aggregate(pipeline_no_filter))
-        print(f"Found {len(documents)} documents from vector search for agent {agent_id}")
+        print(
+            f"Found {len(documents)} documents from vector search for agent {agent_id}"
+        )
         results = []
         for document in documents:
             # Post-filter by agent_id and document_id if using fallback
@@ -181,7 +184,7 @@ class MongoDBContextDAO(ContextDAO):
 
             if document.get("document_id") not in available_documents:
                 continue
-            
+
             # Additional similarity check
             similarity = similarity_search(embedding, document["embedding"])
 

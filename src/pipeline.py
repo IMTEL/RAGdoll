@@ -69,12 +69,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     Returns:
         Dictionary with response, function calls, and metadata
     """
-
     # Use agent's prompt as base, with variable substitution
-    embed_chat_history = chat_history_prompt_section(command, limit = 3, include_header = False, include_latest = True)
-    full_chat_history = (
-        chat_history_prompt_section(command)
+    embed_chat_history = chat_history_prompt_section(
+        command, limit=3, include_header=False, include_latest=True
     )
+    full_chat_history = chat_history_prompt_section(command)
 
     # Assemble final prompt
     role_prompt = "Role: " + (
@@ -95,9 +94,15 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     print(f"Embedding text for retrieval:\n{to_embed}")
 
     # Get accessible categories based on active roles
-    accessible_documents = agent.get_role_by_name(command.active_role_id).document_access if command.active_role_id else []
+    accessible_documents = (
+        agent.get_role_by_name(command.active_role_id).document_access
+        if command.active_role_id
+        else []
+    )
 
-    print("Accessible documents for role:", accessible_documents, command.active_role_id)
+    print(
+        "Accessible documents for role:", accessible_documents, command.active_role_id
+    )
 
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
@@ -195,13 +200,18 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "response": parsed_response,
     }
 
-def chat_history_prompt_section(command, limit: int = 100, include_header: bool = True, include_latest: bool = False) -> str:
+
+def chat_history_prompt_section(
+    command, limit: int = 100, include_header: bool = True, include_latest: bool = False
+) -> str:
     chat_history = ""
     if len(command.chat_log) > 1:
         if include_header:
             chat_history += "This is the previous conversation:\n"
         limit_start = max(0, len(command.chat_log) - limit - 1)
-        for msg in command.chat_log[limit_start:(-1 if not include_latest else None)]:  # Exclude latest user message
+        for msg in command.chat_log[
+            limit_start : (-1 if not include_latest else None)
+        ]:  # Exclude latest user message
             chat_history += f"{msg.role.upper()}: {msg.content}\n"
     return chat_history
 
