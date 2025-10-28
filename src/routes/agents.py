@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi_jwt_auth import AuthJWT
 
 from src.access_service.factory import AccessServiceConfig, access_service_factory
@@ -30,11 +31,12 @@ auth_service = auth_service_factory(config.AUTH_SERVICE)
 
 # Update agent
 @router.post("/update-agent/", response_model=Agent)
-def create_agent(agent: Agent, authorize: AuthJWT = Depends()):
+def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()]):
     """Create a new agent configuration.
 
     Args:
         agent (Agent): The agent configuration to create
+        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
         Agent: The created agent
@@ -62,7 +64,7 @@ def create_agent(agent: Agent, authorize: AuthJWT = Depends()):
 
 # Get all agents
 @router.get("/agents/", response_model=list[Agent])
-def get_agents(authorize: AuthJWT = Depends()):
+def get_agents(authorize: Annotated[AuthJWT, Depends()]):
     """Retrieve all agent configurations.
 
     Returns:
@@ -76,11 +78,12 @@ def get_agents(authorize: AuthJWT = Depends()):
 
 # Get a specific agent by ID
 @router.get("/fetch-agent", response_model=Agent)
-def get_agent(agent_id: str, authorize: AuthJWT = Depends()):
+def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()]):
     """Retrieve a specific agent by ID.
 
     Args:
         agent_id (str): The unique identifier of the agent
+        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
         Agent: The requested agent
@@ -98,6 +101,38 @@ def get_agent(agent_id: str, authorize: AuthJWT = Depends()):
     return agent
 
 
+# Get a specific agent by ID using AccessKey for authentication
+@router.get("/agent-info", response_model=Agent)
+def agent_info(
+    agent_id: str,
+    access_key: Annotated[str | None, Header()],
+):
+    """Retrieve a specific agent by ID.
+
+    Args:
+        agent_id (str): The unique identifier of the agent
+        access_key (Annotated[str | None, Header()]): access key header
+
+    Returns:
+        Agent: The requested agent
+
+    Raises:
+        HTTPException: If agent not found
+    """
+    if not access_service.authenticate(agent_id, access_key):
+        raise HTTPException(
+            status_code=401, detail="Access key not valid for agent, Unauthorized"
+        )
+
+    agent = get_agent_dao().get_agent_by_id(agent_id)
+
+    if agent is None:
+        raise HTTPException(
+            status_code=404, detail=f"Agent with id {agent_id} not found"
+        )
+    return agent
+
+
 # TODO : implement a better system of returning status codes on exceptions
 
 
@@ -106,7 +141,7 @@ def new_access_key(
     name: str,
     agent_id: str,
     expiry_date: str | None = None,
-    authorize: AuthJWT = Depends(),
+    authorize: Annotated[AuthJWT, Depends()] = None,
 ):
     try:
         auth_service.auth(authorize, agent_id)
@@ -126,7 +161,7 @@ def new_access_key(
 
 @router.get("/revoke-accesskey")
 def revoke_access_key(
-    access_key_id: str, agent_id: str, authorize: AuthJWT = Depends()
+    access_key_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()]
 ):
     auth_service.auth(authorize, agent_id)
     try:
@@ -136,7 +171,7 @@ def revoke_access_key(
 
 
 @router.get("/get-accesskeys", response_model=list[AccessKey])
-def get_access_keys(agent_id: str, authorize: AuthJWT = Depends()):
+def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()]):
     auth_service.auth(authorize, agent_id)
     agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
@@ -150,7 +185,7 @@ def get_access_keys(agent_id: str, authorize: AuthJWT = Depends()):
 
 
 @router.get("/get_models", response_model=list[Model])
-def fetch_models(authorize: AuthJWT = Depends()):
+def fetch_models(authorize: Annotated[AuthJWT, Depends()]):
     """Returns all usable models."""
     authorize.jwt_required()  # Require login, but nothing else
     return get_models()

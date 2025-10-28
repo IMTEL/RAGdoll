@@ -1,4 +1,4 @@
-from unittest.mock import mock_open, patch, MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
 from src.context_upload import compute_embedding, process_file_and_store
 

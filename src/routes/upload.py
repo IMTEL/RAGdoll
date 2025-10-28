@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi_jwt_auth import AuthJWT
@@ -22,7 +23,9 @@ auth_service = auth_service_factory(config.AUTH_SERVICE)
 
 @router.post("/upload/agent")
 async def upload_document_for_agent(
-    agent_id: str, file: UploadFile = File(...), authorize: AuthJWT = Depends()
+    agent_id: str,
+    file: UploadFile = File(...),
+    authorize: Annotated[AuthJWT, Depends()] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
 
@@ -33,6 +36,7 @@ async def upload_document_for_agent(
     Args:
         agent_id: Unique identifier of the agent
         file: The uploaded document file (txt, md)
+        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
         dict: Success message with document details
@@ -114,7 +118,9 @@ async def upload_document_for_agent(
 
 
 @router.get("/documents/agent")
-async def get_documents_for_agent(agent_id: str, authorize: AuthJWT = Depends()):
+async def get_documents_for_agent(
+    agent_id: str, authorize: Annotated[AuthJWT, Depends()]
+):
     """Retrieve all documents associated with a specific agent.
 
     This endpoint returns metadata for all documents that belong to the agent,
@@ -122,6 +128,7 @@ async def get_documents_for_agent(agent_id: str, authorize: AuthJWT = Depends())
 
     Args:
         agent_id: Unique identifier of the agent
+        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
         dict: List of documents with their metadata
@@ -193,7 +200,7 @@ async def get_documents_for_agent(agent_id: str, authorize: AuthJWT = Depends())
 
 @router.delete("/documents/")
 async def delete_document(
-    document_id: str, agent_id: str, authorize: AuthJWT = Depends()
+    document_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()]
 ):
     """Delete a document and all its associated context chunks.
 
@@ -203,6 +210,8 @@ async def delete_document(
 
     Args:
         document_id: Unique identifier of the document to delete
+        agent_id: id of agent
+        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
         dict: Success message with deletion details
@@ -233,7 +242,6 @@ async def delete_document(
                 if document_id in role.document_access:
                     role.document_access.remove(document_id)
                     updated = True
-
 
             if updated:
                 agent_dao.add_agent(agent)  # This updates the existing agent

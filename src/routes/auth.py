@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_jwt_auth import AuthJWT
@@ -27,7 +28,9 @@ class Settings(BaseModel):
         days=int(config.REFRESH_TOKEN_TTL)
     )
 
+
 router = APIRouter()
+
 
 # callback to get your configuration
 @AuthJWT.load_config
@@ -36,7 +39,7 @@ def get_config():
 
 
 @router.post("/api/login")
-async def login(request: Request, authorize: AuthJWT = Depends()):
+async def login(request: Request, authorize: Annotated[AuthJWT, Depends()]):
     body = await request.json()
     token = body.get("token")
     provider = body.get("provider")
@@ -59,20 +62,16 @@ async def login(request: Request, authorize: AuthJWT = Depends()):
         "session_token": session_token,
         "refresh_token": refresh_token,
         "session_token_ttl": int(config.SESSION_TOKEN_TTL) * 1000 * 60,  # Minutes
-        "refresh_token_ttl": int(config.REFRESH_TOKEN_TTL)
-        * 1000
-        * 60
-        * 60
-        * 24,  
+        "refresh_token_ttl": int(config.REFRESH_TOKEN_TTL) * 1000 * 60 * 60 * 24,
         # Days
         # User data
-        "name":user.name,
-        "picture":user.picture
+        "name": user.name,
+        "picture": user.picture,
     }
 
 
 @router.post("/api/refresh")
-def refresh(authorize: AuthJWT = Depends()):
+def refresh(authorize: Annotated[AuthJWT, Depends()]):
     authorize.jwt_refresh_token_required()
     user_id = authorize.get_jwt_subject()
     new_session_token = authorize.create_access_token(subject=user_id)
@@ -85,14 +84,16 @@ def refresh(authorize: AuthJWT = Depends()):
 # TODO : imlpement redis database, to avoid filling memory described in https://indominusbyte.github.io/fastapi-jwt-auth/usage/revoking/
 denylist = set()
 
+
 @router.get("/api/logout")
-def logout(authorize: AuthJWT = Depends()):
+def logout(authorize: Annotated[AuthJWT, Depends()]):
     authorize.jwt_required()
     jti = authorize.get_raw_jwt()["jti"]
     denylist.add(jti)
     return {"detail": "Tokens has been revolked"}
 
+
 @AuthJWT.token_in_denylist_loader
 def check_if_token_in_denylist(decrypted_token):
-    jti = decrypted_token['jti']
+    jti = decrypted_token["jti"]
     return jti in denylist

@@ -4,14 +4,10 @@ import logging
 
 from pydantic import BaseModel, Field
 
-from pydantic import BaseModel, Field
-
 from src.models.accesskey import AccessKey
 from src.utils.crypto_utils import (
     decrypt_value,
     encrypt_str,
-    hash_access_key,
-    verify_access_key,
 )
 
 

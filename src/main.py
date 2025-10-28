@@ -5,6 +5,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_jwt_auth.exceptions import AuthJWTException
 
 from src.config import Config
 from src.constants import LOGGING_CONFIG
@@ -74,9 +75,6 @@ def ping():
         dict: A status message indicating the service is operational.
     """
     return {"status": "Service is operational."}
-
-
-from fastapi_jwt_auth.exceptions import AuthJWTException
 
 
 @app.exception_handler(AuthJWTException)

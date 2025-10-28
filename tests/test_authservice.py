@@ -1,5 +1,5 @@
-from fastapi import HTTPException
 import pytest
+from fastapi import HTTPException
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 
@@ -60,7 +60,7 @@ def test_get_authenticated_user():
 
 @pytest.mark.unit
 def test_auth_no_user():
-    auth_service, user_dao = get_services()
+    auth_service, user_dao = get_services()  # noqa: RUF059
     authorize = create_token("no user")
     with pytest.raises(HTTPException):
         auth_service.get_authenticated_user(authorize)
@@ -78,4 +78,4 @@ def test_auth():
     user_dao.set_user(user)
 
     authorize = create_token(user_id)
-    auth_service.auth(authorize,"test_agent_id")
+    auth_service.auth(authorize, "test_agent_id")

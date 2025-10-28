@@ -37,7 +37,7 @@ class AuthService(BaseAuthService):
         user = self.get_authenticated_user(authorize)
         if agent_id not in user.owned_agents:
             logger.warning(
-                f"User tried to access agent they don´t own user: {user.id}, agent : {agent_id}"
+                f"User tried to access agent they dont own user: {user.id}, agent : {agent_id}"
             )
             raise HTTPException(status_code=401, detail="Unnauthorized edit of agent")
 
