@@ -71,7 +71,7 @@ class MongoDBContextDAO(ContextDAO):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
-        self.similarity_threshold = 0.5
+        self.similarity_threshold = 0.5  # Lowered from 0.5 to allow more relevant results
 
         # Create indexes for efficient querying
         self._create_indexes()

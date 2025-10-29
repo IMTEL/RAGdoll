@@ -1,8 +1,9 @@
-# Docker Compose Configuration for RAGdoll Application
-# Purpose: Local development environment orchestration
-# - Runs the FastAPI backend container alongside MongoDB
-# - Use 'docker compose up' for local development with real database
-# - For production deployment, use Dockerfile directly with your orchestration platform
+# Docker Compose Configuration for RAGdoll Application with Local MongoDB
+# Purpose: Development environment with containerized MongoDB
+# Usage: docker compose -f docker-compose.local.yml up --build
+
+# Project name for Docker Desktop - keeps containers under one project
+name: ragdoll
 
 services:
   # FastAPI Backend Service
@@ -10,6 +11,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
+    image: ragdoll-backend:latest  # Named image - prevents duplicate images
     container_name: ragdoll-backend
     ports:
       - "8000:8000"
@@ -22,19 +24,13 @@ services:
     env_file:
       - .env
     environment:
-      # Production environment (not dev/mock)
-      - ENV=prod
-      # MongoDB connection settings
-      - MONGODB_URI=mongodb://mongodb:27017
-      - MONGODB_DATABASE=${MONGODB_DATABASE}
-      - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
-      - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
-      - RAG_DATABASE_SYSTEM=mongodb
+      # Override MongoDB URI to use local container
+      MONGODB_URI: mongodb://mongodb:27017
 
   # MongoDB Database Service
   mongodb:
     image: mongo:latest
-    container_name: mongodb
+    container_name: ragdoll-mongodb
     ports:
       - "27017:27017"
     volumes:
@@ -48,4 +44,3 @@ services:
 
 volumes:
   mongo-data: {}
- 

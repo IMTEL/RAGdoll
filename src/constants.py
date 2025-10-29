@@ -22,8 +22,27 @@ LOGGING_CONFIG = {
             "level": "DEBUG",
         },
     },
+    "loggers": {
+        # Set specific loggers to INFO level for cleaner output
+        "src.scraper_service.scraper": {
+            "level": "INFO",
+        },
+        "src.pipeline": {
+            "level": "INFO",
+        },
+        "src.rag_service.dao.context.mongodb_context_dao": {
+            "level": "INFO",
+        },
+        # Silence noisy third-party libraries
+        "pymongo": {
+            "level": "WARNING",
+        },
+        "urllib3": {
+            "level": "WARNING",
+        },
+    },
     "root": {
         "handlers": ["console", "file"],
-        "level": "DEBUG",
+        "level": "INFO",
     },
 }

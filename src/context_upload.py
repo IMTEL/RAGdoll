@@ -6,6 +6,7 @@ from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.dao.factory import get_context_dao, get_document_dao
 from src.rag_service.embeddings import create_embeddings_model
+from src.scraper_service.scraper import ScraperService
 
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 # Load configuration and initialize the SentenceTransformer model.
 config = Config()
 embedding_model = create_embeddings_model()
+# Increased chunk_size to 1000 and overlap to 100 for better context and fewer mid-sentence cuts
+scraper_service = ScraperService(chunk_size=1000, overlap=100)
 
 
 def compute_embedding(text: str) -> list[float]:
@@ -32,22 +35,24 @@ def compute_embedding(text: str) -> list[float]:
 def process_file_and_store(
     file_path: str, agent_id: str, document_id: str | None = None, file_size_bytes: int | None = None
 ) -> tuple[bool, str]:
-    """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
+    """Processes various file types, extracts and chunks text, computes embeddings, and stores data in the database.
 
-    Currently stores the whole document as a single context entry.
+    Uses the ScraperService to handle multiple file formats including:
+    - PDF (.pdf)
+    - Word documents (.docx, .doc)
+    - PowerPoint presentations (.pptx, .ppt)
+    - Excel spreadsheets (.xlsx, .xls)
+    - Text files (.txt)
+    - Markdown files (.md)
+    - HTML files (.html, .htm)
+    - And more
+
+    The document is automatically chunked for optimal RAG performance.
     If document_id is provided and a document with that ID exists, it updates the document.
     Otherwise, creates a new document.
 
-    TODO: Implement text scraping and chunking for large documents
-    Future enhancements should include:
-    - Intelligent text chunking based on semantic boundaries (paragraphs, sections)
-    - Chunk size optimization (e.g., 512-1024 tokens per chunk)
-    - Overlap between chunks for context preservation
-    - Store multiple chunk entries per document with proper metadata
-    - Update retrieval logic to handle chunk reassembly
-
     Args:
-        file_path (str): Path to the text or markdown file.
+        file_path (str): Path to the file to process.
         agent_id (str): Agent ID that owns this document.
         document_id (str | None): Optional document ID for updates.
         file_size_bytes (int | None): Size of the file in bytes. If None, will be computed from file_path.
@@ -66,37 +71,12 @@ def process_file_and_store(
         logger.error(f"File '{file_path}' does not exist.")
         return False, ""
 
-    # Verify file extension is supported.
-    _, ext = os.path.splitext(file_path)
-    if ext.lower() not in [".txt", ".md"]:
-        logger.error("Unsupported file type. Only .txt and .md files are supported.")
+    # Check if file type is supported by scraper
+    if not scraper_service.is_supported_file(file_path):
+        logger.error(f"Unsupported file type: {os.path.splitext(file_path)[1]}")
         return False, ""
 
-    # Extract the file's text content.
-    # TODO: Handle different encodings more gracefully.
-    try:
-        with open(file_path, encoding="utf-8") as f:
-            text = f.read()
-    except UnicodeDecodeError:
-        try:
-            with open(file_path, encoding="latin-1") as f:
-                text = f.read()
-        except Exception as e:
-            logger.error(f"Error reading file '{file_path}': {e}")
-            return False, ""
-    except Exception as e:
-        logger.error(f"Error reading file '{file_path}': {e}")
-        return False, ""
-
-    # Compute the embedding using the actual model.
-    # TODO: For chunked documents, compute embeddings per chunk
-    try:
-        embedding = compute_embedding(text)
-    except Exception as e:
-        logger.error(f"Error computing embedding for file '{file_path}': {e}")
-        return False, ""
-
-    # Use the file's basename as the document name.
+    # Use the file's basename as the document name
     document_name = os.path.basename(file_path)
 
     # Compute file size if not provided
@@ -108,6 +88,16 @@ def process_file_and_store(
     context_dao = get_context_dao()
 
     try:
+        # Use scraper service to extract and chunk the document
+        logger.info(f"Scraping file with ScraperService: {file_path}")
+        scraped_documents = scraper_service.scrape_file(file_path)
+        
+        if not scraped_documents:
+            logger.error(f"No content extracted from file: {file_path}")
+            return False, ""
+        
+        logger.info(f"Extracted {len(scraped_documents)} chunks from {file_path}")
+
         # Check if we're updating an existing document
         existing_doc: Document | None = None
         if document_id:
@@ -145,30 +135,43 @@ def process_file_and_store(
             )
             document_dao.create(doc)
 
-        # Store context for the document
-        # TODO: When implementing chunking, loop through chunks and store each with proper metadata
-        context_dao.insert_context(
-            document_id=document_id,
-            agent_id=agent_id,
-            embedding=embedding,
-            context=Context(
-                text=text,
-                document_name=document_name,
-                document_id=document_id,
-                chunk_id=None,  # Not chunked yet
-                chunk_index=0,  # First (and only) chunk
-                total_chunks=1,  # Only one chunk (whole document)
-            ),
+        # Process and store each chunk
+        total_chunks = len(scraped_documents)
+        for chunk_idx, scraped_doc in enumerate(scraped_documents):
+            try:
+                # Compute embedding for this chunk
+                embedding = compute_embedding(scraped_doc.content)
+                
+                # Store context for this chunk
+                context_dao.insert_context(
+                    document_id=document_id,
+                    agent_id=agent_id,
+                    embedding=embedding,
+                    context=Context(
+                        text=scraped_doc.content,
+                        document_name=document_name,
+                        document_id=document_id,
+                        chunk_id=scraped_doc.document_id,  # Use the scraped doc's unique ID as chunk_id
+                        chunk_index=chunk_idx,
+                        total_chunks=total_chunks,
+                    ),
+                )
+                logger.debug(f"Stored chunk {chunk_idx + 1}/{total_chunks} for document '{document_id}'")
+                
+            except Exception as e:
+                logger.error(f"Error processing chunk {chunk_idx} of '{file_path}': {e}")
+                # Continue processing other chunks
+                continue
+
+        logger.info(
+            f"Successfully stored '{document_name}' with {total_chunks} chunks into the database."
         )
+
+        return True, document_id
+
     except Exception as e:
-        logger.error(f"Error inserting context into database: {e}")
+        logger.error(f"Error processing file '{file_path}': {e}")
         return False, ""
-
-    logger.info(
-        f"Successfully stored '{document_name}' into the database."
-    )
-
-    return True, document_id
 
 
 if __name__ == "__main__":

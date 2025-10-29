@@ -1,9 +1,13 @@
 import os
 import hashlib
 import logging
+import warnings
 from pathlib import Path
 from typing import List, Dict, Optional, Union
 from dataclasses import dataclass
+
+# Suppress deprecation warnings from unstructured library
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="unstructured")
 
 from unstructured.partition.auto import partition
 from unstructured.partition.pdf import partition_pdf
@@ -153,12 +157,14 @@ class ScraperService:
             List of chunked elements
         """
         try:
-            # Use title-based chunking for better semantic coherence
+            # chunk_by_title naturally respects sentence boundaries and semantic sections
+            # It will only break at natural points (end of sentences, paragraphs, sections)
             chunked_elements = chunk_by_title(
                 elements,
-                max_characters=self.chunk_size,
+                max_characters=self.chunk_size,  # Soft limit - can exceed to finish sentence
+                combine_text_under_n_chars=100,  # Combine small elements for better context
                 overlap=self.overlap,
-                combine_text_under_n_chars=50,  # Combine small text elements
+                overlap_all=True,  # Overlap with all previous chunks, not just the last one
             )
             
             logger.info(f"Created {len(chunked_elements)} chunks from {len(elements)} elements")

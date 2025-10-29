@@ -1,3 +1,4 @@
+import logging
 import re
 import time
 import uuid
@@ -8,6 +9,9 @@ from src.models import Agent
 from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import GoogleEmbedding, create_embeddings_model
+
+
+logger = logging.getLogger(__name__)
 
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
@@ -148,10 +152,20 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     # Define llm_provider from agent's configuration
     llm_provider = agent.llm_provider
+    logger.info(f"Using LLM provider: {llm_provider}")
 
     # Use agent's configured LLM
     language_model = create_llm(llm_provider)
-    response = language_model.generate(prompt)
+    
+    try:
+        logger.info(f"Sending prompt to {llm_provider} (length: {len(prompt)} chars)")
+        response = language_model.generate(prompt)
+        if not response:
+            raise ValueError("Empty response from LLM")
+        logger.info(f"Received response from {llm_provider} (length: {len(response)} chars)")
+    except Exception as e:
+        logger.error(f"Error generating response from LLM ({llm_provider}): {e}")
+        response = "I apologize, but I'm having trouble generating a response right now. Please try again in a moment."
 
     # Parse function calls from response
     function_call = None
