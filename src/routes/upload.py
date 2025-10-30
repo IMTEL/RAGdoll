@@ -63,12 +63,13 @@ async def upload_document_for_agent(
         buffer.write(file_content)
 
     try:
-        # Process and store/update document with file size using agent's embedding model
+        # Process and store/update document with file size using agent's embedding model and embedding_api_key
         success, document_id = process_file_and_store(
             str(file_location),
             agent_id,
             agent.embedding_model,
             file_size_bytes=file_size_bytes,
+            embedding_api_key=getattr(agent, "embedding_api_key", None),
         )
 
         # Delete temporary file

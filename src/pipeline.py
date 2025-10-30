@@ -120,13 +120,20 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         model_name = "text-embedding-004"
 
     # Create the appropriate embedding model based on provider
+    embedding_api_key = getattr(agent, "embedding_api_key", None)
     if provider.lower() == "openai":
-        embedding_model = OpenAIEmbedding(model_name=model_name)
+        embedding_model = OpenAIEmbedding(
+            model_name=model_name, embedding_api_key=embedding_api_key
+        )
     elif provider.lower() in ["google", "gemini"]:
-        embedding_model = GoogleEmbedding(model_name=model_name)
+        embedding_model = GoogleEmbedding(
+            model_name=model_name, embedding_api_key=embedding_api_key
+        )
     else:
         # Fallback to Gemini if provider not recognized
-        embedding_model = GoogleEmbedding(model_name="text-embedding-004")
+        embedding_model = GoogleEmbedding(
+            model_name="text-embedding-004", embedding_api_key=embedding_api_key
+        )
 
     try:
         # Generate embedding for the standalone retrieval query

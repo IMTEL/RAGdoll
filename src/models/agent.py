@@ -80,6 +80,7 @@ class Agent(BaseModel):
     status: str = Field(default="active")
     response_format: str = Field(default="text")
     last_updated: str
+    embedding_api_key: str = Field(..., description="Embedding service API key")
 
     # RAG retrieval configuration
     top_k: int = Field(

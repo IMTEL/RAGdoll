@@ -16,17 +16,22 @@ logger = logging.getLogger(__name__)
 config = Config()
 
 
-def compute_embedding(text: str, embedding_model_str: str) -> list[float]:
-    """Computes an embedding for the given text using the specified embedding model.
+def compute_embedding(
+    text: str, embedding_model_str: str, embedding_api_key: str | None = None
+) -> list[float]:
+    """Computes an embedding for the given text using the specified embedding model and API key.
 
     Args:
         text (str): The text to embed.
         embedding_model_str (str): The embedding model to use in format "provider:model_name".
+        embedding_api_key (str | None): The embedding API key to use.
 
     Returns:
         list[float]: The computed embedding as a list of floats.
     """
-    embedding_model = create_embeddings_model(embedding_model_str)
+    embedding_model = create_embeddings_model(
+        embedding_model_str, embedding_api_key=embedding_api_key
+    )
     embeddings = embedding_model.get_embedding(text)
     return embeddings
 
@@ -37,6 +42,7 @@ def process_file_and_store(
     embedding_model: str,
     document_id: str | None = None,
     file_size_bytes: int | None = None,
+    embedding_api_key: str | None = None,
 ) -> tuple[bool, str]:
     """Processes a .txt or .md file, extracts its text, computes its embedding, and stores the data in the database.
 
@@ -58,6 +64,7 @@ def process_file_and_store(
         embedding_model (str): Embedding model to use in format "provider:model_name".
         document_id (str | None): Optional document ID for updates.
         file_size_bytes (int | None): Size of the file in bytes. If None, will be computed from file_path.
+        embedding_api_key (str | None, optional): API key for the embedding model. Defaults to None.
 
     Returns:
         tuple[bool, str]: (Success status, Document ID)
@@ -96,7 +103,9 @@ def process_file_and_store(
     # Compute the embedding using the agent's embedding model.
     # TODO: For chunked documents, compute embeddings per chunk
     try:
-        embedding = compute_embedding(text, embedding_model)
+        embedding = compute_embedding(
+            text, embedding_model, embedding_api_key=embedding_api_key
+        )
     except (EmbeddingAPIError, EmbeddingError):
         # Re-raise embedding-specific errors so they can be handled properly
         raise
