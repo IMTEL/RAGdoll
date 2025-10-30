@@ -34,7 +34,8 @@ class MongoDBAgentDAO(AgentDAO):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
-        agent_dict["llm_api_key"] = encrypt_str(agent.llm_api_key)
+        if agent.llm_api_key:
+            agent_dict["llm_api_key"] = encrypt_str(agent.llm_api_key)
 
         if not agent.id:
             # Create new agent
@@ -79,6 +80,8 @@ class MongoDBAgentDAO(AgentDAO):
         for agent_doc in agents:
             agent_doc["id"] = str(agent_doc["_id"])
             agent_doc.pop("_id", None)
+            if agent_doc["llm_api_key"]:
+                agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
             result.append(Agent(**agent_doc))
         return result
 
@@ -95,7 +98,8 @@ class MongoDBAgentDAO(AgentDAO):
             agent_doc = self.collection.find_one({"_id": ObjectId(agent_id)})
             if agent_doc:
                 agent_doc.pop("_id", None)
-                agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
+                if agent_doc["llm_api_key"]:
+                    agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
                 return Agent(**agent_doc)
             return None
         except Exception:

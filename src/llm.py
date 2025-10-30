@@ -16,7 +16,6 @@ from src.models.errors import LLMAPIError, LLMGenerationError
 from src.models.model import Model
 
 
-# TODO: DELETE FALLBACK METHOD FOR API KEY
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
         """Send the prompt to the LLM and return the generated response."""
@@ -31,7 +30,11 @@ class IdunLLM(LLM):
         config = Config()
         self.model = model or config.IDUN_MODEL
         self.url = config.IDUN_API_URL
-        self.token = api_key or config.IDUN_API_KEY
+        if not api_key:
+            raise ValueError(
+                "IdunLLM requires an explicit api_key. No fallback to config."
+            )
+        self.token = api_key
 
     def generate(self, prompt: str) -> str:
         headers = {
@@ -139,9 +142,11 @@ class OpenAILLM(LLM):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = model or self.config.GPT_MODEL
-        # Instantiate the client using the new OpenAI interface.
-        api_key_to_use = api_key or self.config.API_KEY
-        self.client = OpenAI(api_key=api_key_to_use)
+        if not api_key:
+            raise ValueError(
+                "OpenAILLM requires an explicit api_key. No fallback to config."
+            )
+        self.client = OpenAI(api_key=api_key)
 
     def generate(self, prompt: str) -> str:
         """Uses the new API client interface to generate a response."""
@@ -198,9 +203,11 @@ class GeminiLLM(LLM):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = model or self.config.GEMINI_MODEL
-
-        api_key_to_use = api_key or self.config.GEMINI_API_KEY
-        genai.configure(api_key=api_key_to_use)
+        if not api_key:
+            raise ValueError(
+                "GeminiLLM requires an explicit api_key. No fallback to config."
+            )
+        genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(self.model)
 
     def generate(self, prompt: str) -> str:
