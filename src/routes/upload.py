@@ -24,7 +24,7 @@ auth_service = auth_service_factory(config.AUTH_SERVICE)
 @router.post("/upload/agent")
 async def upload_document_for_agent(
     agent_id: str,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
     authorize: Annotated[AuthJWT, Depends()] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
@@ -119,7 +119,7 @@ async def upload_document_for_agent(
 
 @router.get("/documents/agent")
 async def get_documents_for_agent(
-    agent_id: str, authorize: Annotated[AuthJWT, Depends()]
+    agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     """Retrieve all documents associated with a specific agent.
 
@@ -200,7 +200,7 @@ async def get_documents_for_agent(
 
 @router.delete("/documents/")
 async def delete_document(
-    document_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()]
+    document_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     """Delete a document and all its associated context chunks.
 

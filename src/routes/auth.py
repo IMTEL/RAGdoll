@@ -39,7 +39,7 @@ def get_config():
 
 
 @router.post("/api/login")
-async def login(request: Request, authorize: Annotated[AuthJWT, Depends()]):
+async def login(request: Request, authorize: Annotated[AuthJWT, Depends()] = None):
     body = await request.json()
     token = body.get("token")
     provider = body.get("provider")
@@ -71,7 +71,7 @@ async def login(request: Request, authorize: Annotated[AuthJWT, Depends()]):
 
 
 @router.post("/api/refresh")
-def refresh(authorize: Annotated[AuthJWT, Depends()]):
+def refresh(authorize: Annotated[AuthJWT, Depends()] = None):
     authorize.jwt_refresh_token_required()
     user_id = authorize.get_jwt_subject()
     new_session_token = authorize.create_access_token(subject=user_id)
@@ -86,7 +86,7 @@ denylist = set()
 
 
 @router.get("/api/logout")
-def logout(authorize: Annotated[AuthJWT, Depends()]):
+def logout(authorize: Annotated[AuthJWT, Depends()] = None):
     authorize.jwt_required()
     jti = authorize.get_raw_jwt()["jti"]
     denylist.add(jti)

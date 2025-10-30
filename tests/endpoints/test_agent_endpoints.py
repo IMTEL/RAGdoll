@@ -64,7 +64,7 @@ class TestAgentEndpoints:
 
         print("DB CONFIG:", Config().RAG_DATABASE_SYSTEM)
 
-        response = client.post("/agents/", json=agent_data)
+        response = client.post("/update-agent/", json=agent_data)
 
         assert response.status_code == 200
         data = response.json()
@@ -79,7 +79,7 @@ class TestAgentEndpoints:
             # Missing many required fields
         }
 
-        response = client.post("/agents/", json=incomplete_agent)
+        response = client.post("/update-agent/", json=incomplete_agent)
 
         assert response.status_code == 422  # Validation error
 
@@ -143,8 +143,8 @@ class TestAgentEndpoints:
         }
 
         # Create both agents
-        client.post("/agents/", json=agent1_data)
-        client.post("/agents/", json=agent2_data)
+        client.post("/update-agent/", json=agent1_data)
+        client.post("/update-agent/", json=agent2_data)
 
         # Get all agents
         response = client.get("/agents/")
@@ -178,11 +178,11 @@ class TestAgentEndpoints:
         }
 
         # Create the agent
-        create_response = client.post("/agents/", json=agent_data)
+        create_response = client.post("/update-agent/", json=agent_data)
         assert create_response.status_code == 200
 
         # Since DAO is cleared before each test, this should be the only agent (ID = 0)
-        response = client.get("/agents/0")
+        response = client.get("/fetch-agent?agent_id=0")
 
         assert response.status_code == 200
         data = response.json()
@@ -190,7 +190,7 @@ class TestAgentEndpoints:
 
     def test_get_agent_by_id_not_found(self):
         """Test retrieving non-existent agent returns 404."""
-        response = client.get("/agents/999")
+        response = client.get("/fetch-agent?agent_id=999")
 
         assert response.status_code == 404
         data = response.json()
@@ -227,7 +227,7 @@ class TestAgentEndpoints:
         }
 
         # Create agent
-        create_response = client.post("/agents/", json=agent_data)
+        create_response = client.post("/update-agent/", json=agent_data)
         assert create_response.status_code == 200
 
         # Retrieve all agents and find the one we just created
@@ -258,6 +258,6 @@ class TestAgentEndpoints:
 
     def test_invalid_agent_id_format(self):
         """Test that invalid ID format returns 404."""
-        response = client.get("/agents/invalid-id-format")
+        response = client.get("/fetch-agent?agent_id=invalid-id-format")
 
         assert response.status_code == 404

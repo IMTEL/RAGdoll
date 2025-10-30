@@ -31,7 +31,7 @@ auth_service = auth_service_factory(config.AUTH_SERVICE)
 
 # Update agent
 @router.post("/update-agent/", response_model=Agent)
-def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()]):
+def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()] = None):
     """Create a new agent configuration.
 
     Args:
@@ -64,7 +64,7 @@ def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()]):
 
 # Get all agents
 @router.get("/agents/", response_model=list[Agent])
-def get_agents(authorize: Annotated[AuthJWT, Depends()]):
+def get_agents(authorize: Annotated[AuthJWT, Depends()] = None):
     """Retrieve all agent configurations.
 
     Returns:
@@ -78,7 +78,7 @@ def get_agents(authorize: Annotated[AuthJWT, Depends()]):
 
 # Get a specific agent by ID
 @router.get("/fetch-agent", response_model=Agent)
-def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()]):
+def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
     """Retrieve a specific agent by ID.
 
     Args:
@@ -161,7 +161,7 @@ def new_access_key(
 
 @router.get("/revoke-accesskey")
 def revoke_access_key(
-    access_key_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()]
+    access_key_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     auth_service.auth(authorize, agent_id)
     try:
@@ -171,7 +171,7 @@ def revoke_access_key(
 
 
 @router.get("/get-accesskeys", response_model=list[AccessKey])
-def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()]):
+def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
     auth_service.auth(authorize, agent_id)
     agent = get_agent_dao().get_agent_by_id(agent_id)
     if agent is None:
@@ -185,7 +185,7 @@ def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()]):
 
 
 @router.get("/get_models", response_model=list[Model])
-def fetch_models(authorize: Annotated[AuthJWT, Depends()]):
+def fetch_models(authorize: Annotated[AuthJWT, Depends()] = None):
     """Returns all usable models."""
     authorize.jwt_required()  # Require login, but nothing else
     return get_models()

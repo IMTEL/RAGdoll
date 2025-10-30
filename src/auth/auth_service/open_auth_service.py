@@ -31,8 +31,8 @@ class OpenAuthService(BaseAuthService):
 
     """ Always pass """
 
-    def auth(self, authorize: AuthJWT, agent_id: str):
+    def auth(self, authorize: AuthJWT | None, agent_id: str):
         return
 
-    def get_authenticated_user(self, authorize: AuthJWT) -> User:
+    def get_authenticated_user(self, authorize: AuthJWT | None) -> User:
         return self.get_mock_user()

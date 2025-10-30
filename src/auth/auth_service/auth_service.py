@@ -33,7 +33,10 @@ class AuthService(BaseAuthService):
             raise ValueError("Login failed")
         return user.id
 
-    def auth(self, authorize: AuthJWT, agent_id: str):
+    def auth(self, authorize: AuthJWT | None, agent_id: str):
+        if authorize is None:
+            logger.warning("No authorization provided")
+            raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
         user = self.get_authenticated_user(authorize)
         if agent_id not in user.owned_agents:
             logger.warning(
@@ -41,7 +44,10 @@ class AuthService(BaseAuthService):
             )
             raise HTTPException(status_code=401, detail="Unnauthorized edit of agent")
 
-    def get_authenticated_user(self, authorize: AuthJWT) -> User:
+    def get_authenticated_user(self, authorize: AuthJWT | None) -> User:
+        if authorize is None:
+            logger.warning("No authorization provided")
+            raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
         authorize.jwt_required()
         user_id = authorize.get_jwt_subject()
         user = self.user_db.get_user_by_id(user_id)
