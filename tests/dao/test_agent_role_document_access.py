@@ -74,6 +74,7 @@ class TestRoleDocumentAccess:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -96,6 +97,7 @@ class TestRoleDocumentAccess:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -130,6 +132,7 @@ class TestRoleDocumentAccess:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -160,6 +163,7 @@ class TestRoleDocumentAccess:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         # Test the get_role_by_name method
@@ -195,6 +199,7 @@ class TestRoleDocumentAccess:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -225,6 +230,7 @@ class TestAgentDocumentRelationship:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
         created_agent = agent_dao.add_agent(agent)
         agent_id = created_agent.id
@@ -266,6 +272,7 @@ class TestAgentDocumentRelationship:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
         created_agent = agent_dao.add_agent(agent)
         agent_id = created_agent.id
@@ -312,6 +319,7 @@ class TestAgentDocumentRelationship:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -345,6 +353,7 @@ class TestDocumentAccessEdgeCases:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -380,6 +389,7 @@ class TestDocumentAccessEdgeCases:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)
@@ -399,6 +409,7 @@ class TestDocumentAccessEdgeCases:
             access_key=[],
             embedding_model="ada-002",
             last_updated="2025-10-21T10:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         created = agent_dao.add_agent(agent)

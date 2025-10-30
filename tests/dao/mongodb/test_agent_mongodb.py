@@ -63,6 +63,7 @@ def sample_agent() -> Agent:
         status="active",
         response_format="json",
         last_updated="2025-10-05T12:00:00Z",
+        embedding_api_key="test-embedding-key",
     )
 
 
@@ -127,6 +128,7 @@ class TestMongoDBAgentDAOCreate:
             status="inactive",
             response_format="text",
             last_updated="2025-10-05T13:00:00Z",
+            embedding_api_key="second-embedding-key",
         )
 
         mongodb_repo.add_agent(agent1)
@@ -179,6 +181,7 @@ class TestMongoDBAgentDAORetrieve:
             status="active",
             response_format="text",
             last_updated="2025-10-05T14:00:00Z",
+            embedding_api_key="second-embedding-key",
         )
 
         mongodb_repo.add_agent(agent1)
@@ -259,6 +262,7 @@ class TestMongoDBAgentDAOEdgeCases:
             status="active",
             response_format="text",
             last_updated="2025-10-05T15:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         mongodb_repo.add_agent(agent)
@@ -290,6 +294,7 @@ class TestMongoDBAgentDAOEdgeCases:
             status="active",
             response_format="text",
             last_updated="2025-10-05T15:00:00Z",
+            embedding_api_key="test-embedding-key",
         )
 
         mongodb_repo.add_agent(agent)
