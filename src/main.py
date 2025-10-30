@@ -4,17 +4,18 @@ from logging.config import dictConfig
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi_jwt_auth.exceptions import AuthJWTException
 
 from src.config import Config
 from src.constants import LOGGING_CONFIG
-from src.routes import agents, chat, debug, progress, upload
+from src.routes import agents, auth, chat, debug, progress, upload
 
 
 # Apply the logging configuration
 dictConfig(LOGGING_CONFIG)
 
 logger = logging.getLogger(__name__)
-
 
 app = FastAPI(
     title="Chat-Service Microservice API",
@@ -51,6 +52,9 @@ app.include_router(agents.router)
 # Chat router (handles /ask, /transcribe, /askTranscribe)
 app.include_router(chat.router)
 
+# Authentication router
+app.include_router(auth.router)
+
 
 @app.get("/")
 def hello_world():
@@ -70,6 +74,13 @@ def ping():
         dict: A status message indicating the service is operational.
     """
     return {"status": "Service is operational."}
+
+
+@app.exception_handler(AuthJWTException)
+def authjwt_exception_handler(request, exc):
+    # Map “signature expired” to 401 so the UI knows to refresh/relogin
+    status = 401 if "expired" in str(exc.message).lower() else exc.status_code
+    return JSONResponse(status_code=status, content={"detail": exc.message})
 
 
 if __name__ == "__main__":

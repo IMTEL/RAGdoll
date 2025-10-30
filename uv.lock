@@ -458,6 +458,15 @@ wheels = [
 ]
 
 [[package]]
+name = "fastapi-jwt-auth-compat"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/92/a298552f3eca7fa7d200016885c6a511a7f7add0e00131cf0a97f6180269/fastapi-jwt-auth-compat-1.0.1.tar.gz", hash = "sha256:2c71d58f8d46a417a71f01ea1d85a6dcac4b6107421e10d343c5d79d374fe56c", size = 20775, upload-time = "2024-03-19T12:08:44.931Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6a/a5/dac15af93db07fb1c56be9c736d6587cee4a4efdc49d8596a2852f28ea87/fastapi_jwt_auth_compat-1.0.1-py3-none-any.whl", hash = "sha256:b631c82eef1ba401779197fa0d961f82e68a1b89b39c1a598ed1069da2cb20e0", size = 26626, upload-time = "2024-03-19T12:08:43.376Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1994,6 +2003,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "fastapi-jwt-auth-compat" },
     { name = "flask" },
     { name = "google-ai-generativelanguage" },
     { name = "google-api-core" },
@@ -2035,6 +2045,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "==3.2.0" },
     { name = "cryptography", specifier = ">=46.0.2" },
     { name = "fastapi", specifier = "==0.115.8" },
+    { name = "fastapi-jwt-auth-compat", specifier = "==1.0.1" },
     { name = "flask", specifier = "==3.1.0" },
     { name = "google-ai-generativelanguage", specifier = "==0.6.15" },
     { name = "google-api-core", specifier = "==2.24.1" },
