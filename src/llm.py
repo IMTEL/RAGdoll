@@ -31,8 +31,12 @@ class IdunLLM(LLM):
         self.model = model or config.IDUN_MODEL
         self.url = config.IDUN_API_URL
         if not api_key:
-            raise ValueError(
-                "IdunLLM requires an explicit api_key. No fallback to config."
+            raise LLMAPIError(
+                "idun",
+                self.model,
+                "authentication",
+                "IdunLLM requires an explicit api_key. No fallback to config.",
+                401,
             )
         self.token = api_key
 
@@ -143,8 +147,12 @@ class OpenAILLM(LLM):
         self.config = Config()
         self.model = model or self.config.GPT_MODEL
         if not api_key:
-            raise ValueError(
-                "OpenAILLM requires an explicit api_key. No fallback to config."
+            raise LLMAPIError(
+                "openai",
+                self.model,
+                "authentication",
+                "OpenAILLM requires an explicit api_key. No fallback to config.",
+                401,
             )
         self.client = OpenAI(api_key=api_key)
 
@@ -204,8 +212,12 @@ class GeminiLLM(LLM):
         self.config = Config()
         self.model = model or self.config.GEMINI_MODEL
         if not api_key:
-            raise ValueError(
-                "GeminiLLM requires an explicit api_key. No fallback to config."
+            raise LLMAPIError(
+                "gemini",
+                self.model,
+                "authentication",
+                "GeminiLLM requires an explicit api_key. No fallback to config.",
+                401,
             )
         genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(self.model)
