@@ -51,3 +51,14 @@ class AgentDAO(ABC):
         Returns:
             bool: True if connection is healthy, False otherwise
         """
+
+    @abstractmethod
+    def delete_agent_by_id(self, agent_id: str) -> bool:
+        """Delete a specific agent by ID.
+
+        Args:
+            agent_id (str): The MongoDB ObjectId as a string
+
+        Returns:
+            bool: True if the agent was deleted successfully, False otherwise
+        """

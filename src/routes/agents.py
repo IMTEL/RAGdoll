@@ -65,6 +65,27 @@ def get_agents(authorize: Annotated[AuthJWT, Depends()] = None):
 
 
 # Get a specific agent by ID
+@router.get("/delete-agent")
+def delete_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
+    """Deletes a specific agent by ID.
+
+    Args:
+        agent_id (str): The unique identifier of the agent
+        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
+
+    Returns:
+        HTTP respone code
+
+    Raises:
+        HTTPException: If agent not found
+    """
+    user = auth_service.get_authenticated_user(authorize)
+    agent_dao.delete_agent_by_id(agent_id)
+    user.owned_agents.remove(agent_id)
+    user_dao.set_user(user)
+
+
+# Get a specific agent by ID
 @router.get("/fetch-agent", response_model=Agent)
 def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
     """Retrieve a specific agent by ID.
