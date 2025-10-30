@@ -36,6 +36,7 @@ def sample_agent() -> Agent:
         status="active",
         response_format="json",
         last_updated="2025-10-05T12:00:00Z",
+        embedding_api_key="test-embedding-key",
     )
 
 

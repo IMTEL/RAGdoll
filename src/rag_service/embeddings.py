@@ -31,11 +31,20 @@ class EmbeddingsModel(ABC):
 
 
 class OpenAIEmbedding(EmbeddingsModel):
-    def __init__(self, model_name: str = "text-embedding-3-small"):
+    def __init__(
+        self,
+        model_name: str = "text-embedding-3-small",
+        embedding_api_key: str | None = None,
+    ):
         self.config = Config()
         self.model = self.config.GPT_MODEL
-        # Instantiate the client using the new OpenAI interface.
-        self.client = openai.Client(api_key=self.config.API_KEY)
+        if not embedding_api_key:
+            raise EmbeddingAPIError(
+                "OpenAI",
+                model_name,
+                "OpenAIEmbedding requires an explicit embedding_api_key.",
+            )
+        self.client = openai.Client(api_key=embedding_api_key)
         self.model_name = model_name
 
     def get_embedding(self, text: str) -> list[float]:
@@ -60,6 +69,7 @@ class OpenAIEmbedding(EmbeddingsModel):
         except Exception as e:
             raise EmbeddingError(f"Error getting OpenAI embedding: {e!s}", e) from e
 
+    @staticmethod
     def get_available_embedding_models() -> list[str]:
         try:
             client = openai.OpenAI()
@@ -77,12 +87,18 @@ class OpenAIEmbedding(EmbeddingsModel):
 
 class GoogleEmbedding(EmbeddingsModel):
     def __init__(
-        self, model_name: str = "text-embedding-004"
-    ):  # TODO: take from agent config
-        config = Config()
-
-        genai.configure(api_key=config.GEMINI_API_KEY)  # TODO: take from agent config
-
+        self,
+        model_name: str = "text-embedding-004",
+        embedding_api_key: str | None = None,
+    ):
+        Config()
+        if not embedding_api_key:
+            raise EmbeddingAPIError(
+                "Gemini",
+                model_name,
+                "GoogleEmbedding requires an explicit embedding_api_key.",
+            )
+        genai.configure(api_key=embedding_api_key)
         self.model_name = model_name
         if not self.model_name.startswith("models/"):
             self.model_name = f"models/{self.model_name}"
@@ -127,6 +143,7 @@ class GoogleEmbedding(EmbeddingsModel):
             else:
                 raise EmbeddingError(f"Error getting Gemini embedding: {e!s}", e) from e
 
+    @staticmethod
     def get_available_embedding_models() -> list[str]:
         try:
             models = genai.list_models()
@@ -155,21 +172,23 @@ def get_available_embedding_models():
 
 def create_embeddings_model(
     embeddings_model: str = "gemini:models/text-embedding-004",
+    embedding_api_key: str | None = None,
 ) -> EmbeddingsModel:
     """Factory for creating embeddings models.
 
     Args:
         embeddings_model (str, optional): Embeddings model in format "provider:model_name".
-                                          Defaults to "gemini:models/text-embedding-004".
-                                          Format differs by provider:
-                                          - OpenAI: "openai:text-embedding-3-small"
-                                          - Gemini: "gemini:models/text-embedding-004" (includes "models/" prefix)
+            Defaults to "gemini:models/text-embedding-004".
+            Format differs by provider:
+            - OpenAI: "openai:text-embedding-3-small"
+            - Gemini: "gemini:models/text-embedding-004" (includes "models/" prefix)
+        embedding_api_key (str | None, optional): API key for the embedding model. Defaults to None.
 
     Examples:
-                                          - "openai:text-embedding-3-small"
-                                          - "openai:text-embedding-3-large"
-                                          - "gemini:models/text-embedding-004"
-                                          - "gemini:models/embedding-001"
+        - "openai:text-embedding-3-small"
+        - "openai:text-embedding-3-large"
+        - "gemini:models/text-embedding-004"
+        - "gemini:models/embedding-001"
 
     Raises:
         ValueError: If provider is not supported or format is invalid
@@ -191,12 +210,16 @@ def create_embeddings_model(
     match provider.lower():
         case "openai":
             if model_name:
-                return OpenAIEmbedding(model_name=model_name)
-            return OpenAIEmbedding()
+                return OpenAIEmbedding(
+                    model_name=model_name, embedding_api_key=embedding_api_key
+                )
+            return OpenAIEmbedding(embedding_api_key=embedding_api_key)
         case "google" | "gemini":
             if model_name:
-                return GoogleEmbedding(model_name=model_name)
-            return GoogleEmbedding()
+                return GoogleEmbedding(
+                    model_name=model_name, embedding_api_key=embedding_api_key
+                )
+            return GoogleEmbedding(embedding_api_key=embedding_api_key)
         case _:
             raise ValueError(
                 f"Embedding provider '{provider}' not supported. Use 'openai' or 'gemini' in the form 'provider:model_name'."

@@ -69,6 +69,7 @@ class TestAgentEndpoints:
             "status": "active",
             "response_format": "json",
             "last_updated": "2025-10-03T10:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         print("DB CONFIG:", Config().RAG_DATABASE_SYSTEM)
@@ -116,6 +117,7 @@ class TestAgentEndpoints:
             "status": "active",
             "response_format": "text",
             "last_updated": "2025-10-03T10:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create second agent
@@ -140,6 +142,7 @@ class TestAgentEndpoints:
             "status": "inactive",
             "response_format": "json",
             "last_updated": "2025-10-03T11:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create both agents
@@ -175,6 +178,7 @@ class TestAgentEndpoints:
             "status": "active",
             "response_format": "json",
             "last_updated": "2025-10-03T10:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create the agent
@@ -225,6 +229,7 @@ class TestAgentEndpoints:
             "status": "testing",
             "response_format": "markdown",
             "last_updated": "2025-10-03T12:30:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create agent
