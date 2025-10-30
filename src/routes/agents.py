@@ -4,29 +4,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi_jwt_auth import AuthJWT
 
-from src.access_service.factory import AccessServiceConfig, access_service_factory
-from src.auth.auth_service.factory import auth_service_factory
 from src.config import Config
+from src.globals import access_service, agent_dao, auth_service, user_dao
 from src.llm import get_models
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.models.model import Model
-from src.rag_service.dao import get_agent_dao
-from src.rag_service.dao.factory import get_user_dao
 from src.rag_service.embeddings import get_available_embedding_models
 
 
 config = Config()
 router = APIRouter()
-
-
-user_dao = get_user_dao()
-agent_dao = get_agent_dao()
-
-access_service = access_service_factory(
-    AccessServiceConfig(config.ACCESS_SERVICE, get_agent_dao())
-)
-auth_service = auth_service_factory(config.AUTH_SERVICE)
 
 
 # Update agent
@@ -46,14 +34,14 @@ def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()] = None):
         if agent_dao.get_agent_by_id(agent.id) is None:
             # Authenticate and get user
             user = auth_service.get_authenticated_user(authorize)
-            agent = get_agent_dao().add_agent(agent)
+            agent = agent_dao.add_agent(agent)
             # Add new agent id to owned agents
             user.owned_agents.append(agent.id)
             user_dao.set_user(user)
             return agent
 
         auth_service.auth(authorize, agent.id)
-        return get_agent_dao().add_agent(agent)
+        return agent_dao.add_agent(agent)
 
     except ValueError as e:
         raise HTTPException(
@@ -73,7 +61,7 @@ def get_agents(authorize: Annotated[AuthJWT, Depends()] = None):
     user = auth_service.get_authenticated_user(authorize)
 
     # returns all agents, owned by the user
-    return [get_agent_dao().get_agent_by_id(agent_id) for agent_id in user.owned_agents]
+    return [agent_dao.get_agent_by_id(agent_id) for agent_id in user.owned_agents]
 
 
 # Get a specific agent by ID
@@ -92,7 +80,7 @@ def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
         HTTPException: If agent not found
     """
     auth_service.auth(authorize, agent_id)
-    agent = get_agent_dao().get_agent_by_id(agent_id)
+    agent = agent_dao.get_agent_by_id(agent_id)
 
     if agent is None:
         raise HTTPException(
@@ -124,7 +112,7 @@ def agent_info(
             status_code=401, detail="Access key not valid for agent, Unauthorized"
         )
 
-    agent = get_agent_dao().get_agent_by_id(agent_id)
+    agent = agent_dao.get_agent_by_id(agent_id)
 
     if agent is None:
         raise HTTPException(
@@ -173,7 +161,7 @@ def revoke_access_key(
 @router.get("/get-accesskeys", response_model=list[AccessKey])
 def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
     auth_service.auth(authorize, agent_id)
-    agent = get_agent_dao().get_agent_by_id(agent_id)
+    agent = agent_dao.get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(
             status_code=404, detail=f" agent of id not found {agent_id}"

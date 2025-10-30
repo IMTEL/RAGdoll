@@ -9,25 +9,19 @@ This module handles the main chat functionality including:
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from src.access_service.factory import AccessServiceConfig, access_service_factory
 from src.config import Config
+from src.globals import access_service, agent_dao
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
 from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
-from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 config = Config()
-agent_dao = get_agent_dao()
-
-access_service = access_service_factory(
-    AccessServiceConfig(config.ACCESS_SERVICE, agent_dao)
-)
 
 
 @router.post("/ask", response_model=Command)

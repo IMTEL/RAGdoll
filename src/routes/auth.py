@@ -6,14 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 
-from src.auth.auth_service.factory import auth_service_factory
 from src.config import Config
-from src.rag_service.dao.factory import get_user_dao
+from src.globals import auth_service, user_dao
 
 
 config = Config()
-user_dao = get_user_dao()
-auth_service = auth_service_factory(config.AUTH_SERVICE)
 logger = logging.getLogger(__name__)
 
 

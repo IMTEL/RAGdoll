@@ -5,11 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi_jwt_auth import AuthJWT
 
-from src.auth.auth_service.factory import auth_service_factory
 from src.config import Config
 from src.context_upload import process_file_and_store
+from src.globals import agent_dao, auth_service
 from src.models.errors import EmbeddingAPIError, EmbeddingError
-from src.rag_service.dao.factory import get_agent_dao, get_document_dao
+from src.rag_service.dao.factory import get_document_dao
 
 
 logger = logging.getLogger(__name__)
@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 config = Config()
-
-auth_service = auth_service_factory(config.AUTH_SERVICE)
 
 
 @router.post("/upload/agent")
@@ -49,7 +47,6 @@ async def upload_document_for_agent(
 
     # Verify agent exists and access key is valid
     auth_service.auth(authorize, agent_id)
-    agent_dao = get_agent_dao()
     agent = agent_dao.get_agent_by_id(agent_id)
 
     if not agent:
@@ -139,7 +136,6 @@ async def get_documents_for_agent(
     auth_service.auth(authorize, agent_id)
 
     # Verify agent exists
-    agent_dao = get_agent_dao()
     agent = agent_dao.get_agent_by_id(agent_id)
 
     if not agent:
@@ -222,7 +218,6 @@ async def delete_document(
     auth_service.auth(authorize, agent_id)
     try:
         document_dao = get_document_dao()
-        agent_dao = get_agent_dao()
 
         # Check if document exists first
         document = document_dao.get_by_id(document_id)

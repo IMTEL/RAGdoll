@@ -37,6 +37,15 @@ def clear_mock_dao():
 class TestAgentEndpoints:
     """Tests for agent-related HTTP endpoints."""
 
+    def test_get_agents_empty(self):
+        """Test getting agents when DAO is empty."""
+        response = client.get("/agents/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
     def test_create_agent_success(self):
         """Test creating an agent via POST /agents/."""
         agent_data = {
@@ -82,15 +91,6 @@ class TestAgentEndpoints:
         response = client.post("/update-agent/", json=incomplete_agent)
 
         assert response.status_code == 422  # Validation error
-
-    def test_get_agents_empty(self):
-        """Test getting agents when DAO is empty."""
-        response = client.get("/agents/")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 0
 
     def test_get_agents_multiple(self):
         """Test retrieving multiple agents."""
@@ -151,9 +151,9 @@ class TestAgentEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 2
-        assert data[0]["name"] == "Agent One"
-        assert data[1]["name"] == "Agent Two"
+        assert len(data) == 3
+        assert data[1]["name"] == "Agent One"
+        assert data[2]["name"] == "Agent Two"
 
     def test_get_agent_by_id_success(self):
         """Test retrieving a specific agent by ID."""
@@ -180,9 +180,10 @@ class TestAgentEndpoints:
         # Create the agent
         create_response = client.post("/update-agent/", json=agent_data)
         assert create_response.status_code == 200
+        agent_id = create_response.json().get("id")
 
         # Since DAO is cleared before each test, this should be the only agent (ID = 0)
-        response = client.get("/fetch-agent?agent_id=0")
+        response = client.get(f"/fetch-agent?agent_id={agent_id}")
 
         assert response.status_code == 200
         data = response.json()

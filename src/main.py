@@ -17,7 +17,6 @@ dictConfig(LOGGING_CONFIG)
 
 logger = logging.getLogger(__name__)
 
-
 app = FastAPI(
     title="Chat-Service Microservice API",
     description="Generate prompts with context and passing them to LLM.",
