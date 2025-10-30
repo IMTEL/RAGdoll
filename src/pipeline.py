@@ -2,7 +2,6 @@ import re
 import time
 import uuid
 
-from src.config import Config
 from src.llm import create_llm
 from src.models import Agent
 from src.models.chat.command import Command
@@ -10,7 +9,6 @@ from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import (
     GoogleEmbedding,
     OpenAIEmbedding,
-    create_embeddings_model,
 )
 
 
@@ -57,7 +55,7 @@ def generate_retrieval_query(
     )
 
     try:
-        query_llm = create_llm(agent.llm_provider, agent.llm_model)
+        query_llm = create_llm(agent.llm_provider, agent.llm_model, agent.llm_api_key)
         standalone_query = query_llm.generate(summary_prompt)
         print(f"Generated retrieval query: {standalone_query}")
         return standalone_query.strip()
@@ -176,7 +174,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     print(f"Prompt sent to LLM:\n{prompt}")
 
     # Use agent's configured LLM with specific model
-    language_model = create_llm(llm_provider=agent.llm_provider, model=agent.llm_model)
+    language_model = create_llm(
+        llm_provider=agent.llm_provider,
+        model=agent.llm_model,
+        api_key=agent.llm_api_key,
+    )
     response = language_model.generate(prompt)
 
     # Parse function calls from response

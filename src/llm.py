@@ -16,6 +16,7 @@ from src.models.errors import LLMAPIError, LLMGenerationError
 from src.models.model import Model
 
 
+# TODO: DELETE FALLBACK METHOD FOR API KEY
 class LLM(Protocol):
     def generate(self, prompt: str) -> str:
         """Send the prompt to the LLM and return the generated response."""
@@ -26,11 +27,11 @@ class LLM(Protocol):
 
 
 class IdunLLM(LLM):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
         config = Config()
         self.model = model or config.IDUN_MODEL
         self.url = config.IDUN_API_URL
-        self.token = config.IDUN_API_KEY
+        self.token = api_key or config.IDUN_API_KEY
 
     def generate(self, prompt: str) -> str:
         headers = {
@@ -134,12 +135,13 @@ class IdunLLM(LLM):
 
 
 class OpenAILLM(LLM):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = model or self.config.GPT_MODEL
         # Instantiate the client using the new OpenAI interface.
-        self.client = OpenAI(api_key=self.config.API_KEY)
+        api_key_to_use = api_key or self.config.API_KEY
+        self.client = OpenAI(api_key=api_key_to_use)
 
     def generate(self, prompt: str) -> str:
         """Uses the new API client interface to generate a response."""
@@ -192,12 +194,13 @@ class OpenAILLM(LLM):
 
 
 class GeminiLLM(LLM):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = model or self.config.GEMINI_MODEL
 
-        genai.configure(api_key=self.config.GEMINI_API_KEY)
+        api_key_to_use = api_key or self.config.GEMINI_API_KEY
+        genai.configure(api_key=api_key_to_use)
         self.client = genai.GenerativeModel(self.model)
 
     def generate(self, prompt: str) -> str:
@@ -284,12 +287,15 @@ def get_models():
     return language_models + IdunLLM.get_models()
 
 
-def create_llm(llm_provider: str = "idun", model: str | None = None) -> LLM:
+def create_llm(
+    llm_provider: str = "idun", model: str | None = None, api_key: str | None = None
+) -> LLM:
     """Factory for creating LLM instances.
 
     Args:
         llm_provider (str): The LLM service provider ("idun", "openai", "gemini", "mock").
         model (str, optional): The specific model to use. Falls back to config if not provided.
+        api_key (str, optional): The API key to use. Falls back to config if not provided.
 
     Raises:
         ValueError: If the specified LLM is not supported.
@@ -299,11 +305,11 @@ def create_llm(llm_provider: str = "idun", model: str | None = None) -> LLM:
     """
     match llm_provider.lower():
         case "idun":
-            return IdunLLM(model=model)
+            return IdunLLM(model=model, api_key=api_key)
         case "openai":
-            return OpenAILLM(model=model)
+            return OpenAILLM(model=model, api_key=api_key)
         case "gemini":
-            return GeminiLLM(model=model)
+            return GeminiLLM(model=model, api_key=api_key)
         case "mock":
             return MockLLM()
         case _:
