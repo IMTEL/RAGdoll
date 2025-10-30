@@ -6,21 +6,22 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
+from src.config import Config
+from src.globals import access_service, agent_dao
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
 from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
-from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-agent_dao = get_agent_dao()
+config = Config()
 
 
 @router.post("/ask", response_model=Command)
@@ -62,12 +63,9 @@ async def ask(command: Command):
                 status_code=400,
             )
 
-        # TODO: Validate access key if agent requires it
-        # if not agent.is_access_key_valid(command.access_key):
-        #     return JSONResponse(
-        #         content={"message": "Access denied. Invalid access key."},
-        #         status_code=403,
-        #     )
+        # Auth
+        if not access_service.authenticate(agent.id, command.access_key):
+            raise HTTPException(status_code=401, details="Unauthorized, check logs")
 
         # Validate that requested role exists in the agent
         if (
@@ -165,13 +163,6 @@ async def ask_transcribe(
         return JSONResponse(
             content={"message": f"Agent with id '{command.agent_id}' not found."},
             status_code=400,
-        )
-
-    # Validate access
-    if not agent.is_access_key_valid(command.access_key):
-        return JSONResponse(
-            content={"message": "Access denied. Invalid access key."},
-            status_code=403,
         )
 
     # Generate response

@@ -8,8 +8,6 @@ from src.models.accesskey import AccessKey
 from src.utils.crypto_utils import (
     decrypt_value,
     encrypt_str,
-    hash_access_key,
-    verify_access_key,
 )
 
 
@@ -174,36 +172,3 @@ class Agent(BaseModel):
             The decrypted API key
         """
         return decrypt_value(self.llm_api_key)
-
-    def add_access_key(self, plain_access_key: str) -> None:
-        """Hash and add an access key to the authorized list.
-
-        Args:
-            plain_access_key: The plain text access key to hash and store
-        """
-        if not plain_access_key:
-            raise ValueError("plain_access_key must not be empty")
-        hashed_key = hash_access_key(plain_access_key)
-        # bcrypt hashes are ASCII-safe, so we can store directly as UTF-8 string
-        hashed_key_str = hashed_key.decode("utf-8")
-        self.access_key.append(hashed_key_str)
-
-    def is_access_key_valid(self, key: str) -> bool:
-        """Verify if the provided access key is authorized for this agent.
-
-        Args:
-            key: The plain text access key to validate
-
-        Returns:
-            True if the key is authorized, False otherwise
-        """
-        for hashed_key_str in self.access_key:
-            try:
-                # Convert UTF-8 string back to bytes
-                hashed_key = hashed_key_str.encode("utf-8")
-                if verify_access_key(key, hashed_key):
-                    return True
-            except Exception:
-                # Skip invalid hash entries
-                continue
-        return False

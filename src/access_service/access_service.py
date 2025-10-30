@@ -1,4 +1,5 @@
 import base64
+import logging
 import secrets
 import uuid
 from datetime import datetime
@@ -9,6 +10,9 @@ from src.models.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
 
 
+logger = logging.getLogger(__name__)
+
+
 class AccessService(AbstractAccessService):
     def __init__(self, agent_database: AgentDAO):
         self.agent_database = agent_database
@@ -16,6 +20,7 @@ class AccessService(AbstractAccessService):
     def try_get_agent(self, agent_id: str):
         agent = self.agent_database.get_agent_by_id(agent_id)
         if agent is None:
+            logger.warning(f"Agent no found : {agent_id}")
             raise ValueError(f"No agent found by id : {agent_id}")
         return agent
 
@@ -51,15 +56,23 @@ class AccessService(AbstractAccessService):
         return access_key
 
     def authenticate(self, agent_id: str, access_key: str) -> bool:
-        agent = self.try_get_agent(agent_id)
+        try:
+            agent = self.try_get_agent(agent_id)
+        except Exception as e:
+            logger.warning(f"An exception occured while trying to fetch agent {e}")
+            return False
+
         access_keys: list[AccessKey] = agent.access_key
 
         for ak in access_keys:
             if ak.key == access_key:
                 if ak.expiry_date is None:
                     return True
-                return datetime.now() < ak.expiry_date
-
+                if datetime.now() < ak.expiry_date:
+                    return True
+                logger.warning(f"Access key with name : {ak.name} has expired")
+                return False
+        logger.warning("No matching access key found in agent")
         return False
 
     def get_access_key_by_id(

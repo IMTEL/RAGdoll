@@ -14,6 +14,7 @@ services:
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION:-contexts}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION:-agents}
       - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION:-documents}
+      - MONGODB_USER_COLLECTION=${MONGODB_USER_COLLECTION:-users}
       - RAG_DATABASE_SYSTEM=mongodb
       # Test LLM keys (should be set in CI or .env)
       - OPENAI_API_KEY=${OPENAI_API_KEY:-test_key}
@@ -21,8 +22,9 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-test_key}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
       - ACCESS_SERVICE=mock
+      - AUTH_SERVICE=noauth
     ports:
-      - "8000:8000"  # Expose for testing
+      - "8000:8000" # Expose for testing
 
   # Disable nginx in test mode
   nginx:
