@@ -84,6 +84,7 @@ class TestMongoDBContextDAO:
         results = self.repo.get_context_for_agent(
             agent_id="agent-1",
             query_embedding=create_test_embedding(0.1),
+            query_text="Context for agent 1",
             documents=["doc1"],
             top_k=5,
         )
@@ -111,6 +112,7 @@ class TestMongoDBContextDAO:
         results = self.repo.get_context_for_agent(
             agent_id="agent-999",
             query_embedding=create_test_embedding(0.1),
+            query_text="Context for agent 1",
             documents=["doc1"],
             top_k=5,
         )
@@ -123,6 +125,7 @@ class TestMongoDBContextDAO:
         results = self.repo.get_context_for_agent(
             agent_id="agent-1",
             query_embedding=create_test_embedding(0.1),
+            query_text="Context for agent 1",
             documents=[],
             top_k=5,
         )

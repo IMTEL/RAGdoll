@@ -279,6 +279,12 @@ class MongoDBContextDAO(ContextDAO):
             ValueError: If agent_id or embedding is empty
         """
         available_documents = documents if documents is not None else []
+        # If an explicit empty list of documents is provided, there are no
+        # accessible documents for this agent. Returning early avoids
+        # constructing MongoDB queries like {"document_id": {"$in": []}}
+        # which cause an OperationFailure in some MongoDB versions.
+        if documents is not None and len(documents) == 0:
+            return []
         if not agent_id:
             raise ValueError("agent_id cannot be empty")
         if not query_embedding:
