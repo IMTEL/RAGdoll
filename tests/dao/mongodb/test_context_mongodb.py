@@ -83,7 +83,8 @@ class TestMongoDBContextDAO:
         # Retrieve contexts for agent-1 with its document
         results = self.repo.get_context_for_agent(
             agent_id="agent-1",
-            embedding=create_test_embedding(0.1),
+            query_embedding=create_test_embedding(0.1),
+            query_text="Context for agent 1",
             documents=["doc1"],
             top_k=5,
         )
@@ -110,7 +111,8 @@ class TestMongoDBContextDAO:
         # Try to get contexts with a different agent_id
         results = self.repo.get_context_for_agent(
             agent_id="agent-999",
-            embedding=create_test_embedding(0.1),
+            query_embedding=create_test_embedding(0.1),
+            query_text="Context for agent 1",
             documents=["doc1"],
             top_k=5,
         )
@@ -122,7 +124,8 @@ class TestMongoDBContextDAO:
         """Test retrieving contexts when no documents exist in the collection."""
         results = self.repo.get_context_for_agent(
             agent_id="agent-1",
-            embedding=create_test_embedding(0.1),
+            query_embedding=create_test_embedding(0.1),
+            query_text="Context for agent 1",
             documents=[],
             top_k=5,
         )

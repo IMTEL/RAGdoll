@@ -26,19 +26,30 @@ class MockContextDAO(ContextDAO):
     def get_context_for_agent(
         self,
         agent_id: str,
-        embedding: list[float],
+        query_embedding: list[float],
+        query_text: str,
+        keyword_query_text: str | None = None,
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
+        similarity_threshold: float | None = None,
+        hybrid_search_alpha: float | None = None,
     ) -> list[Context]:
         """Retrieve contexts for an agent using mock similarity.
 
         Args:
             agent_id (str): Agent identifier
-            embedding (list[float]): Query embedding vector
+            query_embedding (list[float]): Query embedding vector
+            query_text (str): Full query text for vector search (includes context)
+            keyword_query_text (str | None): Simplified query text for BM25 keyword search.
+                                              If None, uses query_text for both searches.
             documents (list[str] | None): List of accessible documents
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
+            similarity_threshold (float | None): Minimum similarity score for results.
+                                                  If None, uses instance default.
+            hybrid_search_alpha (float | None): Weight for hybrid search (0=keyword, 1=vector).
+                                                 If None, ignored in mock.
 
         Returns:
             list[Context]: Top matching contexts for the agent
@@ -48,8 +59,15 @@ class MockContextDAO(ContextDAO):
         """
         if not agent_id:
             raise ValueError("agent_id cannot be empty")
-        if not embedding:
+        if not query_embedding:
             raise ValueError("Embedding cannot be empty")
+
+        # Use provided threshold or fall back to instance default
+        threshold = (
+            similarity_threshold
+            if similarity_threshold is not None
+            else self.similarity_threshold
+        )
 
         results = []
         for document in self.data[:num_candidates]:  # Limit to num_candidates
@@ -63,7 +81,7 @@ class MockContextDAO(ContextDAO):
 
             # Mock similarity - returns high value for testing
             similarity = 0.9
-            if similarity > self.similarity_threshold:
+            if similarity > threshold:
                 doc_name = document.get("document_name", "default_document_name")
                 results.append(
                     Context(

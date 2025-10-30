@@ -68,7 +68,8 @@ class TestMockContextDAO:
         # Retrieve contexts for agent-1
         results = repo.get_context_for_agent(
             agent_id="agent-1",
-            embedding=[0.1, 0.2, 0.3],
+            query_embedding=[0.1, 0.2, 0.3],
+            query_text="Context for agent 1",
             documents=["doc1"],
             top_k=5,
         )
@@ -97,7 +98,8 @@ class TestMockContextDAO:
         # Try to retrieve with different agent
         results = repo.get_context_for_agent(
             agent_id="agent-999",
-            embedding=[0.1, 0.2, 0.3],
+            query_embedding=[0.1, 0.2, 0.3],
+            query_text="Context for agent 1",
             documents=["doc1"],
             top_k=5,
         )

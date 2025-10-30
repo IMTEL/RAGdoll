@@ -1,9 +1,10 @@
 """MongoDB implementation for context document storage.
 
-MONGODB ATLAS VECTOR SEARCH CONFIGURATION GUIDE:
-================================================
+MONGODB ATLAS SEARCH CONFIGURATION GUIDE:
+=========================================
 
-To enable vector search and filtering capabilities, configure the following indexes in MongoDB Atlas:
+The system automatically creates the following indexes when initialized.
+If automatic creation fails, you can create them manually in MongoDB Atlas:
 
 1. **Vector Search Index** (name: "embeddings"):
    Index Type: vectorSearch
@@ -28,16 +29,37 @@ To enable vector search and filtering capabilities, configure the following inde
    }
    ```
 
-2. **Standard Indexes** (for non-vector queries):
+2. **Keyword Search Index** (name: "keyword_search"):
+   Index Type: search (Atlas Search for BM25)
+   ```json
+   {
+     "mappings": {
+       "dynamic": false,
+       "fields": {
+         "text": {
+           "type": "string"
+         },
+         "agent_id": {
+           "type": "string"
+         },
+         "document_id": {
+           "type": "string"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Standard Indexes** (for non-vector queries):
    - Create index on "agent_id" (ascending)
    - Create index on "document_id" (ascending)
    - Create compound index on ["agent_id", "document_id"]
 
-How to create indexes in MongoDB Atlas:
+How to create indexes manually in MongoDB Atlas:
 1. Go to your Atlas cluster
 2. Click "Browse Collections"
 3. Select your database and collection
-4. Click "Search Indexes" tab
+4. Click "Search Indexes" tab for search indexes, or "Indexes" tab for standard indexes
 5. Click "Create Search Index" or "Create Index"
 6. Choose "JSON Editor" and paste the appropriate configuration above
 
@@ -51,6 +73,7 @@ from pymongo import ASCENDING, MongoClient
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.dao.context.base import ContextDAO
+from src.rag_service.dao.context.hybrid_search import hybrid_search
 from src.rag_service.embeddings import similarity_search
 
 
@@ -71,13 +94,13 @@ class MongoDBContextDAO(ContextDAO):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
-        self.similarity_threshold = 0.5
+        self.similarity_threshold = 0.5  # lower = more similar
 
         # Create indexes for efficient querying
         self._create_indexes()
 
     def _create_indexes(self):
-        """Create database indexes for optimized queries."""
+        """Create database indexes for optimized queries and vector search."""
         try:
             # Index on agent_id for fast agent-based queries
             self.collection.create_index([("agent_id", ASCENDING)])
@@ -90,17 +113,139 @@ class MongoDBContextDAO(ContextDAO):
                 [("agent_id", ASCENDING), ("document_id", ASCENDING)]
             )
 
-            logger.info("Context collection indexes created successfully")
+            # logger.info("Context collection indexes created successfully")
         except Exception as e:
             logger.warning(f"Could not create context indexes: {e}")
+
+        # Create Atlas Vector Search index
+        self._create_vector_search_index()
+
+        # Create Atlas Search index for BM25 keyword search
+        self._create_keyword_search_index()
+
+    def _create_vector_search_index(self):
+        """Create Atlas Vector Search index for semantic similarity queries.
+
+        This method attempts to create the vector search index automatically.
+        If the index already exists, it will be skipped gracefully.
+
+        Note: This requires MongoDB Atlas M10+ cluster tier.
+        """
+        try:
+            # Check if the search index already exists
+            existing_indexes = list(self.collection.list_search_indexes())
+
+            # Check if 'embeddings' index already exists
+            if any(idx.get("name") == "embeddings" for idx in existing_indexes):
+                # logger.info("Vector search index 'embeddings' already exists, skipping creation")
+                return
+
+            # Define the vector search index specification
+            # Vector search indexes use 'fields' at the top level, not inside 'mappings'
+            vector_search_definition = {
+                "fields": [
+                    {
+                        "type": "vector",
+                        "path": "embedding",
+                        "numDimensions": 768,  # TODO: Support multiple dimension amounts
+                        "similarity": "cosine",
+                    },
+                    {"type": "filter", "path": "agent_id"},
+                    {"type": "filter", "path": "document_id"},
+                ]
+            }
+
+            # Create the vector search index
+            # Note: Vector search index type is automatically inferred from 'fields' structure
+            self.collection.create_search_index(
+                {
+                    "definition": vector_search_definition,
+                    "name": "embeddings",
+                    "type": "vectorSearch",
+                }
+            )
+
+            logger.info(
+                "Vector search index 'embeddings' created successfully. "
+                "Note: It may take a few minutes for the index to be fully built in Atlas."
+            )
+        except AttributeError:
+            # create_search_index might not be available in older pymongo versions
+            logger.warning(
+                "Could not create vector search index: create_search_index method not available. "
+                "Please upgrade pymongo to version 4.5+ or create the index manually in Atlas."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not create vector search index automatically: {e}. "
+                "This is normal if the index already exists or if using MongoDB Community Edition. "
+                "For Atlas users: The index may need to be created manually in the Atlas UI."
+            )
+
+    def _create_keyword_search_index(self):
+        """Create Atlas Search index for BM25 keyword search.
+
+        This method attempts to create the keyword search index automatically.
+        If the index already exists, it will be skipped gracefully.
+
+        Note: This requires MongoDB Atlas (any tier).
+        """
+        try:
+            # Check if the search index already exists
+            existing_indexes = list(self.collection.list_search_indexes())
+
+            # Check if 'keyword_search' index already exists
+            if any(idx.get("name") == "keyword_search" for idx in existing_indexes):
+                # logger.info("Keyword search index 'keyword_search' already exists, skipping creation")
+                return
+
+            # Define the keyword search index specification
+            # Using dynamic mapping for text field with BM25 scoring
+            # agent_id and document_id need to be 'token' type for filtering in compound queries
+            keyword_search_definition = {
+                "mappings": {
+                    "dynamic": False,
+                    "fields": {
+                        "text": {"type": "string"},
+                        "agent_id": {"type": "token"},
+                        "document_id": {"type": "token"},
+                    },
+                }
+            }
+
+            # Create the keyword search index
+            self.collection.create_search_index(
+                {"definition": keyword_search_definition, "name": "keyword_search"}
+            )
+
+            logger.info(
+                "Keyword search index 'keyword_search' created successfully. "
+                "Note: It may take a few minutes for the index to be fully built in Atlas."
+            )
+        except AttributeError:
+            # create_search_index might not be available in older pymongo versions
+            logger.warning(
+                "Could not create keyword search index: create_search_index method not available. "
+                "Please upgrade pymongo to version 4.5+ or create the index manually in Atlas."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not create keyword search index automatically: {e}. "
+                "This is normal if the index already exists or if using MongoDB Community Edition. "
+                "For Atlas users: The index may need to be created manually in the Atlas UI."
+            )
 
     def get_context_for_agent(
         self,
         agent_id: str,
-        embedding: list[float],
+        query_embedding: list[float],
+        query_text: str,
+        keyword_query_text: str | None = None,
         documents: list[str] | None = None,
         num_candidates: int = 50,
         top_k: int = 5,
+        similarity_threshold: float | None = None,
+        hybrid_search_alpha: float | None = None,
     ) -> list[Context]:
         """Retrieve relevant contexts for an agent using vector similarity.
 
@@ -112,13 +257,20 @@ class MongoDBContextDAO(ContextDAO):
 
         Args:
             agent_id (str): Agent identifier
-            embedding (list[float]): Query embedding vector
+            query_embedding (list[float]): Query embedding vector
+            query_text (str): Full query text for vector search (includes context)
+            keyword_query_text (str | None): Simplified query text for BM25 keyword search.
+                                              If None, uses query_text for both searches.
             documents (list[str] | None): Optional list of document IDs to filter by.
                                            If None, searches all agent's documents.
                                            If provided, only documents with at least one
                                            matching ID will be returned.
             num_candidates (int): Number of initial candidates to consider
             top_k (int): Maximum number of results to return
+            similarity_threshold (float | None): Minimum similarity score for results.
+                                                  If None, uses instance default.
+            hybrid_search_alpha (float | None): Weight for hybrid search (0=keyword, 1=vector).
+                                                 If None, uses default value of 0.75.
 
         Returns:
             list[Context]: Top matching contexts for the agent
@@ -127,87 +279,41 @@ class MongoDBContextDAO(ContextDAO):
             ValueError: If agent_id or embedding is empty
         """
         available_documents = documents if documents is not None else []
+        # If an explicit empty list of documents is provided, there are no
+        # accessible documents for this agent. Returning early avoids
+        # constructing MongoDB queries like {"document_id": {"$in": []}}
+        # which cause an OperationFailure in some MongoDB versions.
+        if documents is not None and len(documents) == 0:
+            return []
         if not agent_id:
             raise ValueError("agent_id cannot be empty")
-        if not embedding:
+        if not query_embedding:
             raise ValueError("Embedding cannot be empty")
         print("Available documents for filtering:", available_documents)
-        # Build filter for vectorSearch
-        # This requires the vector index to have filter fields configured (see module docstring)
-        # Filter by agent_id and optionally restrict to provided document_ids
-        search_filter = {"agent_id": {"$eq": agent_id}}
-        search_filter["document_id"] = {"$in": available_documents}
 
-        # Build MongoDB aggregation pipeline with vector search
-        pipeline = [
-            {
-                "$vectorSearch": {
-                    "index": "embeddings",
-                    "path": "embedding",
-                    "queryVector": embedding,
-                    "numCandidates": num_candidates,
-                    "limit": top_k,
-                    "filter": search_filter,
-                }
-            },
-        ]
-
-        try:
-            documents = list(self.collection.aggregate(pipeline))
-        except Exception as e:
-            logger.error(f"Vector search failed: {e}. Check Atlas configuration.")
-            # Fallback: use post-filtering if vector search with filters fails
-            logger.warning(
-                "Falling back to post-filtering (slower). Consider upgrading cluster tier."
-            )
-            pipeline_no_filter = [
-                {
-                    "$vectorSearch": {
-                        "index": "embeddings",
-                        "path": "embedding",
-                        "queryVector": embedding,
-                        # Get more candidates for filtering
-                        "numCandidates": num_candidates * 3,
-                        "limit": top_k * 10,  # Get more results for post-filtering
-                    }
-                },
-            ]
-            documents = list(self.collection.aggregate(pipeline_no_filter))
-        print(
-            f"Found {len(documents)} documents from vector search for agent {agent_id}"
+        keyword_text = (
+            keyword_query_text if keyword_query_text is not None else query_text
         )
-        results = []
-        for document in documents:
-            # Post-filter by agent_id and document_id if using fallback
-            if document.get("agent_id") != agent_id:
-                continue
+        threshold = (
+            similarity_threshold
+            if similarity_threshold is not None
+            else self.similarity_threshold
+        )
+        alpha = hybrid_search_alpha if hybrid_search_alpha is not None else 0.75
+        adjusted_num_candidates = max(num_candidates, top_k * 3)
 
-            if document.get("document_id") not in available_documents:
-                continue
-
-            # Additional similarity check
-            similarity = similarity_search(embedding, document["embedding"])
-
-            logger.debug(
-                f"Agent: {agent_id}, Document: {document.get('document_name')}, "
-                f"Document ID: {document.get('document_id')}, Similarity: {similarity}"
-            )
-
-            if similarity > self.similarity_threshold:
-                results.append(
-                    Context(
-                        text=document["text"],
-                        document_name=document["document_name"],
-                        document_id=document.get("document_id"),
-                        chunk_id=document.get("chunk_id"),
-                        chunk_index=document.get("chunk_index"),
-                        total_chunks=document.get("total_chunks", 1),
-                    )
-                )
-
-            # Stop if we have enough results
-            if len(results) >= top_k:
-                break
+        results = hybrid_search(
+            alpha,
+            agent_id,
+            query_embedding,
+            query_text,
+            keyword_text,
+            available_documents,
+            self.collection,
+            threshold,
+            num_candidates=adjusted_num_candidates,
+            top_k=top_k,
+        )
 
         return results
 
