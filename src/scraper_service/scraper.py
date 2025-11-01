@@ -1,19 +1,24 @@
+import os
 import hashlib
 import logging
-import os
-from dataclasses import dataclass
+import warnings
 from pathlib import Path
+from typing import List, Dict, Optional, Union
+from dataclasses import dataclass
 
-from unstructured.chunking.title import chunk_by_title
-from unstructured.documents.elements import Element
+# Suppress deprecation warnings from unstructured library
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="unstructured")
+
 from unstructured.partition.auto import partition
+from unstructured.partition.pdf import partition_pdf
 from unstructured.partition.docx import partition_docx
+from unstructured.partition.pptx import partition_pptx
+from unstructured.partition.xlsx import partition_xlsx
+from unstructured.partition.text import partition_text
 from unstructured.partition.html import partition_html
 from unstructured.partition.md import partition_md
-from unstructured.partition.pdf import partition_pdf
-from unstructured.partition.pptx import partition_pptx
-from unstructured.partition.text import partition_text
-from unstructured.partition.xlsx import partition_xlsx
+from unstructured.chunking.title import chunk_by_title
+from unstructured.documents.elements import Element
 
 
 logger = logging.getLogger(__name__)
@@ -21,38 +26,26 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ScrapedDocument:
-    """Represents a scraped document with metadata."""
-
+    """Represents a scraped document with metadata"""
     content: str
     document_id: str
     document_name: str
     file_type: str
     chunk_index: int
-    metadata: dict
+    metadata: Dict
     source_file: str
 
 
 class ScraperService:
-    """A comprehensive scraper service that can process various file types using the unstructured library for RAG applications."""
-
-    SUPPORTED_EXTENSIONS = frozenset(
-        [
-            ".pdf",
-            ".docx",
-            ".doc",
-            ".pptx",
-            ".ppt",
-            ".xlsx",
-            ".xls",
-            ".txt",
-            ".md",
-            ".html",
-            ".htm",
-            ".xml",
-            ".json",
-            ".csv",
-        ]
-    )
+    """
+    A comprehensive scraper service that can process various file types
+    using the unstructured library for RAG applications.
+    """
+    
+    SUPPORTED_EXTENSIONS = frozenset({
+        '.pdf', '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls',
+        '.txt', '.md', '.html', '.htm', '.xml', '.json', '.csv'
+    })
 
     def __init__(self, chunk_size: int = 500, overlap: int = 50):
         """Initialize the scraper service.
@@ -73,12 +66,13 @@ class ScraperService:
         """Check if the file type is supported."""
         return Path(file_path).suffix.lower() in self.SUPPORTED_EXTENSIONS
 
-    def extract_elements(self, file_path: str) -> list[Element]:
-        """Extract elements from a file using unstructured.
-
+    def extract_elements(self, file_path: str) -> List[Element]:
+        """
+        Extract elements from a file using unstructured.
+        
         Args:
             file_path: Path to the file to process
-
+            
         Returns:
             List of unstructured elements
         """
@@ -104,7 +98,7 @@ class ScraperService:
                         include_page_breaks=True,
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to process using auto: {e!s}")
+                    logger.warning(f"Failed to process using auto: {str(e)}")
 
                 # If all strategies fail, try with OCR
                 if not elements or len(elements) == 0:
@@ -123,19 +117,19 @@ class ScraperService:
                                 f"Successfully extracted {len(elements)} elements using OCR"
                             )
                     except Exception as e:
-                        logger.warning(f"OCR strategy also failed: {e!s}")
+                        logger.warning(f"OCR strategy also failed: {str(e)}")
                         elements = []
-            elif file_extension in [".docx", ".doc"]:
+            elif file_extension in ['.docx', '.doc']:
                 elements = partition_docx(filename=file_path)
-            elif file_extension in [".pptx", ".ppt"]:
+            elif file_extension in ['.pptx', '.ppt']:
                 elements = partition_pptx(filename=file_path)
-            elif file_extension in [".xlsx", ".xls"]:
+            elif file_extension in ['.xlsx', '.xls']:
                 elements = partition_xlsx(filename=file_path)
-            elif file_extension == ".html":
+            elif file_extension == '.html':
                 elements = partition_html(filename=file_path)
-            elif file_extension == ".md":
+            elif file_extension == '.md':
                 elements = partition_md(filename=file_path)
-            elif file_extension == ".txt":
+            elif file_extension == '.txt':
                 elements = partition_text(filename=file_path)
             else:
                 # Fallback to auto partition
@@ -157,54 +151,56 @@ class ScraperService:
             return elements
 
         except Exception as e:
-            logger.error(f"Error processing file {file_path}: {e!s}")
+            logger.error(f"Error processing file {file_path}: {str(e)}")
             logger.error(f"Exception type: {type(e).__name__}")
             raise
 
-    def chunk_elements(self, elements: list[Element]) -> list[Element]:
-        """Chunk elements using unstructured's chunking capabilities.
-
+    def chunk_elements(self, elements: List[Element]) -> List[Element]:
+        """
+        Chunk elements using unstructured's chunking capabilities.
+        
         Args:
             elements: List of unstructured elements
-
+            
         Returns:
             List of chunked elements
         """
         try:
-            # Use title-based chunking for better semantic coherence
+            # chunk_by_title naturally respects sentence boundaries and semantic sections
+            # It will only break at natural points (end of sentences, paragraphs, sections)
             chunked_elements = chunk_by_title(
                 elements,
-                max_characters=self.chunk_size,
+                max_characters=self.chunk_size,  # Soft limit - can exceed to finish sentence
+                combine_text_under_n_chars=100,  # Combine small elements for better context
                 overlap=self.overlap,
-                combine_text_under_n_chars=50,  # Combine small text elements
+                overlap_all=True,  # Overlap with all previous chunks, not just the last one
             )
 
-            logger.info(
-                f"Created {len(chunked_elements)} chunks from {len(elements)} elements"
-            )
-
+            logger.info(f"Created {len(chunked_elements)} chunks from {len(elements)} elements")
+            
             # Debug: Show content of chunked elements
             if chunked_elements:
-                logger.info(
-                    f"Sample chunked content: {[str(elem)[:100] + '...' if len(str(elem)) > 100 else str(elem) for elem in chunked_elements[:2]]}"
-                )
-
+                logger.info(f"Sample chunked content: {[str(elem)[:100] + '...' if len(str(elem)) > 100 else str(elem) for elem in chunked_elements[:2]]}")
+            
             return chunked_elements
-
+            
         except Exception as e:
-            logger.error(f"Error chunking elements: {e!s}")
+            logger.error(f"Error chunking elements: {str(e)}")
             # Fallback to original elements if chunking fails
             return elements
 
     def elements_to_scraped_documents(
-        self, elements: list[Element], file_path: str
-    ) -> list[ScrapedDocument]:
-        """Convert unstructured elements to ScrapedDocument objects.
-
+        self, 
+        elements: List[Element], 
+        file_path: str
+    ) -> List[ScrapedDocument]:
+        """
+        Convert unstructured elements to ScrapedDocument objects.
+        
         Args:
             elements: List of unstructured elements
             file_path: Original file path
-
+            
         Returns:
             List of ScrapedDocument objects
         """
@@ -225,21 +221,13 @@ class ScraperService:
 
             # Extract metadata from element
             metadata = {
-                "element_type": element.category
-                if hasattr(element, "category")
-                else "unknown",
-                "page_number": getattr(element.metadata, "page_number", None)
-                if hasattr(element, "metadata")
-                else None,
-                "coordinates": getattr(element.metadata, "coordinates", None)
-                if hasattr(element, "metadata")
-                else None,
-                "file_size": os.path.getsize(file_path),
-                "processing_timestamp": str(
-                    hash(content + file_path)
-                ),  # Simple timestamp alternative
+                'element_type': element.category if hasattr(element, 'category') else 'unknown',
+                'page_number': getattr(element.metadata, 'page_number', None) if hasattr(element, 'metadata') else None,
+                'coordinates': getattr(element.metadata, 'coordinates', None) if hasattr(element, 'metadata') else None,
+                'file_size': os.path.getsize(file_path),
+                'processing_timestamp': str(hash(content + file_path)),  # Simple timestamp alternative
             }
-
+            
             # Create ScrapedDocument
             scraped_doc = ScrapedDocument(
                 content=content,
@@ -248,19 +236,20 @@ class ScraperService:
                 file_type=file_type,
                 chunk_index=i,
                 metadata=metadata,
-                source_file=file_path,
+                source_file=file_path
             )
 
             documents.append(scraped_doc)
-
+        
         return documents
-
-    def scrape_file(self, file_path: str) -> list[ScrapedDocument]:
-        """Main method to scrape a file and return processed documents.
-
+    
+    def scrape_file(self, file_path: str) -> List[ScrapedDocument]:
+        """
+        Main method to scrape a file and return processed documents.
+        
         Args:
             file_path: Path to the file to scrape
-
+            
         Returns:
             List of ScrapedDocument objects ready for RAG processing
         """
@@ -275,33 +264,32 @@ class ScraperService:
 
             # Convert to ScrapedDocument objects
             documents = self.elements_to_scraped_documents(chunked_elements, file_path)
-
-            logger.info(
-                f"Successfully scraped {len(documents)} documents from {file_path}"
-            )
+            
+            logger.info(f"Successfully scraped {len(documents)} documents from {file_path}")
             return documents
-
+            
         except Exception as e:
-            logger.error(f"Failed to scrape file {file_path}: {e!s}")
+            logger.error(f"Failed to scrape file {file_path}: {str(e)}")
             raise
-
-    def get_file_info(self, file_path: str) -> dict:
-        """Get basic information about a file without processing it.
-
+    
+    def get_file_info(self, file_path: str) -> Dict:
+        """
+        Get basic information about a file without processing it.
+        
         Args:
             file_path: Path to the file
-
+            
         Returns:
             Dictionary with file information
         """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
-
+        
         file_stats = os.stat(file_path)
         return {
-            "file_name": Path(file_path).name,
-            "file_size": file_stats.st_size,
-            "file_type": Path(file_path).suffix.lower(),
-            "is_supported": self.is_supported_file(file_path),
-            "absolute_path": os.path.abspath(file_path),
+            'file_name': Path(file_path).name,
+            'file_size': file_stats.st_size,
+            'file_type': Path(file_path).suffix.lower(),
+            'is_supported': self.is_supported_file(file_path),
+            'absolute_path': os.path.abspath(file_path)
         }
