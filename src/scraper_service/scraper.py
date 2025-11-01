@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,10 @@ from unstructured.partition.pdf import partition_pdf
 from unstructured.partition.pptx import partition_pptx
 from unstructured.partition.text import partition_text
 from unstructured.partition.xlsx import partition_xlsx
+
+
+# Suppress deprecation warnings from unstructured library
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="unstructured")
 
 
 logger = logging.getLogger(__name__)
@@ -33,10 +38,13 @@ class ScrapedDocument:
 
 
 class ScraperService:
-    """A comprehensive scraper service that can process various file types using the unstructured library for RAG applications."""
+    """A comprehensive scraper service that can process various file types.
+
+    Uses the unstructured library for RAG applications.
+    """
 
     SUPPORTED_EXTENSIONS = frozenset(
-        [
+        {
             ".pdf",
             ".docx",
             ".doc",
@@ -51,7 +59,7 @@ class ScraperService:
             ".xml",
             ".json",
             ".csv",
-        ]
+        }
     )
 
     def __init__(self, chunk_size: int = 500, overlap: int = 50):
@@ -171,12 +179,14 @@ class ScraperService:
             List of chunked elements
         """
         try:
-            # Use title-based chunking for better semantic coherence
+            # chunk_by_title naturally respects sentence boundaries and semantic sections
+            # It will only break at natural points (end of sentences, paragraphs, sections)
             chunked_elements = chunk_by_title(
                 elements,
-                max_characters=self.chunk_size,
+                max_characters=self.chunk_size,  # Soft limit - can exceed to finish sentence
+                combine_text_under_n_chars=100,  # Combine small elements for better context
                 overlap=self.overlap,
-                combine_text_under_n_chars=50,  # Combine small text elements
+                overlap_all=True,  # Overlap with all previous chunks, not just the last one
             )
 
             logger.info(
