@@ -96,11 +96,11 @@ def process_file_and_store(
         # Use scraper service to extract and chunk the document
         logger.info(f"Scraping file with ScraperService: {file_path}")
         scraped_documents = scraper_service.scrape_file(file_path)
-        
+
         if not scraped_documents:
             logger.error(f"No content extracted from file: {file_path}")
             return False, ""
-        
+
         logger.info(f"Extracted {len(scraped_documents)} chunks from {file_path}")
 
         # Check if we're updating an existing document
@@ -152,9 +152,13 @@ def process_file_and_store(
                     raise
                 except ValueError as e:
                     # Invalid embedding model format
-                    logger.error(f"Invalid embedding model format for chunk {chunk_idx}: {e}")
-                    raise EmbeddingError(f"Invalid embedding model configuration: {e!s}", e) from e
-                
+                    logger.error(
+                        f"Invalid embedding model format for chunk {chunk_idx}: {e}"
+                    )
+                    raise EmbeddingError(
+                        f"Invalid embedding model configuration: {e!s}", e
+                    ) from e
+
                 # Store context for this chunk
                 context_dao.insert_context(
                     document_id=document_id,
@@ -169,17 +173,23 @@ def process_file_and_store(
                         total_chunks=total_chunks,
                     ),
                 )
-                logger.debug(f"Stored chunk {chunk_idx + 1}/{total_chunks} for document '{document_id}'")
-                
+                logger.debug(
+                    f"Stored chunk {chunk_idx + 1}/{total_chunks} for document '{document_id}'"
+                )
+
             except (EmbeddingAPIError, EmbeddingError):
                 # Re-raise embedding errors to be handled at a higher level
                 raise
             except Exception as e:
-                logger.error(f"Error processing chunk {chunk_idx} of '{file_path}': {e}")
+                logger.error(
+                    f"Error processing chunk {chunk_idx} of '{file_path}': {e}"
+                )
                 # Continue processing other chunks
                 continue
 
-        logger.info(f"Successfully stored '{document_name}' with {total_chunks} chunks into the database.")
+        logger.info(
+            f"Successfully stored '{document_name}' with {total_chunks} chunks into the database."
+        )
 
     except (EmbeddingAPIError, EmbeddingError):
         # Re-raise embedding errors
