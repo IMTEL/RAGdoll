@@ -1,24 +1,24 @@
-import os
 import hashlib
 import logging
+import os
 import warnings
-from pathlib import Path
-from typing import List, Dict, Optional, Union
 from dataclasses import dataclass
+from pathlib import Path
+
+from unstructured.chunking.title import chunk_by_title
+from unstructured.documents.elements import Element
+from unstructured.partition.auto import partition
+from unstructured.partition.docx import partition_docx
+from unstructured.partition.html import partition_html
+from unstructured.partition.md import partition_md
+from unstructured.partition.pdf import partition_pdf
+from unstructured.partition.pptx import partition_pptx
+from unstructured.partition.text import partition_text
+from unstructured.partition.xlsx import partition_xlsx
+
 
 # Suppress deprecation warnings from unstructured library
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="unstructured")
-
-from unstructured.partition.auto import partition
-from unstructured.partition.pdf import partition_pdf
-from unstructured.partition.docx import partition_docx
-from unstructured.partition.pptx import partition_pptx
-from unstructured.partition.xlsx import partition_xlsx
-from unstructured.partition.text import partition_text
-from unstructured.partition.html import partition_html
-from unstructured.partition.md import partition_md
-from unstructured.chunking.title import chunk_by_title
-from unstructured.documents.elements import Element
 
 
 logger = logging.getLogger(__name__)
@@ -26,22 +26,23 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ScrapedDocument:
-    """Represents a scraped document with metadata"""
+    """Represents a scraped document with metadata."""
+
     content: str
     document_id: str
     document_name: str
     file_type: str
     chunk_index: int
-    metadata: Dict
+    metadata: dict
     source_file: str
 
 
 class ScraperService:
+    """A comprehensive scraper service that can process various file types.
+
+    Uses the unstructured library for RAG applications.
     """
-    A comprehensive scraper service that can process various file types
-    using the unstructured library for RAG applications.
-    """
-    
+
     SUPPORTED_EXTENSIONS = frozenset({
         '.pdf', '.docx', '.doc', '.pptx', '.ppt', '.xlsx', '.xls',
         '.txt', '.md', '.html', '.htm', '.xml', '.json', '.csv'
@@ -66,9 +67,8 @@ class ScraperService:
         """Check if the file type is supported."""
         return Path(file_path).suffix.lower() in self.SUPPORTED_EXTENSIONS
 
-    def extract_elements(self, file_path: str) -> List[Element]:
-        """
-        Extract elements from a file using unstructured.
+    def extract_elements(self, file_path: str) -> list[Element]:
+        """Extract elements from a file using unstructured.
         
         Args:
             file_path: Path to the file to process
@@ -98,7 +98,7 @@ class ScraperService:
                         include_page_breaks=True,
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to process using auto: {str(e)}")
+                    logger.warning(f"Failed to process using auto: {e!s}")
 
                 # If all strategies fail, try with OCR
                 if not elements or len(elements) == 0:
@@ -117,7 +117,7 @@ class ScraperService:
                                 f"Successfully extracted {len(elements)} elements using OCR"
                             )
                     except Exception as e:
-                        logger.warning(f"OCR strategy also failed: {str(e)}")
+                        logger.warning(f"OCR strategy also failed: {e!s}")
                         elements = []
             elif file_extension in ['.docx', '.doc']:
                 elements = partition_docx(filename=file_path)
@@ -151,13 +151,12 @@ class ScraperService:
             return elements
 
         except Exception as e:
-            logger.error(f"Error processing file {file_path}: {str(e)}")
+            logger.error(f"Error processing file {file_path}: {e!s}")
             logger.error(f"Exception type: {type(e).__name__}")
             raise
 
-    def chunk_elements(self, elements: List[Element]) -> List[Element]:
-        """
-        Chunk elements using unstructured's chunking capabilities.
+    def chunk_elements(self, elements: list[Element]) -> list[Element]:
+        """Chunk elements using unstructured's chunking capabilities.
         
         Args:
             elements: List of unstructured elements
@@ -185,17 +184,16 @@ class ScraperService:
             return chunked_elements
             
         except Exception as e:
-            logger.error(f"Error chunking elements: {str(e)}")
+            logger.error(f"Error chunking elements: {e!s}")
             # Fallback to original elements if chunking fails
             return elements
 
     def elements_to_scraped_documents(
         self, 
-        elements: List[Element], 
+        elements: list[Element], 
         file_path: str
-    ) -> List[ScrapedDocument]:
-        """
-        Convert unstructured elements to ScrapedDocument objects.
+    ) -> list[ScrapedDocument]:
+        """Convert unstructured elements to ScrapedDocument objects.
         
         Args:
             elements: List of unstructured elements
@@ -243,9 +241,8 @@ class ScraperService:
         
         return documents
     
-    def scrape_file(self, file_path: str) -> List[ScrapedDocument]:
-        """
-        Main method to scrape a file and return processed documents.
+    def scrape_file(self, file_path: str) -> list[ScrapedDocument]:
+        """Main method to scrape a file and return processed documents.
         
         Args:
             file_path: Path to the file to scrape
@@ -269,12 +266,11 @@ class ScraperService:
             return documents
             
         except Exception as e:
-            logger.error(f"Failed to scrape file {file_path}: {str(e)}")
+            logger.error(f"Failed to scrape file {file_path}: {e!s}")
             raise
     
-    def get_file_info(self, file_path: str) -> Dict:
-        """
-        Get basic information about a file without processing it.
+    def get_file_info(self, file_path: str) -> dict:
+        """Get basic information about a file without processing it.
         
         Args:
             file_path: Path to the file
