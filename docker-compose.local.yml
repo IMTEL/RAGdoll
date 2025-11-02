@@ -1,0 +1,24 @@
+# Docker Compose Configuration for RAGdoll Application with MongoDB Atlas
+# Purpose: Development environment using cloud MongoDB Atlas
+# Usage: docker compose -f docker-compose.local.yml up --build
+
+# Project name for Docker Desktop - keeps containers under one project
+name: ragdoll
+
+services:
+  # FastAPI Backend Service
+  chat-service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: ragdoll-backend:latest  # Named image - prevents duplicate images
+    container_name: ragdoll-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot-reload during development
+      - .:/app
+    env_file:
+      - .env
+    # All configuration comes from .env file
+    # Uses MONGODB_URI from .env (MongoDB Atlas connection string)
