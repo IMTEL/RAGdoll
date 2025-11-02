@@ -56,7 +56,9 @@ def generate_retrieval_query(
 
     try:
         query_llm = create_llm(agent.llm_provider, agent.llm_model)
-        standalone_query = query_llm.generate(summary_prompt)
+        standalone_query = query_llm.generate(
+            summary_prompt, agent.llm_max_tokens, agent.llm_temperature
+        )
         print(f"Generated retrieval query: {standalone_query}")
         return standalone_query.strip()
     except Exception as e:
