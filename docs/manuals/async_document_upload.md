@@ -2,7 +2,7 @@
 
 ## Overview
 
-The document upload system now processes files asynchronously in the background, keeping the server responsive even during large file uploads or processing of many documents.
+The document upload system processes files asynchronously in the background, keeping the server responsive even during large file uploads or processing of many documents.
 
 ## How It Works
 
