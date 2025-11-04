@@ -1,5 +1,3 @@
-
-
 server name: iplvr01.os.it.ntnu.no
 accessed at: https://iplvr.it.ntnu.no
 
