@@ -4,7 +4,7 @@
 **Server (host):** `iplvr01.os.it.ntnu.no`  
 **Service (DNS):** `iplvr.it.ntnu.no`  
 **Date:** 2025-10-12  
-**Prepared by:** Tobia F. with guidance from ChatGPT  
+**Prepared by:** Tobias F. with guidance from ChatGPT  
 
 ---
 
