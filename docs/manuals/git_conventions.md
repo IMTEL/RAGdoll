@@ -1,87 +1,73 @@
-# Quick examples
------------------------------------------------
-feat: new feature
-fix(scope): bug in scope
-feat!: breaking change / feat(scope)!: rework API
-chore(deps): update dependencies
+# Git Conventions
 
-# Commit types
-------------------------------------------------
-build: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+## Commit Messages
 
-ci: Changes to CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
+All commit messages **must** follow the Conventional Commits specification. This ensures clarity and consistency across the project.
 
-chore: Changes which doesn't change source code or tests e.g. changes to the build process, auxiliary tools, libraries
-
-docs: Documentation only changes
-
-feat: A new feature
-
-fix: A bug fix
-
-perf: A code change that improves performance
-
-refactor: A code change that neither fixes a bug nor adds a feature
-
-revert: Revert something
-
-style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-
-test: Adding missing tests or correcting existing tests
-
-
-# Branching
-
-Branch by using the following command:
-```bash
-git checkout <branch-name>
+### Format
+```
+<type>(<scope>): <description>
 ```
 
-When creating a new branch, use:
-```bash
-git checkout -b branch_type/branch-name
+- **type**: The type of change (see allowed types below).
+- **scope**: The area of the codebase affected (optional).
+- **description**: A short, imperative summary of the change.
+
+### Examples
+- `feat: add user authentication`
+- `fix(auth): resolve login bug`
+- `chore(deps): update dependencies`
+- `docs: improve README formatting`
+- `refactor(api): simplify request handling`
+
+### Breaking Changes
+For breaking changes, add a `!` after the type:
+- `feat!: introduce new API structure`
+- `fix(auth)!: remove deprecated login method`
+
+### Allowed Commit Types
+- **feat**: A new feature.
+- **fix**: A bug fix.
+- **docs**: Documentation-only changes.
+- **style**: Code style changes (e.g., formatting, white-space).
+- **refactor**: Code changes that neither fix a bug nor add a feature.
+- **perf**: Performance improvements.
+- **test**: Adding or updating tests.
+- **chore**: Maintenance tasks (e.g., updating dependencies).
+- **revert**: Reverting a previous commit.
+
+---
+
+## Branching Strategy
+
+### Naming Convention
+Use the following format for branch names:
 ```
-Note: *Branch types are the same as the commit types, such as Feat, Fix, or Refactor etc.*
-
-
-## Git flow
-Git Flow is a branching model that structures your repository to support parallel development and systematic releases. Here’s an overview:
-
-**Main Branches**:
-- **master/main:** Contains production-ready code.
-- **develop:** Contains the latest development changes that are ready for the next release.
-
-**Supporting Branches:**
-
-**Feature branches:** Used to develop new features. Typically branch off from develop and merge back into it.
-```bash
-git checkout -b Feat/my-new-feature 
+<type>/<short-description>
 ```
 
-**Release branches:** Prepare for a new production release. They allow for final polishing before merging into master/main and develop.
+- **type**: Same as commit types (e.g., `feat`, `fix`, `chore`).
+- **short-description**: A concise description of the branch purpose.
 
-```bash
-git checkout -b Release/1.0
-```
-**Hotfix branches:** Quick fixes applied directly to master/main to address issues in production. After the fix, merge back into both master/main and develop.
-```bash
-git checkout -b Hotfix/urgent-fix-something
-```
+### Examples
+- `feat/add-authentication`
+- `fix/login-bug`
+- `chore/update-dependencies`
 
-Note: *A branch should not be alive too long, as it is important that the entire team works on the same source of truth.*
+### Guidelines
+- Keep branches short-lived.
+- Regularly merge changes from the main branch to avoid conflicts.
 
-## Trunk Based Development
-Trunk Based Development (TBD) is a simpler alternative where developers work on a single branch (often called trunk or main). Key aspects include:
+---
 
-- **Frequent Integration:** Developers commit small, incremental changes frequently to avoid large merge conflicts.
-- **Feature Flags:** Instead of long-lived branches, use feature flags to control the release of incomplete features.
-- **Continuous Integration:** Automated builds and tests are essential to ensure that the trunk remains in a deployable state at all times.
+## Best Practices
 
-### Best Practices for TBD
+- **Frequent Commits**: Commit small, incremental changes frequently.
+- **Descriptive Messages**: Ensure commit messages clearly describe the change.
+- **Automated Testing**: Use CI/CD pipelines to verify every commit.
+- **Feature Flags**: Use feature flags for incomplete features instead of long-lived branches.
 
-**Short-Lived Branches:** If branches are needed, keep them very short-lived and merge back into the trunk quickly.
+---
 
-**Regular Commits:** Commit changes frequently to the trunk to reduce divergence.
-
-**Automated Testing:** Use CI/CD pipelines to ensure that every commit is verified by automated tests.
+By adhering to these conventions, we ensure a clean and maintainable Git history that benefits the entire team.
 
