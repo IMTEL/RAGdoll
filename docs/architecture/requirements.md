@@ -2,7 +2,7 @@
 # Architectural Drivers / Architectural Significant Requirements
 *This requirement document is based on a template that me (Tobias Fremming) and Sverre Nystad made in Cogito in order to make it easier to define architectural drivers in the organization, based on the curriculum in the course Software Architecture TDT4240.*
 
-This document presents the key architectural drivers and significant requirements for the VR4Vet chatbot system developed in IT2901-11 during spring 2025. It includes functional and non-functional (quality) requirements shape the system’s behavior, performance, and operational attributes in order to ensure that the needs of its end users and stakeholders are met, while maintaining a high quality standard.
+This document presents the key architectural drivers and significant requirements for the IMTEL chatbot system developed in IT2901-11 during spring 2025. It includes functional and non-functional (quality) requirements shape the system’s behavior, performance, and operational attributes in order to ensure that the needs of its end users and stakeholders are met, while maintaining a high quality standard.
 
 
 ## Functional Requirements
@@ -190,7 +190,7 @@ The functional requirements are listed below:
 ### **Cost Management**
 | ID   | Requirement Description | Priority |
 |------|-------------------------|----------|
-| BR4 | The development of the VR4VET Chatbot must be carried out using low-cost or open-source solutions wherever possible to minimize expenditure and ensure the project remains within the allocated budget. This includes seeking free-tier or low-cost hosting options, avoiding expensive proprietary software licenses, and optimizing usage of any paid APIs or LLM services. | High| 
+| BR4 | The development of the IMTEL Chatbot must be carried out using low-cost or open-source solutions wherever possible to minimize expenditure and ensure the project remains within the allocated budget. This includes seeking free-tier or low-cost hosting options, avoiding expensive proprietary software licenses, and optimizing usage of any paid APIs or LLM services. | High| 
 
 
 

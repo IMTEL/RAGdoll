@@ -11,7 +11,7 @@ available api at https://iplvr.it.ntnu.no
 
 ### **1️⃣ Clone the Repository**
 ```sh
-git clone https://github.com/vr4vet/chat-service.git
+git clone https://github.com/IMTEL/chat-service.git
 cd chat-service
 ```
 

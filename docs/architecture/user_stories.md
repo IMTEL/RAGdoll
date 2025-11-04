@@ -1,4 +1,4 @@
-# VR4VET Chatbot Player — User Stories
+# IMTEL Chatbot Player — User Stories
 
 ## 1. Chatbot as a Guide in VR
 
