@@ -54,9 +54,13 @@ Use the following format for branch names:
 - `fix/login-bug`
 - `chore/update-dependencies`
 
+### Primary Branches
+- **main**: This branch contains only production-ready code. All changes merged into `main` must be thoroughly tested and approved. It represents the stable version of the project.
+- **dev**: This branch serves as the integration branch for ongoing development. It is used for merging feature branches and testing new changes before they are promoted to `main`. The `dev` branch may contain partially completed features or experimental code, similar to standard practices in other projects.
+
 ### Guidelines
 - Keep branches short-lived.
-- Regularly merge changes from the main branch to avoid conflicts.
+- Regularly merge changes from the `main` branch to `dev` to avoid conflicts.
 
 ---
 
