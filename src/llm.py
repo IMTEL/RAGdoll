@@ -17,7 +17,12 @@ from src.models.model import Model
 
 
 class LLM(Protocol):
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Send the prompt to the LLM and return the generated response."""
 
     @staticmethod
@@ -40,12 +45,22 @@ class IdunLLM(LLM):
             )
         self.token = api_key
 
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
         }
-        data = {"model": self.model, "messages": [{"role": "user", "content": prompt}]}
+        data = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
 
         try:
             response = requests.post(self.url, headers=headers, json=data)
@@ -156,7 +171,12 @@ class OpenAILLM(LLM):
             )
         self.client = OpenAI(api_key=api_key)
 
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Uses the new API client interface to generate a response."""
         try:
             messages = [
@@ -164,7 +184,10 @@ class OpenAILLM(LLM):
                 {"role": "user", "content": prompt},
             ]
             response = self.client.chat.completions.create(
-                model=self.model, messages=messages
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_completion_tokens=max_tokens,
             )
             return response.choices[0].message.content.strip()
         except AuthenticationError as e:
@@ -222,10 +245,21 @@ class GeminiLLM(LLM):
         genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(self.model)
 
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Uses the Google Generative AI client to generate a response."""
         try:
-            response = self.client.generate_content(prompt)
+            response = self.client.generate_content(
+                prompt,
+                generation_config={
+                    "max_output_tokens": max_tokens,
+                    "temperature": temperature,
+                },
+            )
             return response.text.strip()
         except Exception as e:
             error_msg = str(e).lower()
@@ -283,7 +317,12 @@ class GeminiLLM(LLM):
 
 
 class MockLLM(LLM):
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         return f"Mocked response for prompt: {prompt}"
 
     @staticmethod

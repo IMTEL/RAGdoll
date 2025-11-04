@@ -46,12 +46,12 @@ def hybrid_search(
     else:
         keyword_scores = {}
 
-    all_doc_ids = set(vector_scores.keys()) | set(keyword_scores.keys())
+    all_chunk_ids = set(vector_scores.keys()) | set(keyword_scores.keys())
     hybrid_scores = {}
-    for doc_id in all_doc_ids:
-        vector_score = vector_scores.get(doc_id, 0)
-        keyword_score = keyword_scores.get(doc_id, 0)
-        hybrid_scores[doc_id] = alpha * vector_score + (1 - alpha) * keyword_score
+    for chunk_id in all_chunk_ids:
+        vector_score = vector_scores.get(chunk_id, 0)
+        keyword_score = keyword_scores.get(chunk_id, 0)
+        hybrid_scores[chunk_id] = alpha * vector_score + (1 - alpha) * keyword_score
 
     top_indices = sorted(
         hybrid_scores.keys(), key=lambda x: hybrid_scores[x], reverse=True
@@ -62,8 +62,8 @@ def hybrid_search(
     ]
 
     results = []
-    for doc_id in top_indices:
-        document = document_map.get(doc_id)
+    for chunk_id in top_indices:
+        document = document_map.get(chunk_id)
         if document:
             results.append(
                 Context(
@@ -108,9 +108,10 @@ def keyword_search(
     keyword_results = list(context_collection.aggregate(keyword_pipeline))
 
     for doc in keyword_results:
-        doc_id = doc["document_id"]
-        keyword_scores[doc_id] = doc.get("keyword_score", 0)
-        document_map[doc_id] = doc
+        # Use unique chunk_id instead of document_id to avoid overwriting multiple chunks from same document
+        chunk_id = doc.get("chunk_id", str(doc.get("_id")))
+        keyword_scores[chunk_id] = doc.get("keyword_score", 0)
+        document_map[chunk_id] = doc
 
     return keyword_scores
 
@@ -148,8 +149,9 @@ def vector_search(
     vector_results = list(context_collection.aggregate(vector_pipeline))
 
     for doc in vector_results:
-        doc_id = doc["document_id"]
-        vector_scores[doc_id] = doc.get("vector_score", 0)
-        document_map[doc_id] = doc
+        # Use unique chunk_id instead of document_id to avoid overwriting multiple chunks from same document
+        chunk_id = doc.get("chunk_id", str(doc.get("_id")))
+        vector_scores[chunk_id] = doc.get("vector_score", 0)
+        document_map[chunk_id] = doc
 
     return vector_scores

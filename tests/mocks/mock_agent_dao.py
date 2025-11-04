@@ -58,6 +58,17 @@ class MockAgentDAO(AgentDAO):
         """
         return [deepcopy(agent) for agent in self.agents]
 
+    # TODO : Update emulator and test to not be dependant on a id, based on index
+    # Breaks tests if used in tests
+    def delete_agent_by_id(self, agent_id: str) -> bool:
+        try:
+            index = int(agent_id)
+            if 0 <= index < len(self.agents):
+                self.agents.remove(self.agents[index])
+            return None
+        except (ValueError, IndexError):
+            return None
+
     def get_agent_by_id(self, agent_id: str) -> Agent | None:
         """Retrieve a specific agent by index (using id as index).
 

@@ -62,7 +62,7 @@ class TestScraperService:
             doc_id_1 != doc_id_2
         )  # Different chunk indices should generate different IDs
         assert doc_id_1 == doc_id_3  # Same file and chunk should generate same ID
-        assert len(doc_id_1) == 32  # MD5 hash length
+        assert len(doc_id_1) == 64  # SHA256 hash length
 
     @pytest.mark.integration
     def test_get_file_info_pdf(self, scraper_service, test_pdf_path):

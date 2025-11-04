@@ -91,6 +91,21 @@ class MongoDBAgentDAO(AgentDAO):
             result.append(Agent(**agent_doc))
         return result
 
+    def delete_agent_by_id(self, agent_id: str) -> bool:
+        """Delete a specific agent by ID.
+
+        Args:
+            agent_id (str): The MongoDB ObjectId as a string
+
+        Returns:
+            bool: True if the agent was deleted successfully, False otherwise
+        """
+        try:
+            result = self.collection.delete_one({"_id": ObjectId(agent_id)})
+            return result.deleted_count > 0
+        except Exception:
+            return False
+
     def get_agent_by_id(self, agent_id: str) -> Agent | None:
         """Retrieve a specific agent by ID.
 
