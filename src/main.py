@@ -9,7 +9,16 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 
 from src.config import Config
 from src.constants import LOGGING_CONFIG
-from src.routes import agents, auth, chat, debug, progress, upload
+from src.routes import (
+    agents,
+    api_keys,
+    auth,
+    chat,
+    debug,
+    progress,
+    providers,
+    upload,
+)
 
 
 # Apply the logging configuration
@@ -48,6 +57,12 @@ app.include_router(upload.router)
 
 # Agents router
 app.include_router(agents.router)
+
+# API Keys router
+app.include_router(api_keys.router)
+
+# Provider router
+app.include_router(providers.router)
 
 # Chat router (handles /ask, /transcribe, /askTranscribe)
 app.include_router(chat.router)

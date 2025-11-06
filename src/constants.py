@@ -27,3 +27,14 @@ LOGGING_CONFIG = {
         "level": "DEBUG",
     },
 }
+
+SUPPORTED_LLM_PROVIDERS = [
+    {"id": "idun", "label": "Idun"},
+    {"id": "openai", "label": "OpenAI"},
+    {"id": "gemini", "label": "Google Gemini"},
+]
+
+SUPPORTED_EMBEDDING_PROVIDERS = [
+    {"id": "openai", "label": "OpenAI"},
+    {"id": "gemini", "label": "Google Gemini"},
+]
