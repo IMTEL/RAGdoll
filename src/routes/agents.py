@@ -3,18 +3,44 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi_jwt_auth import AuthJWT
+from pydantic import BaseModel
 
 from src.config import Config
 from src.globals import access_service, agent_dao, auth_service, user_dao
-from src.llm import get_models
+from src.llm import list_llm_models
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent
+from src.models.errors.embedding_error import EmbeddingAPIError, EmbeddingError
+from src.models.errors.llm_error import LLMAPIError
 from src.models.model import Model
-from src.rag_service.embeddings import get_available_embedding_models
+from src.rag_service.embeddings import list_embedding_models
 
 
 config = Config()
 router = APIRouter()
+
+
+class ProviderKeyRequest(BaseModel):
+    provider: str
+    api_key: str
+
+
+def _map_embedding_api_error(error: EmbeddingAPIError) -> int:
+    message = str(error.original_error).lower() if error.original_error else ""
+    if any(keyword in message for keyword in ("quota", "rate limit", "429")):
+        return 429
+    if any(
+        keyword in message
+        for keyword in (
+            "unauthorized",
+            "forbidden",
+            "authentication",
+            "api key",
+            "permission",
+        )
+    ):
+        return 401
+    return 400
 
 
 # Update agent
@@ -193,14 +219,34 @@ def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = No
     return access_keys
 
 
-@router.get("/get_models", response_model=list[Model])
-def fetch_models(authorize: Annotated[AuthJWT, Depends()] = None):
-    """Returns all usable models."""
+@router.post("/get_models", response_model=list[Model])
+def fetch_models(
+    payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
+):
+    """Return all usable models for the requested provider using the supplied API key."""
     authorize.jwt_required()  # Require login, but nothing else
-    return get_models()
+
+    try:
+        return list_llm_models(payload.provider, payload.api_key)
+    except LLMAPIError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
-@router.get("/get_embedding_models", response_model=list[str])
-def fetch_embedding_models():
-    """Returns all usable embedding models."""
-    return get_available_embedding_models()
+@router.post("/get_embedding_models", response_model=list[str])
+def fetch_embedding_models(
+    payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
+):
+    """Return all usable embedding models for the requested provider using the supplied API key."""
+    authorize.jwt_required()
+
+    try:
+        return list_embedding_models(payload.provider, payload.api_key)
+    except EmbeddingAPIError as error:
+        status_code = _map_embedding_api_error(error)
+        raise HTTPException(status_code=status_code, detail=str(error)) from error
+    except EmbeddingError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error

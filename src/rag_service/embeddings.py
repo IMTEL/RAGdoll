@@ -21,14 +21,6 @@ class EmbeddingsModel(ABC):
             list[float]: The embedding of the text
         """
 
-    @abstractmethod
-    def get_available_embedding_models(self) -> list[str]:
-        """Get the available embedding models.
-
-        Returns:
-            list[str]: The available embedding models
-        """
-
 
 class OpenAIEmbedding(EmbeddingsModel):
     def __init__(
@@ -68,21 +60,6 @@ class OpenAIEmbedding(EmbeddingsModel):
             ) from e
         except Exception as e:
             raise EmbeddingError(f"Error getting OpenAI embedding: {e!s}", e) from e
-
-    @staticmethod
-    def get_available_embedding_models() -> list[str]:
-        try:
-            client = openai.OpenAI()
-            models = client.models.list()
-            # Filter for embedding models
-            embedding_models = [
-                "openai:" + item.id
-                for item in models.data
-                if "embedding" in item.id.lower()
-            ]
-            return embedding_models
-        except Exception:
-            return []
 
 
 class GoogleEmbedding(EmbeddingsModel):
@@ -143,31 +120,85 @@ class GoogleEmbedding(EmbeddingsModel):
             else:
                 raise EmbeddingError(f"Error getting Gemini embedding: {e!s}", e) from e
 
-    @staticmethod
-    def get_available_embedding_models() -> list[str]:
-        try:
-            models = genai.list_models()
-            # Filter for embedding models that support embedContent (not the old embedText API)
-            # Exclude models/gemini-embedding-exp (alias that doesn't work consistently)
-            embedding_models = []
-            for item in models:
-                if (
-                    "embedding" in item.name.lower()
-                    and "embedContent" in item.supported_generation_methods
-                    and item.name
-                    != "models/gemini-embedding-exp"  # Exclude the alias version
-                ):
-                    embedding_models.append("gemini:" + item.name)
-            return embedding_models
-        except Exception:
-            return []
+
+def _filter_openai_embedding_models(models, provider_label: str) -> list[str]:
+    filtered: list[str] = []
+    for item in models:
+        model_id = getattr(item, "id", None)
+        if not isinstance(model_id, str):
+            continue
+        if "embedding" in model_id.lower():
+            filtered.append(f"{provider_label}:{model_id}")
+    return filtered
 
 
-def get_available_embedding_models():
-    """Get all available embedding models from all providers."""
-    openai_models = OpenAIEmbedding.get_available_embedding_models() or []
-    google_models = GoogleEmbedding.get_available_embedding_models() or []
-    return openai_models + google_models
+def list_openai_embedding_models(
+    api_key: str, provider_label: str = "openai"
+) -> list[str]:
+    try:
+        client = openai.Client(api_key=api_key)
+        response = client.models.list()
+    except openai.AuthenticationError as exc:
+        raise EmbeddingAPIError("OpenAI", "*", exc) from exc
+    except openai.PermissionDeniedError as exc:
+        raise EmbeddingAPIError("OpenAI", "*", exc) from exc
+    except openai.RateLimitError as exc:
+        raise EmbeddingAPIError("OpenAI", "*", exc) from exc
+    except Exception as exc:
+        raise EmbeddingError("Failed to list OpenAI embedding models", exc) from exc
+
+    return _filter_openai_embedding_models(response.data, provider_label)
+
+
+def list_gemini_embedding_models(
+    api_key: str, provider_label: str = "gemini"
+) -> list[str]:
+    try:
+        genai.configure(api_key=api_key)
+        models = list(genai.list_models())
+    except Exception as exc:
+        message = str(exc).lower()
+        if (
+            "api key" in message
+            or "authentication" in message
+            or "permission" in message
+            or "unauthorized" in message
+            or "forbidden" in message
+        ):
+            raise EmbeddingAPIError("Gemini", "*", exc) from exc
+        if "quota" in message or "rate limit" in message or "429" in message:
+            raise EmbeddingAPIError("Gemini", "*", exc) from exc
+        raise EmbeddingError("Failed to list Gemini embedding models", exc) from exc
+
+    embedding_models: list[str] = []
+    for item in models:
+        name = getattr(item, "name", "")
+        methods = getattr(item, "supported_generation_methods", []) or []
+        if not isinstance(name, str) or not name:
+            continue
+        name_lower = name.lower()
+        methods_lower = [method.lower() for method in methods]
+        if (
+            "embedding" in name_lower
+            and "embedcontent" in methods_lower
+            and name != "models/gemini-embedding-exp"
+        ):
+            embedding_models.append(f"{provider_label}:{name}")
+
+    return embedding_models
+
+
+def list_embedding_models(provider: str, api_key: str) -> list[str]:
+    normalized = provider.lower().strip()
+
+    if normalized == "openai":
+        return list_openai_embedding_models(api_key, provider_label=normalized)
+    if normalized in {"gemini", "google"}:
+        return list_gemini_embedding_models(api_key, provider_label=normalized)
+
+    raise ValueError(
+        f"Embedding provider '{provider}' not supported. Use 'openai' or 'gemini'."
+    )
 
 
 def create_embeddings_model(
