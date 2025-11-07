@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from src.models.users.api_key import UserAPIKey
+
 
 class User(BaseModel):
     """A user in the authenticated by a spesific authentication provider.
@@ -24,4 +26,11 @@ class User(BaseModel):
     name: str | None = None
     email: str | None = None
     picture: str | None = None
-    owned_agents: list[str] = []
+    owned_agents: list[str] = Field(default_factory=list)
+    api_keys: list[UserAPIKey] = Field(default_factory=list)
+
+    def add_api_key(self, api_key: UserAPIKey) -> None:
+        self.api_keys.append(api_key)
+
+    def remove_api_key(self, api_key_id: str) -> None:
+        self.api_keys = [key for key in self.api_keys if key.id != api_key_id]

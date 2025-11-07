@@ -55,7 +55,7 @@ def generate_retrieval_query(
     )
 
     try:
-        query_llm = create_llm(agent.llm_provider, agent.llm_model)
+        query_llm = create_llm(agent.llm_provider, agent.llm_model, agent.llm_api_key)
         standalone_query = query_llm.generate(
             summary_prompt, agent.llm_max_tokens, agent.llm_temperature
         )
@@ -122,13 +122,20 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         model_name = "text-embedding-004"
 
     # Create the appropriate embedding model based on provider
+    embedding_api_key = getattr(agent, "embedding_api_key", None)
     if provider.lower() == "openai":
-        embedding_model = OpenAIEmbedding(model_name=model_name)
+        embedding_model = OpenAIEmbedding(
+            model_name=model_name, embedding_api_key=embedding_api_key
+        )
     elif provider.lower() in ["google", "gemini"]:
-        embedding_model = GoogleEmbedding(model_name=model_name)
+        embedding_model = GoogleEmbedding(
+            model_name=model_name, embedding_api_key=embedding_api_key
+        )
     else:
         # Fallback to Gemini if provider not recognized
-        embedding_model = GoogleEmbedding(model_name="text-embedding-004")
+        embedding_model = GoogleEmbedding(
+            model_name="text-embedding-004", embedding_api_key=embedding_api_key
+        )
 
     try:
         # Generate embedding for the standalone retrieval query
@@ -176,7 +183,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     print(f"Prompt sent to LLM:\n{prompt}")
 
     # Use agent's configured LLM with specific model
-    language_model = create_llm(llm_provider=agent.llm_provider, model=agent.llm_model)
+    language_model = create_llm(
+        llm_provider=agent.llm_provider,
+        model=agent.llm_model,
+        api_key=agent.llm_api_key,
+    )
     response = language_model.generate(prompt)
 
     # Parse function calls from response

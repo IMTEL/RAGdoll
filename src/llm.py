@@ -25,17 +25,21 @@ class LLM(Protocol):
     ) -> str:
         """Send the prompt to the LLM and return the generated response."""
 
-    @staticmethod
-    def get_models() -> list[str]:
-        """Returns the models which can be used by the provider."""
-
 
 class IdunLLM(LLM):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
         config = Config()
         self.model = model or config.IDUN_MODEL
         self.url = config.IDUN_API_URL
-        self.token = config.IDUN_API_KEY
+        if not api_key:
+            raise LLMAPIError(
+                "idun",
+                self.model,
+                "authentication",
+                "IdunLLM requires an explicit api_key. No fallback to config.",
+                401,
+            )
+        self.token = api_key
 
     def generate(
         self,
@@ -115,46 +119,21 @@ class IdunLLM(LLM):
             # Catch any other errors (network issues, JSON parsing, etc.)
             raise LLMGenerationError("idun", self.model, str(e)) from e
 
-    @staticmethod
-    def get_models() -> list[str]:
-        try:
-            config = Config()
-            headers = {
-                "Authorization": f"Bearer {config.IDUN_API_KEY}",
-            }
-            response = requests.get(
-                "https://idun-llm.hpc.ntnu.no/api/models", headers=headers, timeout=10
-            )
-
-            if response.status_code != 200:
-                print(f"Failed to fetch IDUN models: {response.status_code}")
-                return []
-
-            models_data = response.json()
-            # Extract model IDs from the response
-            # Assuming the response has a 'data' field with model objects
-            if isinstance(models_data, dict) and "data" in models_data:
-                model_list = models_data["data"]
-            else:
-                model_list = models_data
-
-            return [
-                Model("idun", item["id"], True, None)
-                for item in model_list
-                if "id" in item
-            ]
-        except Exception as e:
-            print(f"Error fetching IDUN models: {e}")
-            return []
-
 
 class OpenAILLM(LLM):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = model or self.config.GPT_MODEL
-        # Instantiate the client using the new OpenAI interface.
-        self.client = OpenAI(api_key=self.config.API_KEY)
+        if not api_key:
+            raise LLMAPIError(
+                "openai",
+                self.model,
+                "authentication",
+                "OpenAILLM requires an explicit api_key. No fallback to config.",
+                401,
+            )
+        self.client = OpenAI(api_key=api_key)
 
     def generate(
         self,
@@ -204,23 +183,21 @@ class OpenAILLM(LLM):
         except Exception as e:
             raise LLMGenerationError("openai", self.model, str(e)) from e
 
-    @staticmethod
-    def get_models() -> list[str]:
-        try:
-            client = OpenAI()
-            models = client.models.list()
-            return [Model("openai", item.id, False, None) for item in models.data]
-        except Exception:
-            return []
-
 
 class GeminiLLM(LLM):
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, api_key: str | None = None):
         """Initializes the LLM facade using the provided configuration."""
         self.config = Config()
         self.model = model or self.config.GEMINI_MODEL
-
-        genai.configure(api_key=self.config.GEMINI_API_KEY)
+        if not api_key:
+            raise LLMAPIError(
+                "gemini",
+                self.model,
+                "authentication",
+                "GeminiLLM requires an explicit api_key. No fallback to config.",
+                401,
+            )
+        genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(self.model)
 
     def generate(
@@ -284,15 +261,6 @@ class GeminiLLM(LLM):
             # Default to generation error
             raise LLMGenerationError("gemini", self.model, str(e)) from e
 
-    @staticmethod
-    def get_models() -> list[str]:
-        try:
-            models = genai.list_models()
-            print(models)
-            return [Model("gemini", item.name, False, None) for item in models]
-        except Exception:
-            return []
-
 
 class MockLLM(LLM):
     def generate(
@@ -303,32 +271,153 @@ class MockLLM(LLM):
     ) -> str:
         return f"Mocked response for prompt: {prompt}"
 
-    @staticmethod
-    def get_models() -> list[str]:
-        return []
+
+def _filter_language_models(provider: str, models: list[Model]) -> list[Model]:
+    """Filter out non-chat or unsupported models for a provider."""
+    blocked_keywords = ["embedding", "moderation", "tts", "whisper", "preview", "audio"]
+
+    if provider == "openai":
+        return [
+            model
+            for model in models
+            if model.name.startswith("gpt-")
+            and not any(keyword in model.name for keyword in blocked_keywords)
+        ]
+
+    if provider in {"gemini", "google"}:
+        return [
+            model
+            for model in models
+            if model.name.startswith("models/gemini-")
+            and not any(keyword in model.name for keyword in blocked_keywords)
+        ]
+
+    return models
 
 
-def get_models():
-    all_models = OpenAILLM.get_models() + GeminiLLM.get_models()
+def list_idun_models(api_key: str) -> list[Model]:
+    config = Config()
+    headers = {"Authorization": f"Bearer {api_key}"}
 
-    model_filter = ["embedding", "moderation", "tts", "whisper", "preview", "audio"]
+    base_url = config.IDUN_API_URL.rstrip("/")
+    if base_url.endswith("/chat/completions"):
+        models_url = f"{base_url.rsplit('/', 1)[0]}/models"
+    else:
+        models_url = f"{base_url}/models"
 
-    language_models = [
-        model
-        for model in all_models
-        if model.name.startswith(("gpt-", "models/gemini-"))
-        and not any(kw in model.name for kw in model_filter)
+    try:
+        response = requests.get(models_url, headers=headers, timeout=10)
+    except Exception as exc:
+        raise LLMAPIError("idun", "*", "authentication", str(exc), 502) from exc
+
+    if response.status_code in (401, 403):
+        raise LLMAPIError(
+            "idun", "*", "authentication", response.text, response.status_code
+        )
+    if response.status_code == 429:
+        raise LLMAPIError("idun", "*", "quota", response.text, response.status_code)
+    if response.status_code != 200:
+        raise LLMAPIError(
+            "idun", "*", "model_not_found", response.text, response.status_code
+        )
+
+    data = response.json()
+    items = data.get("data", data) if isinstance(data, dict) else data
+
+    models: list[Model] = []
+    for item in items:
+        model_id = item.get("id") if isinstance(item, dict) else None
+        if model_id:
+            models.append(Model("idun", model_id, True, item.get("description")))
+
+    return models
+
+
+def list_openai_models(api_key: str) -> list[Model]:
+    try:
+        client = OpenAI(api_key=api_key)
+        models = client.models.list()
+    except AuthenticationError as exc:
+        raise LLMAPIError("openai", "*", "authentication", str(exc), 401) from exc
+    except PermissionDeniedError as exc:
+        raise LLMAPIError("openai", "*", "authentication", str(exc), 403) from exc
+    except RateLimitError as exc:
+        raise LLMAPIError("openai", "*", "quota", str(exc), 429) from exc
+    except APIError as exc:
+        error_msg = str(exc).lower()
+        if (
+            "insufficient" in error_msg
+            or "quota" in error_msg
+            or "billing" in error_msg
+        ):
+            raise LLMAPIError(
+                "openai", "*", "insufficient_tokens", str(exc), 402
+            ) from exc
+        raise LLMAPIError("openai", "*", "model_not_found", str(exc), 502) from exc
+    except Exception as exc:
+        raise LLMAPIError("openai", "*", "model_not_found", str(exc), 500) from exc
+
+    results = [
+        Model("openai", item.id, False, getattr(item, "description", None))
+        for item in models.data
+    ]
+    return _filter_language_models("openai", results)
+
+
+def list_gemini_models(api_key: str) -> list[Model]:
+    try:
+        genai.configure(api_key=api_key)
+        models = list(genai.list_models())
+    except Exception as exc:
+        message = str(exc).lower()
+        if (
+            "api key" in message
+            or "authentication" in message
+            or "unauthorized" in message
+        ):
+            raise LLMAPIError("gemini", "*", "authentication", str(exc), 401) from exc
+        if (
+            "quota" in message
+            or "rate limit" in message
+            or "resource exhausted" in message
+        ):
+            raise LLMAPIError("gemini", "*", "quota", str(exc), 429) from exc
+        raise LLMAPIError("gemini", "*", "model_not_found", str(exc), 500) from exc
+
+    results = [
+        Model("gemini", item.name, False, getattr(item, "description", None))
+        for item in models
+    ]
+    return _filter_language_models("gemini", results)
+
+
+def list_llm_models(provider: str, api_key: str) -> list[Model]:
+    provider_normalized = provider.lower().strip()
+
+    if provider_normalized == "openai":
+        models = list_openai_models(api_key)
+    elif provider_normalized in {"gemini", "google"}:
+        models = list_gemini_models(api_key)
+    elif provider_normalized == "idun":
+        models = list_idun_models(api_key)
+    else:
+        raise ValueError(f"Unsupported LLM provider '{provider}'")
+
+    return [
+        Model(provider_normalized, model.name, model.GDPR_compliant, model.description)
+        for model in models
     ]
 
-    return language_models + IdunLLM.get_models()
 
-
-def create_llm(llm_provider: str = "idun", model: str | None = None) -> LLM:
+def create_llm(
+    llm_provider: str = "idun", model: str | None = None, api_key: str | None = None
+) -> LLM:
     """Factory for creating LLM instances.
 
     Args:
         llm_provider (str): The LLM service provider ("idun", "openai", "gemini", "mock").
         model (str, optional): The specific model to use. Falls back to config if not provided.
+        api_key (str, optional): The API key to use. Falls back to config if not provided.
 
     Raises:
         ValueError: If the specified LLM is not supported.
@@ -338,20 +427,20 @@ def create_llm(llm_provider: str = "idun", model: str | None = None) -> LLM:
     """
     match llm_provider.lower():
         case "idun":
-            return IdunLLM(model=model)
+            return IdunLLM(model=model, api_key=api_key)
         case "openai":
-            return OpenAILLM(model=model)
-        case "gemini":
-            return GeminiLLM(model=model)
+            return OpenAILLM(model=model, api_key=api_key)
+        case "gemini" | "google":
+            return GeminiLLM(model=model, api_key=api_key)
         case "mock":
             return MockLLM()
         case _:
             raise ValueError(f"LLM {llm_provider} not supported")
 
 
-if __name__ == "__main__":
-    llm = create_llm("idun")
-    while True:
-        prompt = input("Enter your prompt: ")
-        response = llm.generate(prompt)
-        print(response)
+# if __name__ == "__main__":
+#     llm = create_llm("idun")
+#     while True:
+#         prompt = input("Enter your prompt: ")
+#         response = llm.generate(prompt)
+#         print(response)
