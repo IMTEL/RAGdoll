@@ -23,6 +23,7 @@ def _process_document_background(
     file_location: Path,
     agent_id: str,
     embedding_model: str,
+    embedding_api_key: str | None,
     file_size_bytes: int,
     filename: str,
     task_id: str,
@@ -53,6 +54,7 @@ def _process_document_background(
             agent_id,
             embedding_model,
             file_size_bytes=file_size_bytes,
+            embedding_api_key=embedding_api_key,
         )
 
         # Update progress: completed
@@ -185,6 +187,7 @@ async def upload_document_for_agent(
             file_location=file_location,
             agent_id=agent_id,
             embedding_model=agent.embedding_model,
+            embedding_api_key=agent.embedding_api_key,
             file_size_bytes=file_size_bytes,
             filename=file.filename,
             task_id=task_id,

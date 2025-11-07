@@ -1,9 +1,53 @@
 import logging
 
+from pymongo.errors import PyMongoError
+
 from src.rag_service.context import Context
 
 
 logger = logging.getLogger(__name__)
+
+_INDEX_CHECK_CACHE: set[str] = set()
+
+
+def _debug_log_search_index(collection, index_name: str) -> None:
+    """Log whether the expected search index exists for debugging purposes."""
+    cache_key = f"{id(collection)}::{index_name}"
+    if cache_key in _INDEX_CHECK_CACHE:
+        return
+
+    if not hasattr(collection, "list_search_indexes"):
+        logger.debug(
+            "Collection does not support list_search_indexes; cannot verify '%s' index.",
+            index_name,
+        )
+        _INDEX_CHECK_CACHE.add(cache_key)
+        return
+
+    try:
+        try:
+            matching_indexes = list(collection.list_search_indexes(name=index_name))
+        except TypeError:
+            matching_indexes = [
+                idx
+                for idx in collection.list_search_indexes()
+                if idx.get("name") == index_name
+            ]
+
+        if matching_indexes:
+            logger.debug("Confirmed search index '%s' exists.", index_name)
+        else:
+            logger.warning(
+                "Search index '%s' not found; search quality may degrade.", index_name
+            )
+    except PyMongoError as exc:
+        logger.warning("Could not verify search index '%s': %s", index_name, exc)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Unexpected error while verifying search index '%s': %s", index_name, exc
+        )
+    finally:
+        _INDEX_CHECK_CACHE.add(cache_key)
 
 
 def hybrid_search(
@@ -45,6 +89,8 @@ def hybrid_search(
         )
     else:
         keyword_scores = {}
+
+    print(vector_scores, keyword_scores)
 
     all_chunk_ids = set(vector_scores.keys()) | set(keyword_scores.keys())
     hybrid_scores = {}
@@ -88,6 +134,7 @@ def keyword_search(
     document_map,
 ):
     keyword_scores = {}
+    _debug_log_search_index(context_collection, "keyword_search")
     keyword_pipeline = [
         {
             "$search": {
@@ -126,6 +173,7 @@ def vector_search(
     document_map,
 ):
     vector_scores = {}
+    _debug_log_search_index(context_collection, "embeddings")
     search_filter = {"agent_id": {"$eq": agent_id}}
     search_filter["document_id"] = {"$in": available_documents}
 
