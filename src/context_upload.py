@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Load configuration and initialize services
 config = Config()
 # Increased chunk_size to 1000 and overlap to 100 for better context and fewer mid-sentence cuts
-scraper_service = ScraperService(chunk_size=1000, overlap=100)
+scraper_service = ScraperService(chunk_size=4000, overlap=200)
 
 
 def compute_embedding(
