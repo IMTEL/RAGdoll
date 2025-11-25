@@ -6,20 +6,22 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
+from src.config import Config
+from src.globals import access_service, agent_dao
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
+from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
-from src.rag_service.dao import get_agent_dao
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-agent_dao = get_agent_dao()
+config = Config()
 
 
 @router.post("/ask", response_model=Command)
@@ -27,25 +29,30 @@ async def ask(command: Command):
     """Process a user question using the specified agent and roles.
 
     This endpoint:
-    1. Receives a Command with agent_id and active_role_ids
+    1. Receives a Command with agent_id and active_role_id
     2. Retrieves the agent configuration from the DAO
     3. Validates access permissions
     4. Performs RAG retrieval based on role-specific corpus access
-    5. Generates a response using the agent's LLM configuration
+    5. Generates a response using the agent's configured LLM
 
     Request body should be a JSON Command object with:
     - agent_id: MongoDB ObjectId of the agent
-    - active_role_ids: List of role names (e.g., ["admin", "user"])
+    - active_role_id: Name of the active agent role
     - access_key: Optional API key for authorization
     - chat_log: Conversation history
     - Other context fields (scene_name, user_information, etc.)
 
     Returns:
-        JSONResponse with the generated answer
+        JSONResponse with the generated answer and metadata
 
     Raises:
-        400: Invalid command format, agent not found, or access denied
-        500: Processing error
+        400: Invalid command format, agent not found, or role not found
+        401: LLM authentication failed (invalid API key or permissions)
+        402: Insufficient LLM tokens/credits
+        404: LLM model not found or not accessible
+        429: LLM rate limit or quota exceeded
+        503: LLM generation service error
+        500: Other processing errors
     """
     try:
         # Retrieve the agent configuration
@@ -56,27 +63,38 @@ async def ask(command: Command):
                 status_code=400,
             )
 
-        # Validate access key if agent requires it
-        if agent.access_key and command.access_key not in agent.access_key:
-            return JSONResponse(
-                content={"message": "Access denied. Invalid access key."},
-                status_code=403,
-            )
+        # Auth
+        if not access_service.authenticate(agent.id, command.access_key):
+            raise HTTPException(status_code=401, details="Unauthorized, check logs")
 
-        # Validate that requested roles exist in the agent
-        for role_id in command.active_role_ids:
-            if agent.get_role_by_name(role_id) is None:
-                return JSONResponse(
-                    content={
-                        "message": f"Role '{role_id}' not found in agent '{agent.name}'."
-                    },
-                    status_code=400,
-                )
+        # Validate that requested role exists in the agent
+        if (
+            command.active_role_id
+            and agent.get_role_by_name(command.active_role_id) is None
+        ):
+            return JSONResponse(
+                content={
+                    "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."
+                },
+                status_code=400,
+            )
 
         # Generate response using agent configuration and role-based RAG
         response = assemble_prompt_with_agent(command, agent)
         return JSONResponse(content={"response": response}, status_code=200)
 
+    except LLMAPIError as e:
+        # API-related errors (auth, quota, model not found, insufficient tokens)
+        return JSONResponse(
+            content={"message": str(e)},
+            status_code=e.status_code,
+        )
+    except LLMGenerationError as e:
+        # Generation/service errors
+        return JSONResponse(
+            content={"message": str(e)},
+            status_code=e.status_code,
+        )
     except UnicodeDecodeError:
         return JSONResponse(
             content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."},
@@ -145,13 +163,6 @@ async def ask_transcribe(
         return JSONResponse(
             content={"message": f"Agent with id '{command.agent_id}' not found."},
             status_code=400,
-        )
-
-    # Validate access
-    if agent.access_key and command.access_key not in agent.access_key:
-        return JSONResponse(
-            content={"message": "Access denied. Invalid access key."},
-            status_code=403,
         )
 
     # Generate response

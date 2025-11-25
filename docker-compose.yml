@@ -1,9 +1,7 @@
-version: "3.9"
-
 services:
   # Reverse proxy handling HTTPS with NTNU cert
   nginx:
-    image: nginx:stable
+    image: nginx:1.27-alpine  # Pinned version with Alpine for reduced size
     container_name: ragdoll-nginx
     depends_on:
       - chat-service
@@ -15,10 +13,24 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - /root/iplvr.it.ntnu.no.crt:/etc/ssl/certs/server.crt:ro
       - /root/iplvr.it.ntnu.no.key:/etc/ssl/private/server.key:ro
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # FastAPI backend
-  chat-service:
+  backend-service:
     build:
       context: .
       dockerfile: Dockerfile
@@ -27,29 +39,40 @@ services:
       - "8000"  # internal only, Nginx connects here
     environment:
       - ENV=prod
-      - MONGODB_URI=mongodb://mongodb:27017
+      # MongoDB Atlas connection (supports vector search)
+      - MONGODB_URI=${MONGODB_URI}
       - MONGODB_DATABASE=${MONGODB_DATABASE}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
+      - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION}
+      - MONGODB_USER_COLLECTION=${MONGODB_USER_COLLECTION}
       - RAG_DATABASE_SYSTEM=mongodb
-    depends_on:
-      mongodb:
-        condition: service_healthy
+      # LLM API Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
+      - IDUN_API_KEY=${IDUN_API_KEY}
+      - IDUN_MODEL=${IDUN_MODEL:-openai/gpt-oss-120b}
+      - IDUN_API_URL=${IDUN_API_URL:-https://idun-llm.hpc.ntnu.no/api/chat/completions}
+      # Access Service
+      - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
+      - FERNET_KEY=${FERNET_KEY}
+    # Resource limits for production stability
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 1G
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # MongoDB (internal only)
-  mongodb:
-    image: mongo:latest
-    container_name: mongodb
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-
-volumes:
-  mongo-data: {}
+# Note: MongoDB Atlas is used as external service (cloud-hosted)
+# No local MongoDB container needed for production

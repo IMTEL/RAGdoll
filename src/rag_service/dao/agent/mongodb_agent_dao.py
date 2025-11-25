@@ -6,6 +6,7 @@ from pymongo import MongoClient
 from src.config import Config
 from src.models.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
+from src.utils.crypto_utils import decrypt_value, encrypt_str
 
 
 config = Config()
@@ -33,6 +34,10 @@ class MongoDBAgentDAO(AgentDAO):
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
         agent_dict = agent.model_dump()
+        if agent.llm_api_key:
+            agent_dict["llm_api_key"] = encrypt_str(agent.llm_api_key)
+        if agent.embedding_api_key:
+            agent_dict["embedding_api_key"] = encrypt_str(agent.embedding_api_key)
 
         if not agent.id:
             # Create new agent
@@ -53,10 +58,10 @@ class MongoDBAgentDAO(AgentDAO):
 
             try:
                 object_id = ObjectId(agent_id)
-            except Exception:
+            except Exception as e:
                 raise ValueError(
                     f"Agent ID '{agent_id}' is not a valid MongoDB ObjectId."
-                )
+                ) from e
 
             result = self.collection.update_one(
                 {"_id": object_id}, {"$set": agent_dict}
@@ -77,8 +82,29 @@ class MongoDBAgentDAO(AgentDAO):
         for agent_doc in agents:
             agent_doc["id"] = str(agent_doc["_id"])
             agent_doc.pop("_id", None)
+            if agent_doc["llm_api_key"]:
+                agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
+            if agent_doc["embedding_api_key"]:
+                agent_doc["embedding_api_key"] = decrypt_value(
+                    agent_doc["embedding_api_key"]
+                )
             result.append(Agent(**agent_doc))
         return result
+
+    def delete_agent_by_id(self, agent_id: str) -> bool:
+        """Delete a specific agent by ID.
+
+        Args:
+            agent_id (str): The MongoDB ObjectId as a string
+
+        Returns:
+            bool: True if the agent was deleted successfully, False otherwise
+        """
+        try:
+            result = self.collection.delete_one({"_id": ObjectId(agent_id)})
+            return result.deleted_count > 0
+        except Exception:
+            return False
 
     def get_agent_by_id(self, agent_id: str) -> Agent | None:
         """Retrieve a specific agent by ID.
@@ -93,6 +119,12 @@ class MongoDBAgentDAO(AgentDAO):
             agent_doc = self.collection.find_one({"_id": ObjectId(agent_id)})
             if agent_doc:
                 agent_doc.pop("_id", None)
+                if agent_doc["llm_api_key"]:
+                    agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
+                if agent_doc["embedding_api_key"]:
+                    agent_doc["embedding_api_key"] = decrypt_value(
+                        agent_doc["embedding_api_key"]
+                    )
                 return Agent(**agent_doc)
             return None
         except Exception:
@@ -108,5 +140,5 @@ class MongoDBAgentDAO(AgentDAO):
             self.client.admin.command("ping")
             return True
         except Exception as e:
-            print(f"Failed to ping MongoDB: {e}")
+            print(f"Failed to ping MongoDB: {e}")  # TODO: use logging
             return False

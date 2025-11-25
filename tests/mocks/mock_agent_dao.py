@@ -4,8 +4,10 @@ from copy import deepcopy
 
 from src.models.agent import Agent
 from src.rag_service.dao import AgentDAO
+from src.utils import singleton
 
 
+@singleton
 class MockAgentDAO(AgentDAO):
     """In-memory mock implementation of AgentDAO for testing.
 
@@ -13,20 +15,9 @@ class MockAgentDAO(AgentDAO):
     Uses singleton pattern to ensure tests can clear shared state.
     """
 
-    _instance = None
-    _initialized = False
-
-    def __new__(cls):
-        """Ensure only one instance exists (singleton pattern)."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        """Initialize empty agent storage (only once for singleton)."""
-        if not MockAgentDAO._initialized:
-            self.agents: list[Agent] = []
-            MockAgentDAO._initialized = True
+        """Initialize empty agent storage."""
+        self.agents: list[Agent] = []
 
     def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration in memory or updates if the agentID already exists.
@@ -52,8 +43,10 @@ class MockAgentDAO(AgentDAO):
                 self.agents[index] = agent
             else:
                 raise ValueError(f"Agent ID '{agent.id}' does not exist for update.")
-        except ValueError:
-            raise ValueError(f"Agent ID '{agent.id}' is not a valid index for update.")
+        except ValueError as e:
+            raise ValueError(
+                f"Agent ID '{agent.id}' is not a valid index for update."
+            ) from e
 
         return deepcopy(agent)
 
@@ -64,6 +57,17 @@ class MockAgentDAO(AgentDAO):
             list[Agent]: Deep copies of all agents stored in memory
         """
         return [deepcopy(agent) for agent in self.agents]
+
+    # TODO : Update emulator and test to not be dependant on a id, based on index
+    # Breaks tests if used in tests
+    def delete_agent_by_id(self, agent_id: str) -> bool:
+        try:
+            index = int(agent_id)
+            if 0 <= index < len(self.agents):
+                self.agents.remove(self.agents[index])
+            return None
+        except (ValueError, IndexError):
+            return None
 
     def get_agent_by_id(self, agent_id: str) -> Agent | None:
         """Retrieve a specific agent by index (using id as index).

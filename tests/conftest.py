@@ -1,20 +1,12 @@
-import os
-import sys
-
 import pytest
 
-
-# Force tests to use mock database
-os.environ["RAG_DATABASE_SYSTEM"] = "mock"
-
-# Add the project root directory (assuming tests/ is one level down) to sys.path.
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "src"))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+from src.config import Config
 
 
-@pytest.fixture(autouse=True)
-def setup_teardown():
-    # Setup
-    yield
-    # Teardown - add any necessary cleanup
+def pytest_configure(config):
+    # Initialize configuration before tests run
+    backend_config = Config()  # This ensures .env is loaded
+
+    # Check if RUNNING_TESTS is set to True
+    if not backend_config.RUNNING_TESTS:
+        pytest.exit("RUNNING_TESTS is not set to True. Exiting tests.")

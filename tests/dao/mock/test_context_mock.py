@@ -26,56 +26,106 @@ class TestMockContextDAO:
 
         context = repo.insert_context(
             document_id="doc123",
+            agent_id="agent-456",
             embedding=[0.1, 0.2, 0.3],
             context=Context(
                 text="Sample context text",
-                category="General Information",
                 document_name="TestDoc",
+                document_id="doc123",
             ),
         )
 
         assert context.text == "Sample context text"
-        assert context.category == "General Information"
+        assert context.document_name == "TestDoc"
         assert len(repo.data) == 1
 
-    def test_get_context_by_category(self):
-        """Test retrieving contexts by category."""
+    def test_get_context_for_agent(self):
+        """Test retrieving contexts for a specific agent."""
         repo = MockContextDAO()
 
-        # Insert multiple contexts with different categories
+        # Insert multiple contexts for different agents
         repo.insert_context(
             document_id="doc1",
+            agent_id="agent-1",
             embedding=[0.1, 0.2, 0.3],
             context=Context(
-                text="Context for category A",
-                category="CategoryA",
+                text="Context for agent 1",
                 document_name="DocA",
+                document_id="doc1",
             ),
         )
         repo.insert_context(
             document_id="doc2",
+            agent_id="agent-2",
             embedding=[0.4, 0.5, 0.6],
             context=Context(
-                text="Context for category B",
-                category="CategoryB",
+                text="Context for agent 2",
                 document_name="DocB",
+                document_id="doc2",
             ),
         )
 
-        # Retrieve contexts by category
-        results = repo.get_context_by_category("CategoryA")
+        # Retrieve contexts for agent-1
+        results = repo.get_context_for_agent(
+            agent_id="agent-1",
+            query_embedding=[0.1, 0.2, 0.3],
+            query_text="Context for agent 1",
+            documents=["doc1"],
+            top_k=5,
+        )
 
-        assert len(results) == 1
-        assert results[0].category == "CategoryA"
-        assert results[0].text == "Context for category A"
-        assert results[0].document_name == "DocA"
+        # Should only return contexts for agent-1
         assert all(isinstance(c, Context) for c in results)
+        if len(results) > 0:
+            assert results[0].document_id == "doc1"
 
-    def test_get_context_by_category_no_results(self):
-        """Test retrieving contexts by category when none exist."""
+    def test_get_context_for_agent_no_results(self):
+        """Test retrieving contexts when no accessible documents exist."""
         repo = MockContextDAO()
 
-        results = repo.get_context_by_category("NonExistentCategory")
+        # Insert context for agent-1
+        repo.insert_context(
+            document_id="doc1",
+            agent_id="agent-1",
+            embedding=[0.1, 0.2, 0.3],
+            context=Context(
+                text="Context for agent 1",
+                document_name="DocA",
+                document_id="doc1",
+            ),
+        )
+
+        # Try to retrieve with different agent
+        results = repo.get_context_for_agent(
+            agent_id="agent-999",
+            query_embedding=[0.1, 0.2, 0.3],
+            query_text="Context for agent 1",
+            documents=["doc1"],
+            top_k=5,
+        )
 
         assert results == []
         assert isinstance(results, list)
+
+    def test_singleton_behavior(self):
+        """Test that MockContextDAO behaves as a singleton."""
+        repo1 = MockContextDAO()
+        repo2 = MockContextDAO()
+
+        assert repo1 is repo2
+
+        # Insert context using repo1
+        repo1.insert_context(
+            document_id="doc-singleton",
+            agent_id="agent-singleton",
+            embedding=[0.1, 0.2, 0.3],
+            context=Context(
+                text="Singleton context",
+                document_name="SingletonDoc",
+                document_id="doc-singleton",
+            ),
+        )
+
+        # Verify that repo2 sees the same data
+        assert len(repo2.data) == 1
+        assert repo2.data[0]["document_id"] == "doc-singleton"

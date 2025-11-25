@@ -1,28 +1,46 @@
 import os
+from typing import ClassVar
 
 from dotenv import load_dotenv
 
 
+# Initial load of environment variables from .env file
 load_dotenv()
 
 
 class Config:
-    """Configuration class to manage environment variables and model loading.
+    """Configuration class to manage environment variables and model loading."""
 
-    Singleton pattern is used to ensure a single configuration instance.
-    """
-
-    _instance: "Config | None" = None
+    _instances: ClassVar[dict[type, "Config"]] = {}
+    _initialized: ClassVar[bool] = False  # Set to True after first initialization
 
     def __new__(cls):
-        """Ensure only one instance exists (singleton pattern)."""
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+        if cls not in cls._instances:
+            instance = super().__new__(cls)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
 
-    def __init__(self, path=".env"):
-        self.path = path
+    def __init__(self):
+        """Load environment variables and set configuration attributes."""
+        if Config._initialized:
+            return  # Avoid re-initialization
+
+        Config._initialized = True
+
         self.ENV = os.getenv("ENV", "dev")
+
+        # Flag to indicate if tests are running.
+        # Environment variable is set in pyproject.toml under [tool.pytest_env]
+        self.RUNNING_TESTS = os.getenv("RUNNING_TESTS", "false").lower() == "true"
+
+        if self.RUNNING_TESTS:  # Ensure tests always run in 'dev' environment
+            self.ENV = "dev"
+        self.RAGDOLL_CONFIG_API_URL = os.getenv(
+            "RAGDOLL_CONFIG_API_URL", "http://localhost:3000"
+        )
+        self.RAGDOLL_CHAT_API_URL = os.getenv(
+            "RAGDOLL_CHAT_API_URL", "http://localhost:3001"
+        )
 
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
@@ -33,41 +51,84 @@ class Config:
             "IDUN_API_URL", "https://idun-llm.hpc.ntnu.no/api/chat/completions"
         )
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
+        self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
         self.RAG_DATABASE_SYSTEM = os.getenv(
-            prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
+            self._prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
         )
 
         self.MONGODB_URI = os.getenv(
-            prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
+            self._prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
-        self.MONGODB_DATABASE = os.getenv(
-            prod_or_mock_env("MONGODB_DATABASE"), "test_database"
-        )
+        self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
+
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
+        self.MONGODB_DOCUMENTS_COLLECTION = os.getenv(
+            "MONGODB_DOCUMENTS_COLLECTION", "documents"
+        )
         self.MONGODB_CONTEXT_COLLECTION = os.getenv(
             "MONGODB_CONTEXT_COLLECTION", "contexts"
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
+        self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
 
-        self.IDUN_MODELS = os.getenv(
-            "IDUN_MODELS", "Qwen3-Coder-30B-A3B-Instruct,openai/gpt-oss-120b"
-        ).split(",")
+        ##Authentication
+        self.SESSION_TOKEN_TTL = os.getenv("SESSION_TOKEN_TTL", "15")  # Minutes
+        self.REFRESH_TOKEN_TTL = os.getenv("REFRESH_TOKEN_TTL", "14")  # Days
+        self.JWT_TOKEN_SECRET = os.getenv(
+            "JWT_TOKEN_SECRET",
+            "set-your--random-secret-atleast-32-bytes",
+        )
+        self.AUTH_SERVICE = os.getenv("AUTH_SERVICE", "service")
 
+        self.GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "set your id here")
+        self.GOOGLE_CLIENT_SECRET = os.getenv(
+            "GOOGLE_CLIENT_SECRET", "set your secret here"
+        )
 
-def prod_or_mock_env(env_var: str) -> str:
-    """Determine whether to use production or mock environment variable.
+        self.FERNET_KEY = os.getenv("FERNET_KEY", "")
 
-    Args:
-        env_var (str): The environment variable to check.
+        if not self.FERNET_KEY:
+            raise RuntimeError("FERNET_KEY is missing from environment variables")
 
-    Returns:
-        str: "MOCK_" + env_var if in dev mode, else env_var.
-    """
-    env = os.getenv("ENV", "dev")
-    if env == "dev":
-        return "MOCK_" + env_var
+        self.FERNET_KEY = self.FERNET_KEY.strip()
 
-    return env_var
+        self._validate_collection_names()
+
+    def _prod_or_mock_env(self, env_var: str) -> str:
+        """Determine whether to use production or mock environment variable.
+
+        Args:
+            env_var (str): The environment variable to check.
+
+        Returns:
+            str: "MOCK_" + env_var if in dev mode, else env_var.
+        """
+        if self.ENV == "dev":
+            return "MOCK_" + env_var
+
+        return env_var
+
+    def _validate_collection_names(self):
+        """Validate that MongoDB collection names are mutually exclusive."""
+        names = [
+            self.MONGODB_CONTEXT_COLLECTION,
+            self.MONGODB_AGENT_COLLECTION,
+            # TODO: add document collection
+        ]
+
+        total_names = len(names)
+
+        if len(set(names)) != total_names:
+            raise ValueError(
+                "MongoDB collection names must be mutually exclusive. "
+                f"Current names: {names}"
+            )
+
+    @staticmethod
+    def _delete_instance__():
+        """Delete the singleton instance for testing purposes."""
+        Config._instances = {}
+        Config._initialized = False

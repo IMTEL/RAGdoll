@@ -15,6 +15,7 @@ dependencies = [
     "google-auth-httplib2==0.2.0",
     "google-generativeai==0.8.4",
     "googleapis-common-protos==1.69.0",
+    "nltk>=3.9.2",
     "numpy==2.2.4",
     "openai==1.65.3",
     "openai-whisper @ git+https://github.com/openai/whisper.git@517a43ecd132a2089d85f4ebc044728a71d49f6e",
@@ -27,7 +28,12 @@ dependencies = [
     "soundfile>=0.13.1",
     "torch==2.6.0",
     "typer>=0.19.2",
+    "unstructured[all-docs]>=0.18.15",
     "uvicorn==0.34.0",
+    "bcrypt==3.2.0",
+    "cryptography>=46.0.2",
+    "pyjwt==1.7.1",
+    "fastapi-jwt-auth-compat==1.0.1",
 ]
 
 [dependency-groups]
@@ -37,6 +43,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",
+    "pytest-env>=1.2.0",
     "ruff>=0.13.1",
 ]
 
@@ -49,9 +56,8 @@ markers = [
 ]
 addopts = "--cov=src --cov-report=term-missing"
 
-[tool.pytest.env]
-ENV = "dev"
-MOCK_RAG_DATABASE_SYSTEM = "mock"
+[tool.pytest_env]
+RUNNING_TESTS = "true"
 
 [tool.coverage.run]
 omit = [

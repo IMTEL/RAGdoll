@@ -16,14 +16,39 @@ class ContextDAO(ABC):
     """
 
     @abstractmethod
-    def get_context_by_category(self, category: str) -> list[Context]:
-        """Fetch all contexts associated with the given category.
+    def get_context_for_agent(
+        self,
+        agent_id: str,
+        query_embedding: list[float],
+        query_text: str,
+        keyword_query_text: str | None = None,
+        documents: list[str] | None = None,
+        num_candidates: int = 50,
+        top_k: int = 5,
+        similarity_threshold: float | None = None,
+        hybrid_search_alpha: float | None = None,
+    ) -> list[Context]:
+        """Retrieve contexts for an agent using semantic similarity.
+
+        Searches within the agent's documents, filtered by document IDs provided by roles.
+        Uses vector similarity search with indexes on agent_id and document_id for efficiency.
 
         Args:
-            category (str): Document category to filter by
+            agent_id (str): Agent identifier
+            query_embedding (list[float]): Query embedding vector for similarity search
+            query_text (str): Full query text for vector search (includes context)
+            keyword_query_text (str | None): Simplified query text for BM25 keyword search.
+                                              If None, uses query_text for both searches.
+            documents (list[str] | None): Optional list of document IDs to filter by
+            num_candidates (int): Number of initial candidates to consider
+            top_k (int): Maximum number of results to return
+            similarity_threshold (float | None): Minimum similarity score for results.
+                                                  If None, uses implementation default.
+            hybrid_search_alpha (float | None): Weight for hybrid search (0=keyword, 1=vector).
+                                                 If None, uses implementation default.
 
         Returns:
-            list[Context]: List of contexts matching the category
+            list[Context]: Most relevant contexts for the agent
         """
 
     @abstractmethod
@@ -42,6 +67,7 @@ class ContextDAO(ABC):
     def insert_context(
         self,
         document_id: str,
+        agent_id: str,
         embedding: list[float],
         context: Context,
     ) -> Context:
@@ -49,6 +75,7 @@ class ContextDAO(ABC):
 
         Args:
             document_id (str): Unique identifier for the document
+            agent_id (str): Agent identifier that owns this document
             embedding (list[float]): Vector embedding of the text
             context (Context): The context object to store
 

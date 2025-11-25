@@ -17,22 +17,34 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_mock_dao():
     """Clear mock dao before and after each test."""
-    config = Config()
-    # Set environment to use mock DAO
-    prev_value = config.RAG_DATABASE_SYSTEM
-    config.RAG_DATABASE_SYSTEM = "mock"
+    # Set the environment to use the mock DAO
+    prev_db_system = Config().RAG_DATABASE_SYSTEM
+    Config().RAG_DATABASE_SYSTEM = "mock"
+
+    print("DB CONFIG IN FIXTURE:", Config().RAG_DATABASE_SYSTEM)
 
     repo = MockAgentDAO()
     repo.clear()
 
     yield
 
-    config.RAG_DATABASE_SYSTEM = prev_value
     repo.clear()
+
+    # Restore previous database system configuration
+    Config().RAG_DATABASE_SYSTEM = prev_db_system
 
 
 class TestAgentEndpoints:
     """Tests for agent-related HTTP endpoints."""
+
+    def test_get_agents_empty(self):
+        """Test getting agents when DAO is empty."""
+        response = client.get("/agents/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 0
 
     def test_create_agent_success(self):
         """Test creating an agent via POST /agents/."""
@@ -40,27 +52,29 @@ class TestAgentEndpoints:
             "name": "Test Assistant",
             "description": "An assistant for testing",
             "prompt": "You are a helpful test assistant",
-            "corpa": ["doc1", "doc2"],
             "roles": [
                 {
                     "name": "user",
                     "description": "Standard user",
-                    "subset_of_corpa": [0, 1],
+                    "document_access": ["doc-id-1", "doc-id-2"],
                 }
             ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
             "llm_api_key": "sk-test123",
-            "access_key": ["key1"],
+            "access_key": [],
             "retrieval_method": "semantic",
             "embedding_model": "text-embedding-ada-002",
             "status": "active",
             "response_format": "json",
             "last_updated": "2025-10-03T10:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
-        response = client.post("/agents/", json=agent_data)
+        print("DB CONFIG:", Config().RAG_DATABASE_SYSTEM)
+
+        response = client.post("/update-agent/", json=agent_data)
 
         assert response.status_code == 200
         data = response.json()
@@ -75,18 +89,9 @@ class TestAgentEndpoints:
             # Missing many required fields
         }
 
-        response = client.post("/agents/", json=incomplete_agent)
+        response = client.post("/update-agent/", json=incomplete_agent)
 
         assert response.status_code == 422  # Validation error
-
-    def test_get_agents_empty(self):
-        """Test getting agents when DAO is empty."""
-        response = client.get("/agents/")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 0
 
     def test_get_agents_multiple(self):
         """Test retrieving multiple agents."""
@@ -95,20 +100,24 @@ class TestAgentEndpoints:
             "name": "Agent One",
             "description": "First agent",
             "prompt": "Prompt 1",
-            "corpa": ["doc1"],
             "roles": [
-                {"name": "user", "description": "User role", "subset_of_corpa": [0]}
+                {
+                    "name": "user",
+                    "description": "User role",
+                    "document_access": ["doc-id-1"],
+                }
             ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.5,
             "llm_max_tokens": 500,
             "llm_api_key": "sk-key1",
-            "access_key": ["key1"],
+            "access_key": [],
             "retrieval_method": "semantic",
             "embedding_model": "text-embedding-ada-002",
             "status": "active",
             "response_format": "text",
             "last_updated": "2025-10-03T10:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create second agent
@@ -116,34 +125,38 @@ class TestAgentEndpoints:
             "name": "Agent Two",
             "description": "Second agent",
             "prompt": "Prompt 2",
-            "corpa": ["doc2"],
             "roles": [
-                {"name": "admin", "description": "Admin role", "subset_of_corpa": [0]}
+                {
+                    "name": "admin",
+                    "description": "Admin role",
+                    "document_access": ["doc-id-2"],
+                }
             ],
             "llm_model": "gpt-4",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
             "llm_api_key": "sk-key2",
-            "access_key": ["key2"],
+            "access_key": [],
             "retrieval_method": "keyword",
             "embedding_model": "text-embedding-ada-002",
             "status": "inactive",
             "response_format": "json",
             "last_updated": "2025-10-03T11:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create both agents
-        client.post("/agents/", json=agent1_data)
-        client.post("/agents/", json=agent2_data)
+        client.post("/update-agent/", json=agent1_data)
+        client.post("/update-agent/", json=agent2_data)
 
         # Get all agents
         response = client.get("/agents/")
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 2
-        assert data[0]["name"] == "Agent One"
-        assert data[1]["name"] == "Agent Two"
+        assert len(data) == 3
+        assert data[1]["name"] == "Agent One"
+        assert data[2]["name"] == "Agent Two"
 
     def test_get_agent_by_id_success(self):
         """Test retrieving a specific agent by ID."""
@@ -152,26 +165,29 @@ class TestAgentEndpoints:
             "name": "Specific Agent",
             "description": "Agent to retrieve by ID",
             "prompt": "Test prompt",
-            "corpa": ["doc1"],
-            "roles": [{"name": "user", "description": "User", "subset_of_corpa": [0]}],
+            "roles": [
+                {"name": "user", "description": "User", "document_access": ["doc-id-1"]}
+            ],
             "llm_model": "gpt-3.5-turbo",
             "llm_temperature": 0.7,
             "llm_max_tokens": 1000,
             "llm_api_key": "sk-test",
-            "access_key": ["key1"],
+            "access_key": [],
             "retrieval_method": "semantic",
             "embedding_model": "text-embedding-ada-002",
             "status": "active",
             "response_format": "json",
             "last_updated": "2025-10-03T10:00:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create the agent
-        create_response = client.post("/agents/", json=agent_data)
+        create_response = client.post("/update-agent/", json=agent_data)
         assert create_response.status_code == 200
+        agent_id = create_response.json().get("id")
 
         # Since DAO is cleared before each test, this should be the only agent (ID = 0)
-        response = client.get("/agents/0")
+        response = client.get(f"/fetch-agent?agent_id={agent_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -179,7 +195,7 @@ class TestAgentEndpoints:
 
     def test_get_agent_by_id_not_found(self):
         """Test retrieving non-existent agent returns 404."""
-        response = client.get("/agents/999")
+        response = client.get("/fetch-agent?agent_id=999")
 
         assert response.status_code == 404
         data = response.json()
@@ -191,29 +207,33 @@ class TestAgentEndpoints:
             "name": "Integrity Test Agent",
             "description": "Testing data integrity",
             "prompt": "You are testing data integrity",
-            "corpa": ["corpus1", "corpus2", "corpus3"],
             "roles": [
                 {
                     "name": "admin",
                     "description": "Admin role",
-                    "subset_of_corpa": [0, 1, 2],
+                    "document_access": ["doc-id-1", "doc-id-2", "doc-id-3"],
                 },
-                {"name": "user", "description": "User role", "subset_of_corpa": [1]},
+                {
+                    "name": "user",
+                    "description": "User role",
+                    "document_access": ["doc-id-2"],
+                },
             ],
             "llm_model": "gpt-4",
             "llm_temperature": 0.8,
             "llm_max_tokens": 2000,
             "llm_api_key": "sk-integrity-test",
-            "access_key": ["key1", "key2", "key3"],
+            "access_key": [],
             "retrieval_method": "hybrid",
             "embedding_model": "text-embedding-ada-002",
             "status": "testing",
             "response_format": "markdown",
             "last_updated": "2025-10-03T12:30:00Z",
+            "embedding_api_key": "test-embedding-key",
         }
 
         # Create agent
-        create_response = client.post("/agents/", json=agent_data)
+        create_response = client.post("/update-agent/", json=agent_data)
         assert create_response.status_code == 200
 
         # Retrieve all agents and find the one we just created
@@ -231,8 +251,11 @@ class TestAgentEndpoints:
         assert retrieved["name"] == agent_data["name"]
         assert retrieved["description"] == agent_data["description"]
         assert retrieved["prompt"] == agent_data["prompt"]
-        assert retrieved["corpa"] == agent_data["corpa"]
         assert len(retrieved["roles"]) == 2
+        assert (
+            retrieved["roles"][0]["document_access"]
+            == agent_data["roles"][0]["document_access"]
+        )
         assert retrieved["llm_model"] == agent_data["llm_model"]
         assert retrieved["llm_temperature"] == agent_data["llm_temperature"]
         assert retrieved["llm_max_tokens"] == agent_data["llm_max_tokens"]
@@ -241,6 +264,6 @@ class TestAgentEndpoints:
 
     def test_invalid_agent_id_format(self):
         """Test that invalid ID format returns 404."""
-        response = client.get("/agents/invalid-id-format")
+        response = client.get("/fetch-agent?agent_id=invalid-id-format")
 
         assert response.status_code == 404

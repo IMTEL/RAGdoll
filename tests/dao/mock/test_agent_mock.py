@@ -37,23 +37,25 @@ def sample_agent() -> Agent:
         name="Test Bot",
         description="A test bot for unit testing",
         prompt="You are a helpful assistant",
-        corpa=["document1", "document2"],
         roles=[
             Role(
-                name="admin", description="Administrator role", subset_of_corpa=[0, 1]
+                name="admin",
+                description="Administrator role",
+                document_access=["doc-id-1", "doc-id-2"],
             ),
-            Role(name="user", description="User role", subset_of_corpa=[1]),
+            Role(name="user", description="User role", document_access=["doc-id-2"]),
         ],
         llm_model="gpt-3.5-turbo",
         llm_temperature=0.7,
         llm_max_tokens=1000,
         llm_api_key="test-api-key",
-        access_key=["key1", "key2"],
+        access_key=[],
         retrieval_method="semantic",
         embedding_model="text-embedding-ada-002",
         status="active",
         response_format="json",
         last_updated="2025-10-03T10:00:00Z",
+        embedding_api_key="test-embedding-key",
     )
 
 
@@ -204,8 +206,10 @@ class TestMockAgentDAO:
         assert retrieved.name == sample_agent.name
         assert retrieved.description == sample_agent.description
         assert retrieved.prompt == sample_agent.prompt
-        assert retrieved.corpa == sample_agent.corpa
         assert len(retrieved.roles) == len(sample_agent.roles)
+        assert (
+            retrieved.roles[0].document_access == sample_agent.roles[0].document_access
+        )
         assert retrieved.llm_model == sample_agent.llm_model
         assert retrieved.llm_temperature == sample_agent.llm_temperature
         assert retrieved.llm_max_tokens == sample_agent.llm_max_tokens
