@@ -97,6 +97,11 @@ class Agent(BaseModel):
         description="Weight for hybrid search (0=keyword only, 1=vector only)",
     )
 
+    context_aware_retrieval: bool = Field(
+        default=True,
+        description="If true, use context-aware retrieval; otherwise, use only the latest message as the retrieval query.",
+    )
+
     def get_role_by_name(self, role_name: str) -> Role | None:
         """Retrieve a role by its name.
 
