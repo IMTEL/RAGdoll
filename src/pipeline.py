@@ -93,10 +93,15 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     )
     last_user_response = command.chat_log[-1].content if command.chat_log else ""
 
-    # Generate a standalone query for RAG retrieval using LLM
-    retrieval_query = generate_retrieval_query(
-        command=command, agent=agent, role_prompt=role_prompt if role_prompt else ""
-    )
+    # Determine retrieval query based on agent.context_aware_retrieval
+    if hasattr(agent, "context_aware_retrieval") and not agent.context_aware_retrieval:
+        # Only use the latest chat message as the retrieval query
+        retrieval_query = command.chat_log[-1].content if command.chat_log else ""
+    else:
+        # Use context-aware retrieval (default)
+        retrieval_query = generate_retrieval_query(
+            command=command, agent=agent, role_prompt=role_prompt if role_prompt else ""
+        )
 
     # Get accessible categories based on active roles
     accessible_documents = (
