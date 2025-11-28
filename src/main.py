@@ -88,7 +88,7 @@ def ping():
     Returns:
         dict: A status message indicating the service is operational.
     """
-    return {"status": "Service is operational."}
+    return {"Pong"}
 
 
 @app.exception_handler(AuthJWTException)
