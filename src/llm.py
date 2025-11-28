@@ -1,4 +1,5 @@
 from typing import Protocol
+from venv import logger
 
 import google.generativeai as genai
 import requests
@@ -301,9 +302,11 @@ def list_idun_models(api_key: str) -> list[Model]:
 
     base_url = config.IDUN_API_URL.rstrip("/")
     if base_url.endswith("/chat/completions"):
-        models_url = f"{base_url.rsplit('/', 1)[0]}/models"
+        models_url = f"{base_url.replace('/chat/completions', '')}/models"
     else:
         models_url = f"{base_url}/models"
+
+    # logger.info(models_url)
 
     try:
         response = requests.get(models_url, headers=headers, timeout=10)
@@ -322,6 +325,7 @@ def list_idun_models(api_key: str) -> list[Model]:
         )
 
     data = response.json()
+    print(data)
     items = data.get("data", data) if isinstance(data, dict) else data
 
     models: list[Model] = []
