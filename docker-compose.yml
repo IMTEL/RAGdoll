@@ -91,12 +91,15 @@ services:
         max-file: "3"
 
   chat-service:
+    expose:
+      - "3002"
+    environment:
+      - PORT=3002
     build:
       context: ../RAGdollChat
       dockerfile: Dockerfile
     container_name: ragdoll-chat
-    expose:
-      - "3000"
+    
     env_file:
       - ../RAGdollChat/.env
     restart: unless-stopped
