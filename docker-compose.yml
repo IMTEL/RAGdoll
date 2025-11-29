@@ -4,6 +4,8 @@ services:
     image: nginx:1.27-alpine  # Pinned version with Alpine for reduced size
     container_name: ragdoll-nginx
     depends_on:
+      - backend-service
+      - frontend-service
       - chat-service
     ports:
       - "80:80"
@@ -76,11 +78,27 @@ services:
 
   frontend-service:
     build:
-      context: ../RAGdollConfig   # or ../frontend  ← adjust to correct folder
+      context: ../RAGdollConfig
       dockerfile: Dockerfile
     container_name: ragdoll-frontend
     expose:
       - "3000"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  chat-service:
+    build:
+      context: ../RAGdollChat
+      dockerfile: Dockerfile
+    container_name: ragdoll-chat
+    expose:
+      - "3000"
+    env_file:
+      - ../RAGdollChat/.env
     restart: unless-stopped
     logging:
       driver: "json-file"
