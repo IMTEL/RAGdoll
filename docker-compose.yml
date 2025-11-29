@@ -92,9 +92,9 @@ services:
 
   chat-service:
     expose:
-      - "3002"
+      - "3001"
     environment:
-      - PORT=3002
+      - PORT=3001
     build:
       context: ../RAGdollChat
       dockerfile: Dockerfile
