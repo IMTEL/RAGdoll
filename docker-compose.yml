@@ -81,6 +81,8 @@ services:
       context: ../RAGdollConfig
       dockerfile: Dockerfile
     container_name: ragdoll-frontend
+    env_file:
+      - ../RAGdollConfig/.env
     expose:
       - "3000"
     restart: unless-stopped
