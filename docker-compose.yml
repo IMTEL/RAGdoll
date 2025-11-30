@@ -1,5 +1,6 @@
 services:
   # Reverse proxy handling HTTPS with NTNU cert
+  
   nginx:
     image: nginx:1.27-alpine  # Pinned version with Alpine for reduced size
     container_name: ragdoll-nginx
