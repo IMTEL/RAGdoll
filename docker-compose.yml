@@ -9,12 +9,9 @@ services:
       - chat-service
     ports:
       - "80:80"
-      - "443:443"
     volumes:
-      # Mount static config and SSL certs
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /root/iplvr.it.ntnu.no.crt:/etc/ssl/certs/server.crt:ro
-      - /root/iplvr.it.ntnu.no.key:/etc/ssl/private/server.key:ro
+      # Mount static config (use nginx.local.conf for local dev, nginx.conf for production)
+      - ./nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
     # Resource limits for production stability
     deploy:
       resources:
@@ -93,15 +90,12 @@ services:
         max-file: "3"
 
   chat-service:
-    expose:
-      - "3001"
-    environment:
-      - PORT=3001
     build:
       context: ../RAGdollChat
       dockerfile: Dockerfile
     container_name: ragdoll-chat
-    
+    expose:
+      - "3000"
     env_file:
       - ../RAGdollChat/.env
     restart: unless-stopped
