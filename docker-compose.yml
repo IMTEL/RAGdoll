@@ -37,7 +37,7 @@ services:
     expose:
       - "8000"  # internal only, Nginx connects here
     environment:
-      - ENV=prod
+      - ENV=dev
       # MongoDB Atlas connection (supports vector search)
       - MONGODB_URI=${MONGODB_URI}
       - MONGODB_DATABASE=${MONGODB_DATABASE}
@@ -78,6 +78,8 @@ services:
       context: ../RAGdollConfig
       dockerfile: Dockerfile
     container_name: ragdoll-frontend
+    environment:
+      - NODE_ENV=development
     env_file:
       - ../RAGdollConfig/.env
     expose:
