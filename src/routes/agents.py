@@ -224,7 +224,7 @@ def fetch_models(
     payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     """Return all usable models for the requested provider using the supplied API key."""
-    authorize.jwt_required()  # Require login, but nothing else
+    # authorize.jwt_required()  # Require login, but nothing else
 
     try:
         return list_llm_models(payload.provider, payload.api_key)
@@ -239,7 +239,7 @@ def fetch_embedding_models(
     payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     """Return all usable embedding models for the requested provider using the supplied API key."""
-    authorize.jwt_required()
+    # authorize.jwt_required()
 
     try:
         return list_embedding_models(payload.provider, payload.api_key)

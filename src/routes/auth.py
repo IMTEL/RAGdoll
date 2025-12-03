@@ -35,7 +35,7 @@ def get_config():
     return Settings()
 
 
-@router.post("/api/login")
+@router.post("/login")
 async def login(request: Request, authorize: Annotated[AuthJWT, Depends()] = None):
     body = await request.json()
     token = body.get("token")
@@ -67,7 +67,7 @@ async def login(request: Request, authorize: Annotated[AuthJWT, Depends()] = Non
     }
 
 
-@router.post("/api/refresh")
+@router.post("/refresh")
 def refresh(authorize: Annotated[AuthJWT, Depends()] = None):
     authorize.jwt_refresh_token_required()
     user_id = authorize.get_jwt_subject()
@@ -82,9 +82,9 @@ def refresh(authorize: Annotated[AuthJWT, Depends()] = None):
 denylist = set()
 
 
-@router.get("/api/logout")
+@router.get("/logout")
 def logout(authorize: Annotated[AuthJWT, Depends()] = None):
-    authorize.jwt_required()
+    # authorize.jwt_required()
     jti = authorize.get_raw_jwt()["jti"]
     denylist.add(jti)
     return {"detail": "Tokens has been revolked"}

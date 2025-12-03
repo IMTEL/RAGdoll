@@ -9,7 +9,7 @@ router = APIRouter()
 
 @router.get("/providers")
 def get_supported_providers(authorize: Annotated[AuthJWT, Depends()] = None):
-    authorize.jwt_required()
+    # # authorize.jwt_required()
     from src.constants import (
         SUPPORTED_EMBEDDING_PROVIDERS,
         SUPPORTED_LLM_PROVIDERS,
