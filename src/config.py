@@ -95,6 +95,10 @@ class Config:
 
         self.FERNET_KEY = self.FERNET_KEY.strip()
 
+        # Feature flag to disable authentication
+        # When set to True, all authentication checks are bypassed
+        self.DISABLE_AUTH = self.AUTH_SERVICE == "noauth"
+
         self._validate_collection_names()
 
     def _prod_or_mock_env(self, env_var: str) -> str:

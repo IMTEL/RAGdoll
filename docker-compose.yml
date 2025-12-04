@@ -57,6 +57,8 @@ services:
       # Access Service
       - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
       - FERNET_KEY=${FERNET_KEY}
+      # Authentication Service (noauth=disabled, service=enabled)
+      - AUTH_SERVICE=${AUTH_SERVICE:-service}
     # Resource limits for production stability
     deploy:
       resources:
