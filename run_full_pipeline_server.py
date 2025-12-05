@@ -98,10 +98,7 @@ def initialize_pipeline_agent():
             document_access=["trex.pdf"]
         )
     ]
-    logger.info(f"   ✓ Created {len(roles)} roles")
-    
-    # Step 3: Create Agent
-    logger.info("📝 Step 3: Creating agent...")
+    logger.info(f"Created {len(roles)} roles")
     
     agent_body = Agent(
         id="6932698c69151632bf86532f",  # Hardcoded agent ID to match uploaded documents
