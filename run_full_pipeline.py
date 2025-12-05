@@ -59,14 +59,14 @@ agent_body = Agent(
     llm_model=os.getenv("IDUN_MODEL"),
     llm_temperature=0.7,
     llm_max_tokens=1000,
-    llm_api_key=api_key_llm_detail.raw_key,  # ✅ Use the decrypted raw key
+    llm_api_key=api_key_llm_detail.raw_key,  
     access_key=[],
     retrieval_method="semantic",
     embedding_model="models/text-embedding-004",
     status="active",
     response_format="text",
     last_updated="2024-06-01T12:00:00Z",
-    embedding_api_key=api_key_embedding_detail.raw_key,  # ✅ Use the decrypted raw key
+    embedding_api_key=api_key_embedding_detail.raw_key,  
     
     top_k=5,
     similarity_threshold=0.7,
@@ -83,17 +83,13 @@ agent.access_key.append(access_key)
 
 command = Command(
     chat_log=[
-        {"role": "user", "content": "Hello"}
+        {"role": "user", "content": "Hello"},
+        {"role": "user", "content": "what are flamingos?"},
     ],
     agent_id=agent.id,
     active_role_id="CrazyFrog",
 )
 
-# retrieval_query = generate_retrieval_query(
-#     command=command,
-#     agent=agent,
-#     role_prompt=agent.get_role_by_name(command.active_role_id).description if command.active_role_id else None,
-# )
 
 response = assemble_prompt_with_agent(command, agent)
 
