@@ -380,50 +380,13 @@ async def websocket_chat(websocket: WebSocket, agent_id: str):
         await websocket.close()
 
 
-@app.get("/api/documents/{agent_id}")
-async def list_documents(agent_id: str):
-    """List documents for the agent (delegates to existing document service)."""
-    if not PIPELINE_AGENT or agent_id != PIPELINE_AGENT.id:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    # Import and use the existing document service
-    from src.rag_service.dao.factory import get_document_dao
-    
-    doc_dao = get_document_dao()
-    documents = doc_dao.get_by_agent_id(agent_id)
-    
-    return {
-        "documents": [
-            {
-                "id": doc.id,
-                "document_name": doc.document_name,
-                "file_size_bytes": doc.file_size_bytes,
-                "created_at": doc.created_at.isoformat() if hasattr(doc.created_at, 'isoformat') else str(doc.created_at)
-            }
-            for doc in documents
-        ]
-    }
-
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint with detailed status."""
-    return {
-        "status": "healthy",
-        "mode": "model-driven",
-        "agent_initialized": PIPELINE_AGENT is not None,
-        "agent_id": PIPELINE_AGENT.id if PIPELINE_AGENT else None,
-        "agent_name": PIPELINE_AGENT.name if PIPELINE_AGENT else None,
-    }
-
-
 def main():
     """Run the server."""
     port = int(os.getenv("MODEL_DRIVEN_PORT", "8001"))
     host = os.getenv("MODEL_DRIVEN_HOST", "0.0.0.0")
     
     logger.info("=" * 80)
-    logger.info("🚀 Starting Model-Driven Agent Server")
+    logger.info("Starting Model-Driven Agent Server")
     logger.info("=" * 80)
     logger.info(f"Host: {host}")
     logger.info(f"Port: {port}")
@@ -433,7 +396,6 @@ def main():
     logger.info(f"  - GET  /api/agents            - List agents")
     logger.info(f"  - POST /api/chat              - Chat with agent")
     logger.info(f"  - WS   /ws/chat/{{agent_id}}   - WebSocket chat")
-    logger.info(f"  - GET  /api/documents/{{id}}   - List documents")
     logger.info("=" * 80)
     
     uvicorn.run(
