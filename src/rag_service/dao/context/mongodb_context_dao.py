@@ -99,6 +99,74 @@ class MongoDBContextDAO(ContextDAO):
         # Create indexes for efficient querying
         self._create_indexes()
 
+    def _resolve_document_identifiers(
+        self, identifiers: list[str] | None, agent_id: str
+    ) -> list[str] | None:
+        """Resolve document identifiers (names or IDs) to document IDs.
+        
+        Detects if identifiers contain filenames (by checking for file extensions)
+        and resolves them to document IDs by querying the document DAO.
+        
+        Args:
+            identifiers: List of document IDs or filenames, or None for all documents
+            agent_id: Agent identifier for scoping document lookup
+            
+        Returns:
+            List of resolved document IDs, or None if no filtering requested
+        """
+        if identifiers is None:
+            return None
+            
+        if len(identifiers) == 0:
+            return []
+        
+        # Common file extensions to detect filenames
+        file_extensions = {
+            '.pdf', '.txt', '.doc', '.docx', '.md', '.csv', '.json', '.xml',
+            '.html', '.htm', '.rtf', '.odt', '.tex', '.log', '.rst'
+        }
+        
+        # Check if any identifier looks like a filename
+        potential_filenames = []
+        confirmed_ids = []
+        
+        for identifier in identifiers:
+            # Check if identifier has a file extension
+            has_extension = any(identifier.lower().endswith(ext) for ext in file_extensions)
+            
+            if has_extension:
+                potential_filenames.append(identifier)
+                logger.debug(f"Detected potential filename: {identifier}")
+            else:
+                confirmed_ids.append(identifier)
+                logger.debug(f"Treating as document ID: {identifier}")
+        
+        # If we found potential filenames, resolve them to IDs
+        if potential_filenames:
+            from src.rag_service.dao.factory import get_document_dao
+            
+            doc_dao = get_document_dao()
+            resolved_docs = doc_dao.get_by_names_and_agent(potential_filenames, agent_id)
+            
+            resolved_ids = [doc.id for doc in resolved_docs]
+            logger.info(
+                f"Resolved {len(resolved_ids)} document IDs from {len(potential_filenames)} filenames"
+            )
+            
+            # Log any filenames that couldn't be resolved
+            resolved_names = {doc.name for doc in resolved_docs}
+            unresolved = set(potential_filenames) - resolved_names
+            if unresolved:
+                logger.warning(
+                    f"Could not resolve filenames to documents: {', '.join(unresolved)}"
+                )
+            
+            # Combine resolved IDs with confirmed IDs
+            return confirmed_ids + resolved_ids
+        
+        # No filenames detected, return as-is
+        return confirmed_ids
+
     def _create_indexes(self):
         """Create database indexes for optimized queries and vector search."""
         try:
@@ -278,12 +346,17 @@ class MongoDBContextDAO(ContextDAO):
         Raises:
             ValueError: If agent_id or embedding is empty
         """
-        available_documents = documents if documents is not None else []
+        # Resolve document names to IDs if filenames are provided
+        resolved_document_ids = self._resolve_document_identifiers(
+            documents, agent_id
+        )
+        
+        available_documents = resolved_document_ids if resolved_document_ids is not None else []
         # If an explicit empty list of documents is provided, there are no
         # accessible documents for this agent. Returning early avoids
         # constructing MongoDB queries like {"document_id": {"$in": []}}
         # which cause an OperationFailure in some MongoDB versions.
-        if documents is not None and len(documents) == 0:
+        if resolved_document_ids is not None and len(resolved_document_ids) == 0:
             return []
         if not agent_id:
             raise ValueError("agent_id cannot be empty")

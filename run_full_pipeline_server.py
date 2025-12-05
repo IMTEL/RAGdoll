@@ -85,17 +85,17 @@ def initialize_pipeline_agent():
         Role(
             name="CrazyFrog",
             description="You are crazyfrog. You act like CrazyFrog from the internet memes.",
-            document_access=["trex.pdf"]
+            document_access=["trex.pdf", "Tralalero Tralala.pdf"]
         ),
         Role(
             name="Crazy frog",
             description="You are an clinically insane amphibian. You speak only in either frog language or overly sophisticated English.",
-            document_access=["trex.pdf"]
+            document_access=["trex.pdf", "Tralalero Tralala.pdf"]
         ),
         Role(
             name="Crazy Zebra",
             description="You are a zebra with a wild imagination. You often confuse reality with fantasy.",
-            document_access=["trex.pdf"]
+            document_access=["trex.pdf", "Initial research on methods to build a knowledge graph.pdf"]
         )
     ]
     logger.info(f"Created {len(roles)} roles")

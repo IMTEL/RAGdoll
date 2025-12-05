@@ -147,6 +147,24 @@ class MockDocumentDAO(DocumentDAO):
                 return doc
         return None
 
+    def get_by_names_and_agent(self, names: list[str], agent_id: str) -> list[Document]:
+        """Find multiple documents by names within a specific agent.
+
+        Args:
+            names (list[str]): List of document names to find
+            agent_id (str): Agent identifier
+
+        Returns:
+            list[Document]: List of matching documents (may be fewer than requested names)
+        """
+        if not names or not agent_id:
+            return []
+        
+        return [
+            doc for doc in self._documents.values()
+            if doc.name in names and doc.agent_id == agent_id
+        ]
+
     def is_reachable(self) -> bool:
         """Check if the DAO backend is accessible.
 

@@ -87,6 +87,18 @@ class DocumentDAO(ABC):
         """
 
     @abstractmethod
+    def get_by_names_and_agent(self, names: list[str], agent_id: str) -> list[Document]:
+        """Find multiple documents by names within a specific agent.
+
+        Args:
+            names (list[str]): List of document names to find
+            agent_id (str): Agent identifier
+
+        Returns:
+            list[Document]: List of matching documents (may be fewer than requested names)
+        """
+
+    @abstractmethod
     def is_reachable(self) -> bool:
         """Check if the DAO backend is accessible.
 
