@@ -203,7 +203,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
-    active_role_id: str = "assistant"
+    active_role_id: str = "CrazyFrog" # Default to first role
 
 
 class ChatResponse(BaseModel):
