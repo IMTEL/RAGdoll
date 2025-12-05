@@ -75,6 +75,8 @@ class Config:
         self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
 
         ##Authentication
+        # Feature flag to disable authentication (useful for local development/testing)
+        self.DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() == "true"
         self.SESSION_TOKEN_TTL = os.getenv("SESSION_TOKEN_TTL", "15")  # Minutes
         self.REFRESH_TOKEN_TTL = os.getenv("REFRESH_TOKEN_TTL", "14")  # Days
         self.JWT_TOKEN_SECRET = os.getenv(
