@@ -4,9 +4,14 @@ This module provides in-memory mock implementations that mimic the behavior
 of a real DAO without requiring actual database connections.
 """
 
+import logging
+
 from src.rag_service.context import Context
 from src.rag_service.dao import ContextDAO
 from src.utils import singleton
+
+
+logger = logging.getLogger(__name__)
 
 
 @singleton
@@ -23,6 +28,21 @@ class MockContextDAO(ContextDAO):
         self.similarity_threshold = 0.7
         self.collection = self  # For compatibility with code expecting .collection
 
+    def _resolve_document_identifiers(
+        self, identifiers: list[str] | None, agent_id: str
+    ) -> list[str] | None:
+        """Resolve document identifiers (names or IDs) to document IDs.
+        
+        Mock implementation that mimics the MongoDB version's behavior.
+        
+        Args:
+            identifiers: List of document IDs or filenames, or None for all documents
+            agent_id: Agent identifier for scoping document lookup
+            
+        Returns:
+            List of resolved document IDs, or None if no filtering requested
+        \"\"\"\n        if identifiers is None:\n            return None\n            \n        if len(identifiers) == 0:\n            return []\n        \n        # Common file extensions to detect filenames\n        file_extensions = {\n            '.pdf', '.txt', '.doc', '.docx', '.md', '.csv', '.json', '.xml',\n            '.html', '.htm', '.rtf', '.odt', '.tex', '.log', '.rst'\n        }\n        \n        # Check if any identifier looks like a filename\n        potential_filenames = []\n        confirmed_ids = []\n        \n        for identifier in identifiers:\n            # Check if identifier has a file extension\n            has_extension = any(identifier.lower().endswith(ext) for ext in file_extensions)\n            \n            if has_extension:\n                potential_filenames.append(identifier)\n                logger.debug(f\"Mock: Detected potential filename: {identifier}\")\n            else:\n                confirmed_ids.append(identifier)\n                logger.debug(f\"Mock: Treating as document ID: {identifier}\")\n        \n        # If we found potential filenames, resolve them to IDs\n        if potential_filenames:\n            from src.rag_service.dao.factory import get_document_dao\n            \n            doc_dao = get_document_dao()\n            resolved_docs = doc_dao.get_by_names_and_agent(potential_filenames, agent_id)\n            \n            resolved_ids = [doc.id for doc in resolved_docs]\n            logger.info(\n                f\"Mock: Resolved {len(resolved_ids)} document IDs from {len(potential_filenames)} filenames\"\n            )\n            \n            # Log any filenames that couldn't be resolved\n            resolved_names = {doc.name for doc in resolved_docs}\n            unresolved = set(potential_filenames) - resolved_names\n            if unresolved:\n                logger.warning(\n                    f\"Mock: Could not resolve filenames to documents: {', '.join(unresolved)}\"\n                )\n            \n            # Combine resolved IDs with confirmed IDs\n            return confirmed_ids + resolved_ids\n        \n        # No filenames detected, return as-is\n        return confirmed_ids
+"""
     def get_context_for_agent(
         self,
         agent_id: str,
@@ -62,6 +82,11 @@ class MockContextDAO(ContextDAO):
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
 
+        # Resolve document names to IDs if filenames are provided
+        resolved_document_ids = self._resolve_document_identifiers(
+            documents, agent_id
+        )
+
         # Use provided threshold or fall back to instance default
         threshold = (
             similarity_threshold
@@ -75,8 +100,8 @@ class MockContextDAO(ContextDAO):
             if document.get("agent_id") != agent_id:
                 continue
 
-            # Filter by documents if provided
-            if documents and document.get("_id") not in documents:
+            # Filter by documents if provided (now using resolved IDs)
+            if resolved_document_ids is not None and document.get("_id") not in resolved_document_ids:
                 continue
 
             # Mock similarity - returns high value for testing

@@ -251,3 +251,98 @@ def chat_history_prompt_section(
         ]:  # Exclude latest user message
             chat_history += f"{msg.role.upper()}: {msg.content}\n"
     return chat_history
+
+
+
+def main():
+    """Run the RAG pipeline end-to-end with example data.
+    
+    This demonstrates how to:
+    1. Create a Command with chat history
+    2. Load an Agent configuration
+    3. Run the pipeline to generate a response with RAG context
+    """
+    import json
+    from src.models.chat.message import Message
+    from src.rag_service.dao.agent_dao import AgentDAO
+    
+    # Example: Create a sample command with chat history
+    sample_command = Command(
+        chat_log=[
+            Message(role="user", content="Hello, can you help me understand machine learning?"),
+            Message(role="assistant", content="Of course! I'd be happy to help you understand machine learning. What specific aspect would you like to learn about?"),
+            Message(role="user", content="What is supervised learning?"),
+        ],
+        agent_id="your_agent_id_here", 
+        active_role_id="user",  # Replace with actual role name
+        access_key=None,  # Optional: provide access key if required
+    )
+    
+    # Example: Load agent from database
+    # In a real scenario, you would fetch the agent from MongoDB
+    try:
+        agent_dao = AgentDAO()
+        agent = agent_dao.get_agent_by_id(sample_command.agent_id)
+        
+        if not agent:
+            print(f"Agent with ID {sample_command.agent_id} not found.")
+            print("\nTo run this pipeline, you need to:")
+            print("1. Create an agent in the database")
+            print("2. Upload documents to the agent's knowledge base")
+            print("3. Update the agent_id and active_role_id in this function")
+            return
+        
+        # Run the pipeline
+        print("=" * 80)
+        print("Running RAG Pipeline")
+        print("=" * 80)
+        print(f"Agent: {agent.name}")
+        print(f"Active Role: {sample_command.active_role_id}")
+        print(f"Chat History Length: {len(sample_command.chat_log)}")
+        print("-" * 80)
+        
+        result = assemble_prompt_with_agent(sample_command, agent)
+        
+        print("\n" + "=" * 80)
+        print("PIPELINE RESULTS")
+        print("=" * 80)
+        print(f"\nResponse ID: {result['id']}")
+        print(f"Model: {result['model']}")
+        print(f"Agent: {result['metadata']['agent_name']}")
+        print(f"Contexts Retrieved: {result['metadata']['num_context_retrieved']}")
+        print(f"Response Length: {result['metadata']['response_length']} characters")
+        
+        if result['context_used']:
+            print(f"\n--- Retrieved Contexts ({len(result['context_used'])}) ---")
+            for idx, ctx in enumerate(result['context_used'], 1):
+                print(f"\n[Context {idx}] Document: {ctx['document_name']}, Chunk: {ctx['chunk_index']}")
+                print(f"Content: {ctx['content'][:200]}...")
+        
+        if result['function_call']:
+            print(f"\n--- Function Call ---")
+            print(f"Function: {result['function_call']['function_name']}")
+            print(f"Parameters: {result['function_call']['function_parameters']}")
+        
+        print(f"\n--- Generated Response ---")
+        print(result['response'])
+        print("\n" + "=" * 80)
+        
+        
+    except Exception as e:
+        print(f"Error running pipeline: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        print("\n" + "=" * 80)
+        print("TROUBLESHOOTING")
+        print("=" * 80)
+        print("Common issues:")
+        print("1. Agent ID not found - verify the agent exists in MongoDB")
+        print("2. Role ID invalid - check that the role exists in the agent configuration")
+        print("3. Database connection - ensure MongoDB is running and accessible")
+        print("4. API keys - verify LLM and embedding API keys are configured")
+        print("5. Documents - ensure documents are uploaded to the agent's knowledge base")
+
+
+if __name__ == "__main__":
+    main()

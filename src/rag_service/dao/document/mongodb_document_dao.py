@@ -229,6 +229,22 @@ class MongoDBDocumentDAO(DocumentDAO):
 
         return self._doc_from_mongo(doc)
 
+    def get_by_names_and_agent(self, names: list[str], agent_id: str) -> list[Document]:
+        """Find multiple documents by names within a specific agent.
+
+        Args:
+            names (list[str]): List of document names to find
+            agent_id (str): Agent identifier
+
+        Returns:
+            list[Document]: List of matching documents (may be fewer than requested names)
+        """
+        if not names or not agent_id:
+            return []
+
+        cursor = self.collection.find({"name": {"$in": names}, "agent_id": agent_id})
+        return [self._doc_from_mongo(doc) for doc in cursor]
+
     def is_reachable(self) -> bool:
         """Check if the DAO backend is accessible.
 
