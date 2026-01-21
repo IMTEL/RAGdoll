@@ -1,4 +1,5 @@
 # ruff: noqa: I001
+import os
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,9 +18,23 @@ from src.models.users.api_key import (
     UserAPIKeyDetailResponse,
     UserAPIKeyResponse,
 )
+from src.models.users.user import User
 from src.utils.crypto_utils import encrypt_str
 
 router = APIRouter()
+
+
+def _get_user_or_demo(authorize) -> User:
+    """Get authenticated user or demo user if auth is disabled."""
+    if os.getenv("DISABLE_AUTH", "").lower() == "true":
+        demo_user = user_dao.get_user_by_email("demo@example.com")
+        if not demo_user:
+            demo_user = User(email="demo@example.com", name="Demo User", api_keys=[])
+            user_dao.set_user(demo_user)
+        return demo_user
+
+    return auth_service.get_authenticated_user(authorize)
+
 
 LLM_PROVIDER_IDS = {item["id"] for item in SUPPORTED_LLM_PROVIDERS}
 EMBEDDING_PROVIDER_IDS = {item["id"] for item in SUPPORTED_EMBEDDING_PROVIDERS}
@@ -42,7 +57,7 @@ class CreateAPIKeyRequest(BaseModel):
 
 @router.get("/api-keys", response_model=list[UserAPIKeyResponse])
 def list_api_keys(authorize: Annotated[AuthJWT, Depends()] = None):
-    user = auth_service.get_authenticated_user(authorize)
+    user = _get_user_or_demo(authorize)
     sorted_keys = sorted(user.api_keys, key=lambda item: item.created_at, reverse=True)
     return [key.to_response() for key in sorted_keys]
 
@@ -82,7 +97,7 @@ def create_api_key(
             detail="Provider must support both LLM and embedding usage",
         )
 
-    user = auth_service.get_authenticated_user(authorize)
+    user = _get_user_or_demo(authorize)
 
     api_key = UserAPIKey(
         label=label,
@@ -100,7 +115,7 @@ def create_api_key(
 
 @router.get("/api-keys/{key_id}", response_model=UserAPIKeyDetailResponse)
 def get_api_key_detail(key_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
-    user = auth_service.get_authenticated_user(authorize)
+    user = _get_user_or_demo(authorize)
     for key in user.api_keys:
         if key.id == key_id:
             return key.to_detail()

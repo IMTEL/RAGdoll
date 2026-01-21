@@ -1,4 +1,5 @@
 import logging
+import os
 from collections.abc import Callable
 
 from fastapi import HTTPException
@@ -7,7 +8,7 @@ from fastapi_jwt_auth import AuthJWT
 from src.auth.auth_provider.base import AuthProvider
 from src.auth.auth_service.base import BaseAuthService
 from src.config import Config
-from src.models.users.user import User
+from src.models.user import User
 from src.rag_service.dao.user.base import UserDao
 
 
@@ -48,6 +49,10 @@ class AuthService(BaseAuthService):
         if authorize is None:
             logger.warning("No authorization provided")
             raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
+        # Demo mode - bypass authentication
+        if os.getenv("DISABLE_AUTH", "").lower() == "true":
+            # Return a demo user
+            return self._get_or_create_demo_user()
         authorize.jwt_required()
         user_id = authorize.get_jwt_subject()
         user = self.user_db.get_user_by_id(user_id)
@@ -57,3 +62,16 @@ class AuthService(BaseAuthService):
                 status_code=404, detail="Invalid user, could not find user"
             )
         return user
+
+    def _get_or_create_demo_user(self) -> User:
+        from src.rag_service.dao.user.user_dao import user_dao
+
+        demo_user = user_dao.get_user_by_email("demo@example.com")
+        if not demo_user:
+            demo_user = User(
+                email="demo@example.com",
+                name="Demo User",
+                api_keys=[],
+            )
+            user_dao.set_user(demo_user)
+        return demo_user
