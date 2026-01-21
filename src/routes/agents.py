@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Annotated
 
@@ -13,11 +14,35 @@ from src.models.agent import Agent
 from src.models.errors.embedding_error import EmbeddingAPIError, EmbeddingError
 from src.models.errors.llm_error import LLMAPIError
 from src.models.model import Model
+from src.models.users.user import User
 from src.rag_service.embeddings import list_embedding_models
 
 
 config = Config()
 router = APIRouter()
+
+
+def _get_user_or_demo(authorize) -> User:
+    """Get authenticated user or demo user if auth is disabled."""
+    if os.getenv("DISABLE_AUTH", "").lower() == "true":
+        demo_user = user_dao.get_user_by_email("demo@example.com")
+        if not demo_user:
+            demo_user = User(
+                email="demo@example.com",
+                name="Demo User",
+                api_keys=[],
+                owned_agents=[],
+            )
+            user_dao.set_user(demo_user)
+        return demo_user
+    return auth_service.get_authenticated_user(authorize)
+
+
+def _auth_or_skip(authorize, agent_id: str):
+    """Check agent ownership or skip if auth is disabled."""
+    if os.getenv("DISABLE_AUTH", "").lower() == "true":
+        return
+    auth_service.auth(authorize, agent_id)
 
 
 class ProviderKeyRequest(BaseModel):
@@ -59,14 +84,14 @@ def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()] = None):
         # Check if agent exists
         if agent_dao.get_agent_by_id(agent.id) is None:
             # Authenticate and get user
-            user = auth_service.get_authenticated_user(authorize)
+            user = _get_user_or_demo(authorize)  # Changed
             agent = agent_dao.add_agent(agent)
             # Add new agent id to owned agents
             user.owned_agents.append(agent.id)
             user_dao.set_user(user)
             return agent
 
-        auth_service.auth(authorize, agent.id)
+        _auth_or_skip(authorize, agent.id)  # Changed
         return agent_dao.add_agent(agent)
 
     except ValueError as e:
@@ -84,7 +109,7 @@ def get_agents(authorize: Annotated[AuthJWT, Depends()] = None):
     Returns:
         list[Agent]: All stored agents
     """
-    user = auth_service.get_authenticated_user(authorize)
+    user = _get_user_or_demo(authorize)  # Changed
 
     # returns all agents, owned by the user
     return [agent_dao.get_agent_by_id(agent_id) for agent_id in user.owned_agents]
@@ -105,7 +130,7 @@ def delete_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None)
     Raises:
         HTTPException: If agent not found
     """
-    user = auth_service.get_authenticated_user(authorize)
+    user = _get_user_or_demo(authorize)  # Changed
     agent_dao.delete_agent_by_id(agent_id)
     user.owned_agents.remove(agent_id)
     user_dao.set_user(user)
@@ -126,7 +151,7 @@ def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
     Raises:
         HTTPException: If agent not found
     """
-    auth_service.auth(authorize, agent_id)
+    _auth_or_skip(authorize, agent_id)  # Changed
     agent = agent_dao.get_agent_by_id(agent_id)
 
     if agent is None:
@@ -179,7 +204,7 @@ def new_access_key(
     authorize: Annotated[AuthJWT, Depends()] = None,
 ):
     try:
-        auth_service.auth(authorize, agent_id)
+        _auth_or_skip(authorize, agent_id)  # Changed
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
         else:
@@ -198,7 +223,7 @@ def new_access_key(
 def revoke_access_key(
     access_key_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
 ):
-    auth_service.auth(authorize, agent_id)
+    _auth_or_skip(authorize, agent_id)  # Changed
     try:
         return access_service.revoke_key(agent_id, access_key_id)
     except Exception as e:
@@ -207,7 +232,7 @@ def revoke_access_key(
 
 @router.get("/get-accesskeys", response_model=list[AccessKey])
 def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
-    auth_service.auth(authorize, agent_id)
+    _auth_or_skip(authorize, agent_id)  # Changed
     agent = agent_dao.get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(
@@ -224,7 +249,8 @@ def fetch_models(
     payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     """Return all usable models for the requested provider using the supplied API key."""
-    authorize.jwt_required()  # Require login, but nothing else
+    if os.getenv("DISABLE_AUTH", "").lower() != "true":
+        authorize.jwt_required()  # Only require JWT if auth is enabled
 
     try:
         return list_llm_models(payload.provider, payload.api_key)
@@ -239,7 +265,8 @@ def fetch_embedding_models(
     payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
 ):
     """Return all usable embedding models for the requested provider using the supplied API key."""
-    authorize.jwt_required()
+    if os.getenv("DISABLE_AUTH", "").lower() != "true":
+        authorize.jwt_required()  # Only require JWT if auth is enabled
 
     try:
         return list_embedding_models(payload.provider, payload.api_key)
