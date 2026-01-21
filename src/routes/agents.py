@@ -1,8 +1,8 @@
 import os
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 
@@ -22,9 +22,22 @@ config = Config()
 router = APIRouter()
 
 
-def _get_user_or_demo(authorize) -> User:
-    """Get authenticated user or demo user if auth is disabled."""
+def optional_auth(request: Request) -> Optional[AuthJWT]:
+    """Return AuthJWT only if auth is enabled and header is present."""
     if os.getenv("DISABLE_AUTH", "").lower() == "true":
+        return None
+
+    auth_header = request.headers.get("authorization")
+    if not auth_header:
+        # If no header and auth is required, AuthJWT will handle the error
+        pass
+
+    return AuthJWT(request)
+
+
+def _get_user_or_demo(authorize: Optional[AuthJWT]) -> User:
+    """Get authenticated user or demo user if auth is disabled."""
+    if os.getenv("DISABLE_AUTH", "").lower() == "true" or authorize is None:
         demo_user = user_dao.get_user_by_email("demo@example.com")
         if not demo_user:
             demo_user = User(
@@ -32,15 +45,17 @@ def _get_user_or_demo(authorize) -> User:
                 name="Demo User",
                 api_keys=[],
                 owned_agents=[],
+                auth_provider="demo",
+                provider_user_id="demo",
             )
             user_dao.set_user(demo_user)
         return demo_user
     return auth_service.get_authenticated_user(authorize)
 
 
-def _auth_or_skip(authorize, agent_id: str):
+def _auth_or_skip(authorize: Optional[AuthJWT], agent_id: str):
     """Check agent ownership or skip if auth is disabled."""
-    if os.getenv("DISABLE_AUTH", "").lower() == "true":
+    if os.getenv("DISABLE_AUTH", "").lower() == "true" or authorize is None:
         return
     auth_service.auth(authorize, agent_id)
 
@@ -70,7 +85,9 @@ def _map_embedding_api_error(error: EmbeddingAPIError) -> int:
 
 # Update agent
 @router.post("/update-agent/", response_model=Agent)
-def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()] = None):
+def create_agent(
+    agent: Agent, authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None
+):
     """Create a new agent configuration.
 
     Args:
@@ -103,7 +120,7 @@ def create_agent(agent: Agent, authorize: Annotated[AuthJWT, Depends()] = None):
 
 # Get all agents
 @router.get("/agents/", response_model=list[Agent])
-def get_agents(authorize: Annotated[AuthJWT, Depends()] = None):
+def get_agents(authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None):
     """Retrieve all agent configurations.
 
     Returns:
@@ -117,7 +134,10 @@ def get_agents(authorize: Annotated[AuthJWT, Depends()] = None):
 
 # Get a specific agent by ID
 @router.get("/delete-agent")
-def delete_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
+def delete_agent(
+    agent_id: str,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+):
     """Deletes a specific agent by ID.
 
     Args:
@@ -138,7 +158,10 @@ def delete_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None)
 
 # Get a specific agent by ID
 @router.get("/fetch-agent", response_model=Agent)
-def get_agent(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
+def get_agent(
+    agent_id: str,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+):
     """Retrieve a specific agent by ID.
 
     Args:
@@ -201,7 +224,7 @@ def new_access_key(
     name: str,
     agent_id: str,
     expiry_date: str | None = None,
-    authorize: Annotated[AuthJWT, Depends()] = None,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     try:
         _auth_or_skip(authorize, agent_id)  # Changed
@@ -221,7 +244,9 @@ def new_access_key(
 
 @router.get("/revoke-accesskey")
 def revoke_access_key(
-    access_key_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
+    access_key_id: str,
+    agent_id: str,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     _auth_or_skip(authorize, agent_id)  # Changed
     try:
@@ -231,7 +256,10 @@ def revoke_access_key(
 
 
 @router.get("/get-accesskeys", response_model=list[AccessKey])
-def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
+def get_access_keys(
+    agent_id: str,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+):
     _auth_or_skip(authorize, agent_id)  # Changed
     agent = agent_dao.get_agent_by_id(agent_id)
     if agent is None:
@@ -246,7 +274,8 @@ def get_access_keys(agent_id: str, authorize: Annotated[AuthJWT, Depends()] = No
 
 @router.post("/get_models", response_model=list[Model])
 def fetch_models(
-    payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
+    payload: ProviderKeyRequest,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     """Return all usable models for the requested provider using the supplied API key."""
     if os.getenv("DISABLE_AUTH", "").lower() != "true":
@@ -262,7 +291,8 @@ def fetch_models(
 
 @router.post("/get_embedding_models", response_model=list[str])
 def fetch_embedding_models(
-    payload: ProviderKeyRequest, authorize: Annotated[AuthJWT, Depends()] = None
+    payload: ProviderKeyRequest,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     """Return all usable embedding models for the requested provider using the supplied API key."""
     if os.getenv("DISABLE_AUTH", "").lower() != "true":

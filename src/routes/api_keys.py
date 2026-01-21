@@ -1,8 +1,8 @@
 # ruff: noqa: I001
 import os
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi_jwt_auth import AuthJWT
 
 from pydantic import BaseModel
@@ -24,12 +24,26 @@ from src.utils.crypto_utils import encrypt_str
 router = APIRouter()
 
 
-def _get_user_or_demo(authorize) -> User:
-    """Get authenticated user or demo user if auth is disabled."""
+def optional_auth(request: Request) -> Optional[AuthJWT]:
+    """Return AuthJWT only if auth is enabled and header is present."""
     if os.getenv("DISABLE_AUTH", "").lower() == "true":
+        return None
+    return AuthJWT(request)
+
+
+def _get_user_or_demo(authorize: Optional[AuthJWT]) -> User:
+    """Get authenticated user or demo user if auth is disabled."""
+    if os.getenv("DISABLE_AUTH", "").lower() == "true" or authorize is None:
         demo_user = user_dao.get_user_by_email("demo@example.com")
         if not demo_user:
-            demo_user = User(email="demo@example.com", name="Demo User", api_keys=[])
+            demo_user = User(
+                email="demo@example.com",
+                name="Demo User",
+                api_keys=[],
+                owned_agents=[],
+                auth_provider="demo",
+                provider_user_id="demo",
+            )
             user_dao.set_user(demo_user)
         return demo_user
 
@@ -56,7 +70,9 @@ class CreateAPIKeyRequest(BaseModel):
 
 
 @router.get("/api-keys", response_model=list[UserAPIKeyResponse])
-def list_api_keys(authorize: Annotated[AuthJWT, Depends()] = None):
+def list_api_keys(
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+):
     user = _get_user_or_demo(authorize)
     sorted_keys = sorted(user.api_keys, key=lambda item: item.created_at, reverse=True)
     return [key.to_response() for key in sorted_keys]
@@ -69,7 +85,7 @@ def list_api_keys(authorize: Annotated[AuthJWT, Depends()] = None):
 )
 def create_api_key(
     payload: CreateAPIKeyRequest,
-    authorize: Annotated[AuthJWT, Depends()] = None,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     label = payload.label.strip()
     if not label:
@@ -114,7 +130,9 @@ def create_api_key(
 
 
 @router.get("/api-keys/{key_id}", response_model=UserAPIKeyDetailResponse)
-def get_api_key_detail(key_id: str, authorize: Annotated[AuthJWT, Depends()] = None):
+def get_api_key_detail(
+    key_id: str, authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None
+):
     user = _get_user_or_demo(authorize)
     for key in user.api_keys:
         if key.id == key_id:

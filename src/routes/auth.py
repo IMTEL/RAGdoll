@@ -1,3 +1,4 @@
+import os
 import logging
 from datetime import timedelta
 from typing import Annotated
@@ -15,15 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseModel):
-    authjwt_secret_key: str = Config().JWT_TOKEN_SECRET
-    authjwt_denylist_enabled: bool = True
-    authjwt_denylist_token_checks: set = {"access", "refresh"}
-    authjwt_access_token_expires: timedelta = timedelta(
-        minutes=int(config.SESSION_TOKEN_TTL)
-    )
-    authjwt_refresh_token_expires: timedelta = timedelta(
-        days=int(config.REFRESH_TOKEN_TTL)
-    )
+    authjwt_secret_key: str = config.JWT_SECRET
+    access_expires: timedelta = timedelta(minutes=int(config.SESSION_TOKEN_TTL))
+    refresh_expires: timedelta = timedelta(days=int(config.REFRESH_TOKEN_TTL))
+    # Make token optional when DISABLE_AUTH is true
+    authjwt_token_location: set = {"headers"}
 
 
 router = APIRouter()
