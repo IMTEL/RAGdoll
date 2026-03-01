@@ -1,5 +1,4 @@
 from fastapi_jwt_auth import AuthJWT
-import os
 
 from src.auth.auth_service.base import BaseAuthService
 from src.models.users.user import User
