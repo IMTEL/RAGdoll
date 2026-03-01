@@ -8,7 +8,7 @@ from fastapi_jwt_auth import AuthJWT
 from src.auth.auth_provider.base import AuthProvider
 from src.auth.auth_service.base import BaseAuthService
 from src.config import Config
-from src.models.user import User
+from src.models.users.user import User
 from src.rag_service.dao.user.base import UserDao
 
 
