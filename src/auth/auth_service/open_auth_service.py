@@ -7,7 +7,7 @@ from src.rag_service.dao.agent.base import AgentDAO
 from src.rag_service.dao.user.base import UserDao
 
 
-"""Ingores Authentication, gives auth to every agent"""
+"""Ignores Authentication, gives auth to every agent"""
 
 
 class OpenAuthService(BaseAuthService):
