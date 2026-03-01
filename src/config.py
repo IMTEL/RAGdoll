@@ -81,7 +81,7 @@ class Config:
             "JWT_TOKEN_SECRET",
             "set-your--random-secret-atleast-32-bytes",
         )
-        self.JWT_SECRET: str = os.getenv("JWT_SECRET", "default-secret-change-me")
+        self.JWT_SECRET: str = os.getenv("JWT_SECRET", "")
         self.AUTH_SERVICE = os.getenv("AUTH_SERVICE", "service")
 
         self.GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "set your id here")
