@@ -34,7 +34,7 @@ def optional_auth(request: Request) -> Optional[AuthJWT]:
 def _get_user_or_demo(authorize: Optional[AuthJWT]) -> User:
     """Get authenticated user or demo user if auth is disabled."""
     if os.getenv("DISABLE_AUTH", "").lower() == "true" or authorize is None:
-        demo_user = user_dao.get_user_by_email("demo@example.com")
+        demo_user = user_dao.get_user_by_provider("demo", "demo")
         if not demo_user:
             demo_user = User(
                 email="demo@example.com",
@@ -44,7 +44,7 @@ def _get_user_or_demo(authorize: Optional[AuthJWT]) -> User:
                 auth_provider="demo",
                 provider_user_id="demo",
             )
-            user_dao.set_user(demo_user)
+            demo_user = user_dao.set_user(demo_user)
         return demo_user
 
     return auth_service.get_authenticated_user(authorize)

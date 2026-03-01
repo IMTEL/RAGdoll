@@ -1,8 +1,17 @@
 import logging
+import os
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi_jwt_auth import AuthJWT
 
 from src.config import Config
@@ -17,6 +26,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 config = Config()
+
+
+def optional_auth(request: Request) -> Optional[AuthJWT]:
+    """Return AuthJWT only if auth is enabled and header is present."""
+    if os.getenv("DISABLE_AUTH", "").lower() == "true":
+        return None
+    return AuthJWT(request)
 
 
 def _process_document_background(
@@ -112,7 +128,7 @@ async def upload_document_for_agent(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),  # noqa: B008
-    authorize: Annotated[AuthJWT, Depends()] = None,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
 
@@ -139,7 +155,8 @@ async def upload_document_for_agent(
         raise HTTPException(status_code=400, detail="No file uploaded")
 
     # Verify agent exists and access key is valid
-    auth_service.auth(authorize, agent_id)
+    if os.getenv("DISABLE_AUTH", "").lower() != "true" and authorize is not None:
+        auth_service.auth(authorize, agent_id)
     agent = agent_dao.get_agent_by_id(agent_id)
 
     if not agent:
@@ -246,7 +263,8 @@ async def get_upload_status(task_id: str):
 
 @router.get("/documents/agent")
 async def get_documents_for_agent(
-    agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
+    agent_id: str,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     """Retrieve all documents associated with a specific agent.
 
@@ -263,7 +281,8 @@ async def get_documents_for_agent(
     Raises:
         HTTPException: If agent not found or retrieval fails
     """
-    auth_service.auth(authorize, agent_id)
+    if os.getenv("DISABLE_AUTH", "").lower() != "true" and authorize is not None:
+        auth_service.auth(authorize, agent_id)
 
     # Verify agent exists
     agent = agent_dao.get_agent_by_id(agent_id)
@@ -326,7 +345,9 @@ async def get_documents_for_agent(
 
 @router.delete("/documents/")
 async def delete_document(
-    document_id: str, agent_id: str, authorize: Annotated[AuthJWT, Depends()] = None
+    document_id: str,
+    agent_id: str,
+    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     """Delete a document and all its associated context chunks.
 
@@ -345,7 +366,8 @@ async def delete_document(
     Raises:
         HTTPException: If document not found or deletion fails
     """
-    auth_service.auth(authorize, agent_id)
+    if os.getenv("DISABLE_AUTH", "").lower() != "true" and authorize is not None:
+        auth_service.auth(authorize, agent_id)
     try:
         document_dao = get_document_dao()
 
