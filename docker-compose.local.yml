@@ -1,24 +1,91 @@
-# Docker Compose Configuration for RAGdoll Application with MongoDB Atlas
-# Purpose: Development environment using cloud MongoDB Atlas
+# =============================================================================
+# Docker Compose Configuration for Local RAGdoll Development
+# =============================================================================
+# Purpose: Complete local development environment with MongoDB
 # Usage: docker compose -f docker-compose.local.yml up --build
+#
+# Services:
+#   - mongodb: Local MongoDB database
+#   - backend: FastAPI application
+#
+# Features:
+#   - Hot-reload for development
+#   - Persistent MongoDB data
+#   - Health checks
+#   - All data stored locally
+# =============================================================================
 
-# Project name for Docker Desktop - keeps containers under one project
 name: ragdoll
 
 services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: ragdoll-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: changeme
+      MONGO_INITDB_DATABASE: ragdoll_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      # Mount initialization script
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - ragdoll-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # FastAPI Backend Service
-  chat-service:
+  backend:
     build: 
       context: .
       dockerfile: Dockerfile
-    image: ragdoll-backend:latest  # Named image - prevents duplicate images
+    image: ragdoll-backend:latest
     container_name: ragdoll-backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       # Mount source code for hot-reload during development
       - .:/app
+      - ./temp_files:/app/temp_files
     env_file:
       - .env
-    # All configuration comes from .env file
-    # Uses MONGODB_URI from .env (MongoDB Atlas connection string)
+    environment:
+      # Override MongoDB URI to use local container
+      - MONGODB_URI=mongodb://admin:changeme@mongodb:27017/ragdoll_dev?authSource=admin
+      - MONGODB_DATABASE=ragdoll_dev
+    networks:
+      - ragdoll-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# Persistent volumes for MongoDB data
+volumes:
+  mongodb_data:
+    driver: local
+    name: ragdoll_mongodb_data
+  mongodb_config:
+    driver: local
+    name: ragdoll_mongodb_config
+
+# Network for service communication
+networks:
+  ragdoll-network:
+    driver: bridge
+    name: ragdoll-network
