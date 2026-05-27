@@ -139,3 +139,19 @@ def get_api_key_detail(
             return key.to_detail()
 
     raise HTTPException(status_code=404, detail="API key not found")
+
+
+@router.delete("/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_api_key(
+    key_id: str, authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None
+):
+    user = _get_user_or_demo(authorize)
+    
+    # Find and remove the API key
+    for i, key in enumerate(user.api_keys):
+        if key.id == key_id:
+            user.api_keys.pop(i)
+            user_dao.set_user(user)
+            return
+
+    raise HTTPException(status_code=404, detail="API key not found")
