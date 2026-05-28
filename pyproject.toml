@@ -34,6 +34,8 @@ dependencies = [
     "cryptography>=46.0.2",
     "pyjwt==1.7.1",
     "fastapi-jwt-auth-compat==1.0.1",
+    "faiss-cpu>=1.8.0",
+    "scikit-learn>=1.5.0",
 ]
 
 [dependency-groups]

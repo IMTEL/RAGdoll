@@ -57,6 +57,8 @@ services:
       # Mount source code for hot-reload during development
       - .:/app
       - ./temp_files:/app/temp_files
+      # Volume for local FAISS vector indices
+      - faiss_indices:/data/faiss_indices
     env_file:
       - .env
     environment:
@@ -75,7 +77,7 @@ services:
       retries: 3
       start_period: 40s
 
-# Persistent volumes for MongoDB data
+# Persistent volumes for MongoDB data and FAISS indices
 volumes:
   mongodb_data:
     driver: local
@@ -83,6 +85,9 @@ volumes:
   mongodb_config:
     driver: local
     name: ragdoll_mongodb_config
+  faiss_indices:
+    driver: local
+    name: ragdoll_faiss_indices
 
 # Network for service communication
 networks:

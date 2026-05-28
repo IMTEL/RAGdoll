@@ -1,69 +1,42 @@
 """MongoDB implementation for context document storage.
 
-MONGODB ATLAS SEARCH CONFIGURATION GUIDE:
-=========================================
+LOCAL VECTOR SEARCH WITH FAISS:
+================================
 
-The system automatically creates the following indexes when initialized.
-If automatic creation fails, you can create them manually in MongoDB Atlas:
+This system uses FAISS (Facebook AI Similarity Search) for local vector search
+instead of MongoDB Atlas Vector Search. This makes the system self-contained and
+works with MongoDB Community Edition.
 
-1. **Vector Search Index** (name: "embeddings"):
-   Index Type: vectorSearch
-   ```json
-   {
-     "fields": [
-       {
-         "type": "vector",
-         "path": "embedding",
-         "numDimensions": 768,  // Adjust based on your embedding model (e.g., 768 for Google, 1536 for OpenAI)
-         "similarity": "cosine"
-       },
-       {
-         "type": "filter",
-         "path": "agent_id"
-       },
-       {
-         "type": "filter",
-         "path": "document_id"
-       }
-     ]
-   }
-   ```
+1. **Vector Search**: Uses FAISS with cosine similarity
+   - Embeddings are indexed in FAISS locally per agent
+   - Supports fast cosine similarity search without external APIs
+   - Vectors are persisted locally: /data/faiss_indices/agent_<agent_id>.index
 
-2. **Keyword Search Index** (name: "keyword_search"):
-   Index Type: search (Atlas Search for BM25)
+2. **Keyword Search**: Uses MongoDB full-text search (BM25)
+   Index Type: search
+   Manual index creation:
    ```json
    {
      "mappings": {
        "dynamic": false,
        "fields": {
-         "text": {
-           "type": "string"
-         },
-         "agent_id": {
-           "type": "string"
-         },
-         "document_id": {
-           "type": "string"
-         }
+         "text": {"type": "string"},
+         "agent_id": {"type": "string"},
+         "document_id": {"type": "string"}
        }
      }
    }
    ```
 
-3. **Standard Indexes** (for non-vector queries):
-   - Create index on "agent_id" (ascending)
-   - Create index on "document_id" (ascending)
-   - Create compound index on ["agent_id", "document_id"]
+3. **Standard Indexes** (created automatically):
+   - Index on "agent_id" (ascending)
+   - Index on "document_id" (ascending)
+   - Compound index on ["agent_id", "document_id"]
 
-How to create indexes manually in MongoDB Atlas:
-1. Go to your Atlas cluster
-2. Click "Browse Collections"
-3. Select your database and collection
-4. Click "Search Indexes" tab for search indexes, or "Indexes" tab for standard indexes
-5. Click "Create Search Index" or "Create Index"
-6. Choose "JSON Editor" and paste the appropriate configuration above
-
-Note: Vector search with filters requires MongoDB Atlas M10+ cluster tier.
+Notes:
+- Works with MongoDB Community Edition
+- Vector search is fully self-contained in FAISS
+- No Atlas M10+ cluster required
 """
 
 import logging
@@ -74,6 +47,7 @@ from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.dao.context.base import ContextDAO
 from src.rag_service.dao.context.hybrid_search import hybrid_search
+from src.rag_service.dao.context.faiss_vector_store import FAISSVectorStoreManager
 from src.rag_service.embeddings import similarity_search
 
 
@@ -117,123 +91,31 @@ class MongoDBContextDAO(ContextDAO):
         except Exception as e:
             logger.warning(f"Could not create context indexes: {e}")
 
-        # Create Atlas Vector Search index
-        self._create_vector_search_index()
-
-        # Create Atlas Search index for BM25 keyword search
-        self._create_keyword_search_index()
+        # Note: Vector search is handled locally with FAISS
+        # Keyword search is handled locally with BM25
+        # No Atlas Search indexes needed for self-contained deployment
 
     def _create_vector_search_index(self):
-        """Create Atlas Vector Search index for semantic similarity queries.
+        """Create Atlas Vector Search index (disabled for local deployment).
 
-        This method attempts to create the vector search index automatically.
-        If the index already exists, it will be skipped gracefully.
-
-        Note: This requires MongoDB Atlas M10+ cluster tier.
+        For self-contained deployments using local FAISS, this is not needed.
+        Vector search is handled by FAISSVectorStoreManager instead.
         """
-        try:
-            # Check if the search index already exists
-            existing_indexes = list(self.collection.list_search_indexes())
-
-            # Check if 'embeddings' index already exists
-            if any(idx.get("name") == "embeddings" for idx in existing_indexes):
-                # logger.info("Vector search index 'embeddings' already exists, skipping creation")
-                return
-
-            # Define the vector search index specification
-            # Vector search indexes use 'fields' at the top level, not inside 'mappings'
-            vector_search_definition = {
-                "fields": [
-                    {
-                        "type": "vector",
-                        "path": "embedding",
-                        "numDimensions": 768,  # TODO: Support multiple dimension amounts
-                        "similarity": "cosine",
-                    },
-                    {"type": "filter", "path": "agent_id"},
-                    {"type": "filter", "path": "document_id"},
-                ]
-            }
-
-            # Create the vector search index
-            # Note: Vector search index type is automatically inferred from 'fields' structure
-            self.collection.create_search_index(
-                {
-                    "definition": vector_search_definition,
-                    "name": "embeddings",
-                    "type": "vectorSearch",
-                }
-            )
-
-            logger.info(
-                "Vector search index 'embeddings' created successfully. "
-                "Note: It may take a few minutes for the index to be fully built in Atlas."
-            )
-        except AttributeError:
-            # create_search_index might not be available in older pymongo versions
-            logger.warning(
-                "Could not create vector search index: create_search_index method not available. "
-                "Please upgrade pymongo to version 4.5+ or create the index manually in Atlas."
-            )
-        except Exception as e:
-            logger.warning(
-                f"Could not create vector search index automatically: {e}. "
-                "This is normal if the index already exists or if using MongoDB Community Edition. "
-                "For Atlas users: The index may need to be created manually in the Atlas UI."
-            )
+        logger.debug(
+            "Skipping Atlas vector search index creation. "
+            "Using local FAISS for vector search instead."
+        )
 
     def _create_keyword_search_index(self):
-        """Create Atlas Search index for BM25 keyword search.
+        """Create Atlas Search index (disabled for local deployment).
 
-        This method attempts to create the keyword search index automatically.
-        If the index already exists, it will be skipped gracefully.
-
-        Note: This requires MongoDB Atlas (any tier).
+        For self-contained deployments using local BM25, this is not needed.
+        Keyword search is handled by the BM25 implementation in hybrid_search.py instead.
         """
-        try:
-            # Check if the search index already exists
-            existing_indexes = list(self.collection.list_search_indexes())
-
-            # Check if 'keyword_search' index already exists
-            if any(idx.get("name") == "keyword_search" for idx in existing_indexes):
-                # logger.info("Keyword search index 'keyword_search' already exists, skipping creation")
-                return
-
-            # Define the keyword search index specification
-            # Using dynamic mapping for text field with BM25 scoring
-            # agent_id and document_id need to be 'token' type for filtering in compound queries
-            keyword_search_definition = {
-                "mappings": {
-                    "dynamic": False,
-                    "fields": {
-                        "text": {"type": "string"},
-                        "agent_id": {"type": "token"},
-                        "document_id": {"type": "token"},
-                    },
-                }
-            }
-
-            # Create the keyword search index
-            self.collection.create_search_index(
-                {"definition": keyword_search_definition, "name": "keyword_search"}
-            )
-
-            logger.info(
-                "Keyword search index 'keyword_search' created successfully. "
-                "Note: It may take a few minutes for the index to be fully built in Atlas."
-            )
-        except AttributeError:
-            # create_search_index might not be available in older pymongo versions
-            logger.warning(
-                "Could not create keyword search index: create_search_index method not available. "
-                "Please upgrade pymongo to version 4.5+ or create the index manually in Atlas."
-            )
-        except Exception as e:
-            logger.warning(
-                f"Could not create keyword search index automatically: {e}. "
-                "This is normal if the index already exists or if using MongoDB Community Edition. "
-                "For Atlas users: The index may need to be created manually in the Atlas UI."
-            )
+        logger.debug(
+            "Skipping Atlas keyword search index creation. "
+            "Using local BM25 for keyword search instead."
+        )
 
     def get_context_for_agent(
         self,
@@ -284,12 +166,18 @@ class MongoDBContextDAO(ContextDAO):
         # constructing MongoDB queries like {"document_id": {"$in": []}}
         # which cause an OperationFailure in some MongoDB versions.
         if documents is not None and len(documents) == 0:
+            logger.warning(
+                f"No accessible documents for agent {agent_id}. "
+                "The active role has no documents assigned to it. "
+                "Please assign documents to this role in the agent configuration."
+            )
             return []
         if not agent_id:
             raise ValueError("agent_id cannot be empty")
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
         print("Available documents for filtering:", available_documents)
+        logger.info(f"Searching in {len(available_documents)} documents for agent {agent_id}")
 
         keyword_text = (
             keyword_query_text if keyword_query_text is not None else query_text
@@ -381,7 +269,11 @@ class MongoDBContextDAO(ContextDAO):
         embedding: list[float],
         context: Context,
     ) -> Context:
-        """Store a new context document with metadata and embedding."""
+        """Store a new context document with metadata and embedding.
+        
+        Stores the document in MongoDB and also indexes the embedding in FAISS
+        for local vector similarity search.
+        """
         text = context.text
         document_name = context.document_name
 
@@ -409,6 +301,27 @@ class MongoDBContextDAO(ContextDAO):
             document["total_chunks"] = context.total_chunks
 
         self.collection.insert_one(document)
+        
+        # Also add to FAISS vector store for local similarity search
+        try:
+            manager = FAISSVectorStoreManager()
+            chunk_id = context.chunk_id or f"{document_id}_{context.chunk_index}"
+            manager.add_vector(
+                agent_id=agent_id,
+                chunk_id=chunk_id,
+                embedding=embedding,
+                document_id=document_id,
+                document_name=document_name,
+                text=text,
+                chunk_index=context.chunk_index,
+                total_chunks=context.total_chunks,
+                embedding_dim=len(embedding),
+            )
+            logger.debug(f"Added embedding to FAISS for chunk {chunk_id}")
+        except Exception as e:
+            logger.error(f"Failed to add embedding to FAISS: {e}")
+            # Don't fail the entire operation if FAISS write fails
+        
         return context
 
     def is_reachable(self) -> bool:

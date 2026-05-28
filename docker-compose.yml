@@ -40,6 +40,9 @@ services:
     container_name: ragdoll-backend
     expose:
       - "8000"  # internal only, Nginx connects here
+    volumes:
+      # Volume for local FAISS vector indices
+      - faiss_indices:/data/faiss_indices
     environment:
       - ENV=prod
       # MongoDB Atlas connection (supports vector search)
@@ -115,3 +118,8 @@ services:
 
 # Note: MongoDB Atlas is used as external service (cloud-hosted)
 # No local MongoDB container needed for production
+
+volumes:
+  faiss_indices:
+    driver: local
+    name: ragdoll_faiss_indices

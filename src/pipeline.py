@@ -110,6 +110,10 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         else []
     )
 
+    print(f"Active role: {command.active_role_id}")
+    print(f"Accessible documents for role: {accessible_documents}")
+    print(f"Number of accessible documents: {len(accessible_documents)}")
+
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
     db = get_context_dao()
