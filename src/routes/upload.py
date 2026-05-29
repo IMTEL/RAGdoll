@@ -52,6 +52,17 @@ def _process_document_background(
     """
     from datetime import UTC, datetime
 
+    def update_progress(progress_percent: int, message: str):
+        """Callback to update progress in progress_log."""
+        for entry in progress_log:
+            if entry.get("task_id") == task_id:
+                entry.update({
+                    "progress_percent": progress_percent,
+                    "message": message,
+                    "status": "processing",
+                })
+                break
+
     try:
         # Update progress: started
         for entry in progress_log:
@@ -59,8 +70,9 @@ def _process_document_background(
                 entry.update(
                     {
                         "status": "processing",
+                        "progress_percent": 10,
                         "started_at": datetime.now(UTC),
-                        "message": f"Processing {filename}...",
+                        "message": f"Extracting text from {filename}...",
                     }
                 )
                 break
@@ -71,6 +83,7 @@ def _process_document_background(
             embedding_model,
             file_size_bytes=file_size_bytes,
             embedding_api_key=embedding_api_key,
+            progress_callback=update_progress,
         )
 
         # Update progress: completed
@@ -80,6 +93,7 @@ def _process_document_background(
                     entry.update(
                         {
                             "status": "complete",
+                            "progress_percent": 100,
                             "completed_at": datetime.now(UTC),
                             "message": f"Successfully processed {filename}",
                             "document_id": document_id,
@@ -93,6 +107,7 @@ def _process_document_background(
                     entry.update(
                         {
                             "status": "failed",
+                            "progress_percent": 0,
                             "completed_at": datetime.now(UTC),
                             "message": f"Failed to process {filename}",
                         }
@@ -108,6 +123,7 @@ def _process_document_background(
                 entry.update(
                     {
                         "status": "error",
+                        "progress_percent": 0,
                         "completed_at": datetime.now(UTC),
                         "message": f"Error processing {filename}: {e!s}",
                     }
@@ -190,6 +206,7 @@ async def upload_document_for_agent(
                 "filename": file.filename,
                 "agent_id": agent_id,
                 "status": "queued",
+                "progress_percent": 0,
                 "started_at": None,
                 "completed_at": None,
                 "message": f"Queued for processing: {file.filename}",
@@ -252,6 +269,7 @@ async def get_upload_status(task_id: str):
                 "filename": entry.get("filename"),
                 "agent_id": entry.get("agent_id"),
                 "status": entry.get("status"),
+                "progress_percent": entry.get("progress_percent", 0),
                 "message": entry.get("message"),
                 "document_id": entry.get("document_id"),
                 "started_at": entry.get("started_at"),

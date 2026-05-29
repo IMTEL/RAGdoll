@@ -108,7 +108,13 @@ def hybrid_search(
     )[:top_k]
 
     top_indices = [
-        idx for idx in top_indices if hybrid_scores.get(idx, 0) >= similarity_threshold
+        idx
+        for idx in top_indices
+        if (
+            hybrid_scores.get(idx, 0) >= similarity_threshold
+            or vector_scores.get(idx, 0) >= similarity_threshold
+            or keyword_scores.get(idx, 0) >= similarity_threshold
+        )
     ]
 
     results = []

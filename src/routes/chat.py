@@ -65,7 +65,7 @@ async def ask(command: Command):
 
         # Auth
         if not access_service.authenticate(agent.id, command.access_key):
-            raise HTTPException(status_code=401, details="Unauthorized, check logs")
+            raise HTTPException(status_code=401, detail="Unauthorized, check logs")
 
         # Validate that requested role exists in the agent
         if (
@@ -100,6 +100,8 @@ async def ask(command: Command):
             content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."},
             status_code=400,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         return JSONResponse(
             content={"message": f"Error processing request: {e!s}"}, status_code=500

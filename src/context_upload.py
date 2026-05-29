@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from typing import Callable
 
 from src.config import Config
 from src.models.errors import EmbeddingAPIError, EmbeddingError
@@ -46,6 +47,7 @@ def process_file_and_store(
     document_id: str | None = None,
     file_size_bytes: int | None = None,
     embedding_api_key: str | None = None,
+    progress_callback: Callable[[int, str], None] | None = None,
 ) -> tuple[bool, str]:
     """Processes various file types, extracts and chunks text, computes embeddings, and stores data in the database.
 
@@ -102,6 +104,8 @@ def process_file_and_store(
     try:
         # Use scraper service to extract and chunk the document
         logger.info(f"Scraping file with ScraperService: {file_path}")
+        if progress_callback:
+            progress_callback(15, f"Extracting text from {document_name}...")
         scraped_documents = scraper_service.scrape_file(file_path)
 
         if not scraped_documents:
@@ -151,6 +155,14 @@ def process_file_and_store(
         total_chunks = len(scraped_documents)
         for chunk_idx, scraped_doc in enumerate(scraped_documents):
             try:
+                # Update progress: 20% + (chunk_idx / total_chunks) * 75%
+                progress_percent = 20 + int((chunk_idx / total_chunks) * 75)
+                if progress_callback:
+                    progress_callback(
+                        progress_percent,
+                        f"Processing chunk {chunk_idx + 1}/{total_chunks}..."
+                    )
+                
                 # Compute embedding for this chunk using the agent's embedding model
                 try:
                     embedding = compute_embedding(
@@ -199,6 +211,9 @@ def process_file_and_store(
         logger.info(
             f"Successfully stored '{document_name}' with {total_chunks} chunks into the database."
         )
+        
+        if progress_callback:
+            progress_callback(100, f"Successfully processed {document_name}")
 
     except (EmbeddingAPIError, EmbeddingError):
         # Re-raise embedding errors
