@@ -47,5 +47,26 @@ class MockUserDao(UserDao):
                 return user
         return None
 
+    def search_users(self, query: str, limit: int = 10) -> list[User]:
+        query = query.lower().strip()
+        if not query:
+            return []
+
+        matches = []
+        for user in self.users:
+            fields = [user.name or "", user.email or "", user.provider_user_id]
+            if any(query in field.lower() for field in fields):
+                matches.append(user)
+            if len(matches) >= limit:
+                break
+        return matches
+
+    def get_users_with_agent(self, agent_id: str) -> list[User]:
+        return [
+            user
+            for user in self.users
+            if agent_id in user.owned_agents or agent_id in user.collaborating_agents
+        ]
+
     def is_reachable(self) -> bool:
         return True

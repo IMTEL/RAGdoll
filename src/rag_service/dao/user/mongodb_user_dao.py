@@ -1,4 +1,5 @@
 import logging
+import re
 
 from bson import ObjectId
 from pymongo import ASCENDING, MongoClient
@@ -43,6 +44,9 @@ class MongoDBUserDao(UserDao):
             if existing:
                 user.id = existing.id
                 user.owned_agents = user.owned_agents or existing.owned_agents
+                user.collaborating_agents = (
+                    user.collaborating_agents or existing.collaborating_agents
+                )
                 user.api_keys = user.api_keys or existing.api_keys
                 return self.set_user(user)
 
@@ -112,6 +116,34 @@ class MongoDBUserDao(UserDao):
                 f"An exception occured when trying to fetch user by email: {e}"
             )
             return None
+
+    def search_users(self, query: str, limit: int = 10) -> list[User]:
+        query = query.strip()
+        if not query:
+            return []
+
+        pattern = re.compile(re.escape(query), re.IGNORECASE)
+        user_docs = self.collection.find(
+            {
+                "$or": [
+                    {"name": pattern},
+                    {"email": pattern},
+                    {"provider_user_id": pattern},
+                ]
+            }
+        ).limit(limit)
+        return [self._user_from_mongo(user_doc) for user_doc in user_docs]
+
+    def get_users_with_agent(self, agent_id: str) -> list[User]:
+        user_docs = self.collection.find(
+            {
+                "$or": [
+                    {"owned_agents": agent_id},
+                    {"collaborating_agents": agent_id},
+                ]
+            }
+        )
+        return [self._user_from_mongo(user_doc) for user_doc in user_docs]
 
     def is_reachable(self) -> bool:
         try:

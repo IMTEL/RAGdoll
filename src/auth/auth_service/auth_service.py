@@ -41,7 +41,10 @@ class AuthService(BaseAuthService):
             logger.warning("No authorization provided")
             raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
         user = self.get_authenticated_user(authorize)
-        if agent_id not in user.owned_agents:
+        if (
+            agent_id not in user.owned_agents
+            and agent_id not in user.collaborating_agents
+        ):
             logger.warning(
                 f"User tried to access agent they dont own user: {user.id}, agent : {agent_id}"
             )
