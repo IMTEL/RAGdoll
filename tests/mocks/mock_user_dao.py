@@ -41,5 +41,11 @@ class MockUserDao(UserDao):
                 return user
         return None
 
+    def get_user_by_email(self, email: str) -> User | None:
+        for user in self.users:
+            if user.email == email:
+                return user
+        return None
+
     def is_reachable(self) -> bool:
         return True

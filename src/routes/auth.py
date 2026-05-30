@@ -1,4 +1,3 @@
-import os
 import logging
 from datetime import timedelta
 from typing import Annotated
@@ -71,7 +70,7 @@ def refresh(authorize: Annotated[AuthJWT, Depends()] = None):
     new_session_token = authorize.create_access_token(subject=user_id)
     return {
         "session_token": new_session_token,
-        "session_token_ttl": config.SESSION_TOKEN_TTL,
+        "session_token_ttl": int(config.SESSION_TOKEN_TTL) * 1000 * 60,
     }
 
 

@@ -60,6 +60,16 @@ def _auth_or_skip(authorize: Optional[AuthJWT], agent_id: str):
     auth_service.auth(authorize, agent_id)
 
 
+def _ensure_agent_owner(authorize: Optional[AuthJWT], agent_id: str) -> User | None:
+    if os.getenv("DISABLE_AUTH", "").lower() == "true" or authorize is None:
+        return None
+
+    user = auth_service.get_authenticated_user(authorize)
+    if agent_id not in user.owned_agents:
+        raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
+    return user
+
+
 class ProviderKeyRequest(BaseModel):
     provider: str
     api_key: str
@@ -129,7 +139,11 @@ def get_agents(authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] =
     user = _get_user_or_demo(authorize)  # Changed
 
     # returns all agents, owned by the user
-    return [agent_dao.get_agent_by_id(agent_id) for agent_id in user.owned_agents]
+    return [
+        agent
+        for agent_id in user.owned_agents
+        if (agent := agent_dao.get_agent_by_id(agent_id)) is not None
+    ]
 
 
 # Get a specific agent by ID
@@ -151,8 +165,10 @@ def delete_agent(
         HTTPException: If agent not found
     """
     user = _get_user_or_demo(authorize)  # Changed
+    _auth_or_skip(authorize, agent_id)
     agent_dao.delete_agent_by_id(agent_id)
-    user.owned_agents.remove(agent_id)
+    if agent_id in user.owned_agents:
+        user.owned_agents.remove(agent_id)
     user_dao.set_user(user)
 
 
@@ -227,7 +243,7 @@ def new_access_key(
     authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
     try:
-        _auth_or_skip(authorize, agent_id)  # Changed
+        _ensure_agent_owner(authorize, agent_id)
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
         else:
@@ -248,7 +264,7 @@ def revoke_access_key(
     agent_id: str,
     authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
-    _auth_or_skip(authorize, agent_id)  # Changed
+    _ensure_agent_owner(authorize, agent_id)
     try:
         return access_service.revoke_key(agent_id, access_key_id)
     except Exception as e:
@@ -260,7 +276,7 @@ def get_access_keys(
     agent_id: str,
     authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
 ):
-    _auth_or_skip(authorize, agent_id)  # Changed
+    _ensure_agent_owner(authorize, agent_id)
     agent = agent_dao.get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(

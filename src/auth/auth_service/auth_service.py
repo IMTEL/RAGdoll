@@ -32,6 +32,8 @@ class AuthService(BaseAuthService):
         if user is None:
             logger.error("Did not manage to find or create user")
             raise ValueError("Login failed")
+        if user.id is None:
+            raise ValueError("Login failed: user has no local id")
         return user.id
 
     def auth(self, authorize: AuthJWT | None, agent_id: str):
@@ -64,14 +66,14 @@ class AuthService(BaseAuthService):
         return user
 
     def _get_or_create_demo_user(self) -> User:
-        from src.rag_service.dao.user.user_dao import user_dao
-
-        demo_user = user_dao.get_user_by_email("demo@example.com")
+        demo_user = self.user_db.get_user_by_provider("demo", "demo")
         if not demo_user:
             demo_user = User(
                 email="demo@example.com",
                 name="Demo User",
+                auth_provider="demo",
+                provider_user_id="demo",
                 api_keys=[],
             )
-            user_dao.set_user(demo_user)
+            demo_user = self.user_db.set_user(demo_user)
         return demo_user

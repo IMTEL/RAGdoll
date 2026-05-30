@@ -16,3 +16,5 @@ def auth_service_factory(
             return AuthService(
                 user_db=user_db, auth_provider_factory=auth_provider_factory
             )
+        case _:
+            raise ValueError(f"Invalid auth service: {service}")
