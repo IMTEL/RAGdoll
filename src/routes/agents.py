@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -102,6 +102,16 @@ def _scrub_agent_api_keys(agent: Agent) -> Agent:
     return agent_copy
 
 
+def _ensure_agent_access(authorize: AuthJWT | None, agent_id: str) -> User | None:
+    if _auth_disabled() or authorize is None:
+        return None
+
+    user = auth_service.get_authenticated_user(authorize)
+    if not _can_access_agent(user, agent_id):
+        raise HTTPException(status_code=401, detail="Unauthorized access to agent")
+    return user
+
+
 class UserSearchResult(BaseModel):
     id: str
     name: str | None = None
@@ -172,6 +182,11 @@ def create_agent(
 
         _auth_or_skip(authorize, agent.id)  # Changed
         user = _get_user_or_demo(authorize)
+        if not agent.llm_provider:
+            agent.llm_provider = existing_agent.llm_provider
+        if not agent.llm_model or agent.llm_model == "none":
+            agent.llm_provider = existing_agent.llm_provider
+            agent.llm_model = existing_agent.llm_model
         if not agent.llm_api_key:
             agent.llm_api_key = existing_agent.llm_api_key
         if not agent.embedding_api_key:
@@ -421,8 +436,8 @@ def new_access_key(
     expiry_date: str | None = None,
     authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
 ):
+    _ensure_agent_access(authorize, agent_id)
     try:
-        _ensure_agent_owner(authorize, agent_id)
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id)
         else:
@@ -433,6 +448,8 @@ def new_access_key(
                 name, expiry_date_formatted, agent_id
             )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{e}") from e
 
@@ -443,7 +460,7 @@ def revoke_access_key(
     agent_id: str,
     authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
 ):
-    _ensure_agent_owner(authorize, agent_id)
+    _ensure_agent_access(authorize, agent_id)
     try:
         return access_service.revoke_key(agent_id, access_key_id)
     except Exception as e:
@@ -455,7 +472,7 @@ def get_access_keys(
     agent_id: str,
     authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
 ):
-    _ensure_agent_owner(authorize, agent_id)
+    _ensure_agent_access(authorize, agent_id)
     agent = agent_dao.get_agent_by_id(agent_id)
     if agent is None:
         raise HTTPException(
@@ -465,6 +482,38 @@ def get_access_keys(
     for access_key in access_keys:
         access_key.key = None
     return access_keys
+
+
+@router.get("/chat-accesskey", response_model=AccessKey)
+@router.get("/chat-access-key", response_model=AccessKey)
+def chat_access_key(
+    agent_id: str,
+    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+):
+    user = _ensure_agent_access(authorize, agent_id)
+    agent = agent_dao.get_agent_by_id(agent_id)
+    if agent is None:
+        raise HTTPException(
+            status_code=404, detail=f" agent of id not found {agent_id}"
+        )
+
+    user_key_suffix = user.id if user and user.id else "demo"
+    key_name = f"Chat Access Key - {user_key_suffix}"
+    now = datetime.now()
+
+    for access_key in agent.access_key:
+        if (
+            access_key.name == key_name
+            and access_key.key
+            and (access_key.expiry_date is None or access_key.expiry_date > now)
+        ):
+            return access_key
+
+    return access_service.generate_accesskey(
+        key_name,
+        now + timedelta(days=2),
+        agent_id,
+    )
 
 
 @router.post("/get_models", response_model=list[Model])
