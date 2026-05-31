@@ -1,30 +1,21 @@
+name: ragdoll
+
 services:
-  # Reverse proxy handling HTTPS with NTNU cert
-  
   nginx:
-    image: nginx:1.27-alpine  # Pinned version with Alpine for reduced size
+    image: nginx:1.27-alpine
     container_name: ragdoll-nginx
     depends_on:
       - backend-service
       - frontend-service
       - chat-service
+      - keycloak
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      # Mount static config and SSL certs
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /root/iplvr.it.ntnu.no.crt:/etc/ssl/certs/server.crt:ro
-      - /root/iplvr.it.ntnu.no.key:/etc/ssl/private/server.key:ro
-    # Resource limits for production stability
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
-        reservations:
-          cpus: "0.5"
-          memory: 256M
+      - ${SSL_CERT_PATH:-/root/iplvr.it.ntnu.no.crt}:/etc/ssl/certs/server.crt:ro
+      - ${SSL_KEY_PATH:-/root/iplvr.it.ntnu.no.key}:/etc/ssl/private/server.key:ro
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -32,28 +23,88 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # FastAPI backend
+  mongodb:
+    image: mongo:7
+    container_name: ragdoll-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:?Set MONGODB_ROOT_PASSWORD in RAGdoll/.env}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-ragdoll_prod}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    expose:
+      - "27017"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username $$MONGO_INITDB_ROOT_USERNAME --password $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' localhost:27017/admin",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: ragdoll-keycloak
+    restart: unless-stopped
+    command:
+      - start
+      - --import-realm
+      - --http-enabled=true
+      - --proxy-headers=xforwarded
+      - --hostname=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in RAGdoll/.env}
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-ragdoll.json:/opt/keycloak/data/import/realm-ragdoll.json:ro
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
   backend-service:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: ragdoll-backend
     expose:
-      - "8000"  # internal only, Nginx connects here
+      - "8000"
     volumes:
-      # Volume for local FAISS vector indices
       - faiss_indices:/data/faiss_indices
     environment:
       - ENV=prod
-      # MongoDB Atlas connection (supports vector search)
-      - MONGODB_URI=${MONGODB_URI}
-      - MONGODB_DATABASE=${MONGODB_DATABASE}
-      - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION}
-      - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION}
-      - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION}
-      - MONGODB_USER_COLLECTION=${MONGODB_USER_COLLECTION}
+      - RAGDOLL_CONFIG_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+      - RAGDOLL_CHAT_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+      - MONGODB_URI=mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DATABASE:-ragdoll_prod}?authSource=admin
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-ragdoll_prod}
+      - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION:-context}
+      - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION:-agents}
+      - MONGODB_DOCUMENTS_COLLECTION=${MONGODB_DOCUMENTS_COLLECTION:-documents}
+      - MONGODB_USER_COLLECTION=${MONGODB_USER_COLLECTION:-users}
       - RAG_DATABASE_SYSTEM=mongodb
-      # LLM API Keys
+      - AUTH_SERVICE=${AUTH_SERVICE:-service}
+      - DISABLE_AUTH=${DISABLE_AUTH:-false}
+      - KEYCLOAK_BASE_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-ragdoll}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ragdoll-config}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in RAGdoll/.env}
+      - KEYCLOAK_VERIFY_AUDIENCE=${KEYCLOAK_VERIFY_AUDIENCE:-false}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/realms/${KEYCLOAK_REALM:-ragdoll}}
+      - KEYCLOAK_JWKS_URL=${KEYCLOAK_JWKS_URL:-${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/realms/${KEYCLOAK_REALM:-ragdoll}/protocol/openid-connect/certs}
+      - AUTH_BOOTSTRAP_ENABLED=${AUTH_BOOTSTRAP_ENABLED:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -61,18 +112,16 @@ services:
       - IDUN_API_KEY=${IDUN_API_KEY}
       - IDUN_MODEL=${IDUN_MODEL:-openai/gpt-oss-120b}
       - IDUN_API_URL=${IDUN_API_URL:-https://idun-llm.hpc.ntnu.no/api/chat/completions}
-      # Access Service
       - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
-      - FERNET_KEY=${FERNET_KEY}
-    # Resource limits for production stability
-    deploy:
-      resources:
-        limits:
-          cpus: "2.0"
-          memory: 2G
-        reservations:
-          cpus: "1.0"
-          memory: 1G
+      - FERNET_KEY=${FERNET_KEY:?Set FERNET_KEY in RAGdoll/.env}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in RAGdoll/.env}
+      - SESSION_TOKEN_TTL=${SESSION_TOKEN_TTL:-15}
+      - REFRESH_TOKEN_TTL=${REFRESH_TOKEN_TTL:-14}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -84,9 +133,19 @@ services:
     build:
       context: ../RAGdollConfig
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_API_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+        NEXT_PUBLIC_CHAT_WEBSITE_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/chat
     container_name: ragdoll-frontend
-    env_file:
-      - ../RAGdollConfig/.env
+    environment:
+      - NODE_ENV=production
+      - BACKEND_API_URL=http://backend-service:8000
+      - NEXTAUTH_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in RAGdoll/.env}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ragdoll-config}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in RAGdoll/.env}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/realms/${KEYCLOAK_REALM:-ragdoll}}
+      - DISABLE_AUTH=${DISABLE_AUTH:-false}
     expose:
       - "3000"
     restart: unless-stopped
@@ -97,17 +156,20 @@ services:
         max-file: "3"
 
   chat-service:
-    expose:
-      - "3001"
-    environment:
-      - PORT=3001
     build:
       context: ../RAGdollChat
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_API_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+        NEXT_PUBLIC_BASE_PATH: /chat
     container_name: ragdoll-chat
-    
-    env_file:
-      - ../RAGdollChat/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - NEXT_PUBLIC_BACKEND_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+      - NEXT_PUBLIC_BASE_PATH=/chat
+    expose:
+      - "3001"
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -115,11 +177,16 @@ services:
         max-size: "10m"
         max-file: "3"
 
-
-# Note: MongoDB Atlas is used as external service (cloud-hosted)
-# No local MongoDB container needed for production
-
 volumes:
+  mongodb_data:
+    driver: local
+    name: ragdoll_mongodb_data
+  mongodb_config:
+    driver: local
+    name: ragdoll_mongodb_config
+  keycloak_data:
+    driver: local
+    name: ragdoll_keycloak_data
   faiss_indices:
     driver: local
     name: ragdoll_faiss_indices

@@ -15,14 +15,14 @@ print('==========================================');
 // Users Collection
 // =============================================================================
 print('Creating users collection...');
-db.createCollection('user');
+db.createCollection('users');
 
 // Create indexes for users
-db.user.createIndex({ "id": 1 }, { unique: true });
-db.user.createIndex({ "email": 1 });
-db.user.createIndex({ "provider_user_id": 1, "auth_provider": 1 }, { unique: true });
+db.users.createIndex({ "id": 1 }, { unique: true, sparse: true });
+db.users.createIndex({ "email": 1 });
+db.users.createIndex({ "auth_provider": 1, "provider_user_id": 1 }, { unique: true });
 
-print('✓ Users collection created with indexes');
+print('[OK] Users collection created with indexes');
 
 // =============================================================================
 // Agents Collection
@@ -35,7 +35,7 @@ db.agents.createIndex({ "id": 1 }, { unique: true });
 db.agents.createIndex({ "name": 1 });
 db.agents.createIndex({ "created_at": -1 });
 
-print('✓ Agents collection created with indexes');
+print('[OK] Agents collection created with indexes');
 
 // =============================================================================
 // Documents Collection
@@ -49,25 +49,25 @@ db.documents.createIndex({ "agent_id": 1 });
 db.documents.createIndex({ "created_at": -1 });
 db.documents.createIndex({ "agent_id": 1, "name": 1 }, { unique: true });
 
-print('✓ Documents collection created with indexes');
+print('[OK] Documents collection created with indexes');
 
 // =============================================================================
 // Contexts Collection
 // =============================================================================
 print('Creating contexts collection...');
-db.createCollection('contexts');
+db.createCollection('context');
 
 // Create indexes for contexts
 // Note: contexts use chunk_id as identifier, not id field
-db.contexts.createIndex({ "chunk_id": 1 }, { unique: true, sparse: true });
-db.contexts.createIndex({ "agent_id": 1 });
-db.contexts.createIndex({ "document_id": 1 });
-db.contexts.createIndex({ "created_at": -1 });
+db.context.createIndex({ "chunk_id": 1 }, { unique: true, sparse: true });
+db.context.createIndex({ "agent_id": 1 });
+db.context.createIndex({ "document_id": 1 });
+db.context.createIndex({ "created_at": -1 });
 
 // Text search index for context content
-db.contexts.createIndex({ "text": "text" });
+db.context.createIndex({ "text": "text" });
 
-print('✓ Contexts collection created with indexes');
+print('[OK] Contexts collection created with indexes');
 
 // =============================================================================
 // Development User (for DISABLE_AUTH mode)
@@ -75,7 +75,7 @@ print('✓ Contexts collection created with indexes');
 print('Creating development user...');
 
 // Create dev user with fixed ObjectId
-db.user.insertOne({
+db.users.insertOne({
     _id: ObjectId("000000000000000000000001"),
     id: "000000000000000000000001",
     auth_provider: "dev",
@@ -87,7 +87,7 @@ db.user.insertOne({
     api_keys: []
 });
 
-print('✓ Development user created (ID: 000000000000000000000001)');
+print('[OK] Development user created (ID: 000000000000000000000001)');
 
 // =============================================================================
 // Summary
@@ -97,10 +97,10 @@ print('Database Initialization Complete!');
 print('==========================================');
 print('Database: ragdoll_dev');
 print('Collections created:');
-print('  - user (with dev user)');
+print('  - users (with dev user)');
 print('  - agents');
 print('  - documents');
-print('  - contexts');
+print('  - context');
 print('');
 print('Dev user credentials:');
 print('  Email: dev@localhost');

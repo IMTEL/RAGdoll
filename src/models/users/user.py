@@ -17,7 +17,8 @@ class User(BaseModel):
         name: the name of the user
         email: the email of the user
         picture: picture for use on the config site
-        owned_agents the agent_ids of the agents owned by the user
+        owned_agents: the agent_ids of the agents owned by the user
+        collaborating_agents: the agent_ids of agents shared with the user
     """
 
     id: str | None = Field(default=None, description="Unique identifier for the user")
@@ -27,6 +28,7 @@ class User(BaseModel):
     email: str | None = None
     picture: str | None = None
     owned_agents: list[str] = Field(default_factory=list)
+    collaborating_agents: list[str] = Field(default_factory=list)
     api_keys: list[UserAPIKey] = Field(default_factory=list)
 
     def add_api_key(self, api_key: UserAPIKey) -> None:

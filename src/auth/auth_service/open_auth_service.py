@@ -15,14 +15,17 @@ class OpenAuthService(BaseAuthService):
         self.agent_db = agent_db
 
     def get_mock_user(self) -> User:
+        user = self.user_db.get_user_by_provider("mock", "mock")
         agents = self.agent_db.get_agents()
         agent_ids = [agent.id for agent in agents]
-        user = User(
-            name="mock",
-            auth_provider="mock",
-            provider_user_id="mock",
-            owned_agents=agent_ids,
-        )
+        if user is None:
+            user = User(
+                name="mock",
+                auth_provider="mock",
+                provider_user_id="mock",
+                owned_agents=[],
+            )
+        user.owned_agents = [agent_id for agent_id in agent_ids if agent_id is not None]
         user = self.user_db.set_user(user)
         return user
 

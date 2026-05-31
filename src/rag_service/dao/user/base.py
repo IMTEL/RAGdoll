@@ -19,5 +19,17 @@ class UserDao(ABC):
         """Retrieve a specific agent by provider and provider given ID."""
 
     @abstractmethod
+    def get_user_by_email(self, email: str) -> User | None:
+        """Retrieve a specific user by email."""
+
+    @abstractmethod
+    def search_users(self, query: str, limit: int = 10) -> list[User]:
+        """Search users by name, email, or provider user id."""
+
+    @abstractmethod
+    def get_users_with_agent(self, agent_id: str) -> list[User]:
+        """Retrieve users that own or collaborate on an agent."""
+
+    @abstractmethod
     def is_reachable(self) -> bool:
         """Check if the DAO backend is accessible."""

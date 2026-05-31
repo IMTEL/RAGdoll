@@ -6,6 +6,7 @@
 #
 # Services:
 #   - mongodb: Local MongoDB database
+#   - keycloak: Local identity provider
 #   - backend: FastAPI application
 #
 # Features:
@@ -43,6 +44,31 @@ services:
       retries: 5
       start_period: 10s
 
+  # Keycloak Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: ragdoll-keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME: localhost
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-ragdoll.json:/opt/keycloak/data/import/realm-ragdoll.json:ro
+    networks:
+      - ragdoll-network
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   # FastAPI Backend Service
   backend:
     build: 
@@ -65,10 +91,20 @@ services:
       # Override MongoDB URI to use local container
       - MONGODB_URI=mongodb://admin:changeme@mongodb:27017/ragdoll_dev?authSource=admin
       - MONGODB_DATABASE=ragdoll_dev
+      - KEYCLOAK_BASE_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-ragdoll}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ragdoll-config}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-ragdoll-config-secret}
+      - KEYCLOAK_VERIFY_AUDIENCE=${KEYCLOAK_VERIFY_AUDIENCE:-false}
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-http://localhost:8080/realms/ragdoll}
+      - KEYCLOAK_JWKS_URL=http://keycloak:8080/realms/ragdoll/protocol/openid-connect/certs
+      - AUTH_BOOTSTRAP_ENABLED=${AUTH_BOOTSTRAP_ENABLED:-true}
     networks:
       - ragdoll-network
     depends_on:
       mongodb:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
@@ -85,6 +121,9 @@ volumes:
   mongodb_config:
     driver: local
     name: ragdoll_mongodb_config
+  keycloak_data:
+    driver: local
+    name: ragdoll_keycloak_data
   faiss_indices:
     driver: local
     name: ragdoll_faiss_indices
