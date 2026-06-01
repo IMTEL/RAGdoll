@@ -162,13 +162,13 @@ services:
       context: ../RAGdollChat
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_BACKEND_API_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/backend
+        NEXT_PUBLIC_BACKEND_API_URL: /backend
         NEXT_PUBLIC_BASE_PATH: /chat
     container_name: ragdoll-chat
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - NEXT_PUBLIC_BACKEND_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/backend
+      - NEXT_PUBLIC_BACKEND_API_URL=/backend
       - NEXT_PUBLIC_BASE_PATH=/chat
     expose:
       - "3001"
