@@ -90,7 +90,7 @@ services:
       - ENV=prod
       - RAGDOLL_CONFIG_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
       - RAGDOLL_CHAT_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-      - MONGODB_URI=mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DATABASE:-ragdoll_prod}?authSource=admin
+      - MONGODB_URI=${MONGODB_URI:?Set MONGODB_URI in RAGdoll/.env. URL-encode special characters in the username/password.}
       - MONGODB_DATABASE=${MONGODB_DATABASE:-ragdoll_prod}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION:-context}
       - MONGODB_AGENT_COLLECTION=${MONGODB_AGENT_COLLECTION:-agents}
