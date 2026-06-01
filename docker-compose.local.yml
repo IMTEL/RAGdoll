@@ -92,11 +92,12 @@ services:
       - MONGODB_URI=mongodb://admin:changeme@mongodb:27017/ragdoll_dev?authSource=admin
       - MONGODB_DATABASE=ragdoll_dev
       - KEYCLOAK_BASE_URL=http://keycloak:8080
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-ragdoll}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ragdoll-config}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-ragdoll-config-secret}
-      - KEYCLOAK_VERIFY_AUDIENCE=${KEYCLOAK_VERIFY_AUDIENCE:-false}
-      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-http://localhost:8080/realms/ragdoll}
+      - KEYCLOAK_REALM=ragdoll
+      - KEYCLOAK_CLIENT_ID=ragdoll-config
+      - KEYCLOAK_CLIENT_SECRET=ragdoll-config-secret
+      - KEYCLOAK_VERIFY_AUDIENCE=false
+      - KEYCLOAK_ISSUER=http://localhost:8080/realms/ragdoll
+      - KEYCLOAK_ALLOWED_ISSUERS=http://localhost:8080/realms/ragdoll,http://localhost/realms/ragdoll
       - KEYCLOAK_JWKS_URL=http://keycloak:8080/realms/ragdoll/protocol/openid-connect/certs
       - AUTH_BOOTSTRAP_ENABLED=${AUTH_BOOTSTRAP_ENABLED:-true}
     networks:

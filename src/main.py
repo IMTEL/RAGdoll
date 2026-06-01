@@ -25,6 +25,7 @@ from src.routes import (
 dictConfig(LOGGING_CONFIG)
 
 logger = logging.getLogger(__name__)
+config = Config()
 
 app = FastAPI(
     title="Chat-Service Microservice API",
@@ -37,9 +38,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        Config().RAGDOLL_CONFIG_API_URL,
-        Config().RAGDOLL_CHAT_API_URL,
-    ],  # TODO: Frontend URL(s), static rn for testing, but need env variable later
+        config.RAGDOLL_CONFIG_API_URL,
+        config.RAGDOLL_CHAT_API_URL,
+        *config.CORS_ALLOWED_ORIGINS,
+    ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow GET, POST, PUT, DELETE, etc.
     allow_headers=["*"],  # Allow all headers

@@ -35,7 +35,11 @@ class AccessService(AbstractAccessService):
         raise ValueError("Could not generate a new key!")
 
     def generate_accesskey(
-        self, name: str, expiry_date: datetime | None, agent_id: str
+        self,
+        name: str,
+        expiry_date: datetime | None,
+        agent_id: str,
+        view_once: bool = True,
     ) -> AccessKey:
         if (expiry_date is not None) and expiry_date < datetime.now():
             raise ValueError("Expiry date cannot be in the past")
@@ -50,6 +54,7 @@ class AccessService(AbstractAccessService):
             expiry_date=expiry_date,
             created=datetime.now(),
             last_use=None,
+            view_once=view_once,
         )
         agent.access_key.append(access_key)
         self.agent_database.add_agent(agent)

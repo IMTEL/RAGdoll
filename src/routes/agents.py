@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime, timedelta
 from typing import Annotated
 
@@ -10,7 +11,7 @@ from src.config import Config
 from src.globals import access_service, agent_dao, auth_service, user_dao
 from src.llm import list_llm_models
 from src.models.accesskey import AccessKey
-from src.models.agent import Agent
+from src.models.agent import Agent, Role
 from src.models.errors.embedding_error import EmbeddingAPIError, EmbeddingError
 from src.models.errors.llm_error import LLMAPIError
 from src.models.model import Model
@@ -20,6 +21,7 @@ from src.rag_service.embeddings import list_embedding_models
 
 config = Config()
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _auth_disabled() -> bool:
@@ -134,6 +136,25 @@ class CollaboratorsResponse(BaseModel):
 class ProviderKeyRequest(BaseModel):
     provider: str
     api_key: str
+
+
+class ExternalAgentInfo(BaseModel):
+    agent_id: str
+    name: str
+    roles: list[Role]
+
+
+def _access_key_valid_for_agent(agent: Agent, access_key: str | None) -> bool:
+    normalized_key = access_key.strip() if access_key else None
+    if not normalized_key:
+        return False
+
+    now = datetime.now()
+    for stored_key in agent.access_key:
+        if stored_key.key != normalized_key:
+            continue
+        return stored_key.expiry_date is None or now < stored_key.expiry_date
+    return False
 
 
 def _map_embedding_api_error(error: EmbeddingAPIError) -> int:
@@ -426,6 +447,54 @@ def agent_info(
     return agent
 
 
+@router.get("/agent-info-by-accesskey", response_model=ExternalAgentInfo)
+def agent_info_by_access_key(
+    access_key: Annotated[str | None, Header()],
+):
+    """Resolve safe agent metadata from an external access key.
+
+    This endpoint is intended for unauthenticated external clients. The access
+    key itself is the authorization credential, so the response intentionally
+    excludes model configuration, provider API keys, and access-key records.
+    """
+    agents = agent_dao.get_agents()
+    total_keys = 0
+    active_keys = 0
+    expired_keys = 0
+    has_header = bool(access_key and access_key.strip())
+    now = datetime.now()
+
+    for agent in agents:
+        total_keys += len(agent.access_key)
+        for stored_key in agent.access_key:
+            if stored_key.expiry_date is None or now < stored_key.expiry_date:
+                active_keys += 1
+            else:
+                expired_keys += 1
+        if _access_key_valid_for_agent(agent, access_key):
+            return ExternalAgentInfo(
+                agent_id=agent.id or "",
+                name=agent.name,
+                roles=agent.roles,
+            )
+
+    logger.warning(
+        "External access-key lookup failed. Header present: %s, agents scanned: %s, keys scanned: %s, active keys: %s, expired keys: %s",
+        has_header,
+        len(agents),
+        total_keys,
+        active_keys,
+        expired_keys,
+    )
+    raise HTTPException(
+        status_code=401,
+        detail=(
+            "Access key not valid. Ensure you are using the full key value shown "
+            "when the key was created, not the key name or key id."
+        ),
+    )
+
+
 # TODO : implement a better system of returning status codes on exceptions
 
 
@@ -434,18 +503,19 @@ def new_access_key(
     name: str,
     agent_id: str,
     expiry_date: str | None = None,
+    view_once: bool = True,
     authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
 ):
     _ensure_agent_access(authorize, agent_id)
     try:
         if expiry_date is None:
-            return access_service.generate_accesskey(name, None, agent_id)
+            return access_service.generate_accesskey(name, None, agent_id, view_once)
         else:
             expiry_date_formatted = datetime.fromisoformat(expiry_date).replace(
                 tzinfo=None
             )
             return access_service.generate_accesskey(
-                name, expiry_date_formatted, agent_id
+                name, expiry_date_formatted, agent_id, view_once
             )
 
     except HTTPException:
@@ -478,9 +548,10 @@ def get_access_keys(
         raise HTTPException(
             status_code=404, detail=f" agent of id not found {agent_id}"
         )
-    access_keys = agent.access_key
+    access_keys = [access_key.model_copy() for access_key in agent.access_key]
     for access_key in access_keys:
-        access_key.key = None
+        if access_key.view_once:
+            access_key.key = None
     return access_keys
 
 

@@ -6,6 +6,7 @@ from typing import Any
 
 import jwt
 import requests
+from jwt import InvalidIssuerError
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from src.auth.auth_provider.base import AuthProvider
@@ -28,12 +29,17 @@ class KeycloakAuthProvider(AuthProvider):
     def __init__(
         self,
         issuer: str,
+        allowed_issuers: list[str] | None,
         jwks_url: str,
         client_id: str,
         verify_audience: bool,
         user_db: UserDao,
     ):
         self.issuer = issuer.rstrip("/")
+        self.allowed_issuers = {
+            issuer.rstrip("/"),
+            *(item.rstrip("/") for item in (allowed_issuers or [])),
+        }
         self.jwks_url = jwks_url
         self.client_id = client_id
         self.verify_audience = verify_audience
@@ -85,7 +91,6 @@ class KeycloakAuthProvider(AuthProvider):
         decode_kwargs: dict[str, Any] = {
             "key": public_key,
             "algorithms": ["RS256"],
-            "issuer": self.issuer,
         }
         if self.verify_audience:
             decode_kwargs["audience"] = self.client_id
@@ -93,6 +98,14 @@ class KeycloakAuthProvider(AuthProvider):
             decode_kwargs["options"] = {"verify_aud": False}
 
         claims = jwt.decode(token, **decode_kwargs)
+        token_issuer = str(claims.get("iss", "")).rstrip("/")
+        if token_issuer not in self.allowed_issuers:
+            logger.warning(
+                "Invalid Keycloak issuer. Expected one of %s, got '%s'",
+                sorted(self.allowed_issuers),
+                token_issuer,
+            )
+            raise InvalidIssuerError("Invalid issuer")
         if claims.get("azp") and claims["azp"] != self.client_id:
             logger.debug(
                 "Keycloak token authorized party '%s' does not match configured client '%s'",
