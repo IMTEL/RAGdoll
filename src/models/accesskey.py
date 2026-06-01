@@ -15,3 +15,4 @@ class AccessKey(BaseModel):
     expiry_date: datetime | None
     created: datetime | None
     last_use: datetime | None
+    view_once: bool = True

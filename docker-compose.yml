@@ -90,6 +90,7 @@ services:
       - ENV=prod
       - RAGDOLL_CONFIG_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
       - RAGDOLL_CHAT_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3001,http://localhost:4001}
       - MONGODB_URI=${MONGODB_URI:?Set MONGODB_URI in RAGdoll/.env. URL-encode special characters in the username/password.}
       - MONGODB_DATABASE=${MONGODB_DATABASE:-ragdoll_prod}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION:-context}

@@ -41,6 +41,11 @@ class Config:
         self.RAGDOLL_CHAT_API_URL = os.getenv(
             "RAGDOLL_CHAT_API_URL", "http://localhost:3001"
         )
+        self.CORS_ALLOWED_ORIGINS = [
+            origin.strip().rstrip("/")
+            for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+            if origin.strip()
+        ]
 
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
@@ -96,6 +101,11 @@ class Config:
             "KEYCLOAK_ISSUER",
             f"{self.KEYCLOAK_BASE_URL}/realms/{self.KEYCLOAK_REALM}",
         ).rstrip("/")
+        self.KEYCLOAK_ALLOWED_ISSUERS = [
+            issuer.strip().rstrip("/")
+            for issuer in os.getenv("KEYCLOAK_ALLOWED_ISSUERS", "").split(",")
+            if issuer.strip()
+        ]
         self.KEYCLOAK_JWKS_URL = os.getenv(
             "KEYCLOAK_JWKS_URL",
             f"{self.KEYCLOAK_ISSUER}/protocol/openid-connect/certs",
