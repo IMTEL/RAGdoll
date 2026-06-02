@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
+import uuid
 
 from fastapi import APIRouter, Header, HTTPException
 
@@ -113,6 +114,20 @@ def receive_hierarchy(task_hierarchy: ListProgressData):
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/api/progress/session")
+def create_progress_session(
+    agent_id: str,
+    access_key: Annotated[str | None, Header()] = None,
+):
+    """Create a backend-generated session id for external progress tracking."""
+    _authorize_agent_access(agent_id, access_key)
+    return {
+        "agent_id": agent_id,
+        "session_id": f"ragdoll-session-{uuid.uuid4()}",
+        "expires_after_hours": int(PROGRESS_TTL.total_seconds() // 3600),
+    }
 
 
 @router.post("/api/progress/updateTask")

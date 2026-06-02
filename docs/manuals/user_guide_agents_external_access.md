@@ -380,16 +380,47 @@ Progress entries are pruned after roughly 24 hours and also disappear if the bac
 
 Recommended external workflow:
 
-1. Generate a `session_id` when the external run starts.
-2. Store that `session_id` in the game/client memory.
+1. Ask the backend to create a `session_id` when the external run starts.
+2. Store that returned `session_id` in the game/client memory.
 3. Send the same `session_id` with progress updates.
 4. Send the same `session_id` with `/api/chat/ask` or `/api/chat/askTranscribe`.
 5. The backend automatically includes the most recent progress tasks in the LLM prompt.
 
-Example session id:
+Create a session:
+
+```http
+GET /api/progress/session?agent_id=AGENT_ID
+```
+
+Header:
 
 ```text
-unity-session-2026-06-02-player-123
+access-key: YOUR_AGENT_ACCESS_KEY
+```
+
+Example:
+
+```bash
+curl "https://iplvr.it.ntnu.no/backend/api/progress/session?agent_id=6a1d614955f55909e1272f02" \
+  -H "access-key: YOUR_AGENT_ACCESS_KEY"
+```
+
+Example response:
+
+```json
+{
+  "agent_id": "6a1d614955f55909e1272f02",
+  "session_id": "ragdoll-session-550e8400-e29b-41d4-a716-446655440000",
+  "expires_after_hours": 24
+}
+```
+
+Store `session_id` locally in the external application and reuse it for progress and chat calls during that run.
+
+Example session id format:
+
+```text
+ragdoll-session-550e8400-e29b-41d4-a716-446655440000
 ```
 
 The session id does not need to be secret. The access key is the authorization credential.
