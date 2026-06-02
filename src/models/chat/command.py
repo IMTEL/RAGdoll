@@ -37,6 +37,18 @@ class Command(BaseModel):
     access_key: str | None = Field(
         default=None, description="API key for agent access authorization"
     )
+    user_information: list[str] = Field(
+        default_factory=list,
+        description="Optional external user/game-state facts to include in the prompt",
+    )
+    progress: list[ProgressData] = Field(
+        default_factory=list,
+        description="Optional training/task progress data to include in the prompt",
+    )
+    user_actions: list[str] = Field(
+        default_factory=list,
+        description="Optional recent user/game actions to include in the prompt",
+    )
 
 
 class Prompt(BaseModel):
