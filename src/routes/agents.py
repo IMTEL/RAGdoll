@@ -212,6 +212,7 @@ def create_agent(
             agent.llm_api_key = existing_agent.llm_api_key
         if not agent.embedding_api_key:
             agent.embedding_api_key = existing_agent.embedding_api_key
+        agent.access_key = existing_agent.access_key
 
         updated_agent = agent_dao.add_agent(agent)
         if agent.id not in user.owned_agents:

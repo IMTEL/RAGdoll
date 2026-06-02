@@ -33,6 +33,32 @@ class Role(BaseModel):
         default_factory=list,
         description="Identifiers of documents this role can access",
     )
+    function_access: list[str] = Field(
+        default_factory=list,
+        description="Function names this role is allowed to call",
+    )
+
+
+class AgentFunction(BaseModel):
+    """Function/tool configuration available to an external application."""
+
+    name: str = Field(..., description="External function name")
+    required_fields: list[str] = Field(
+        default_factory=list,
+        description="JSON argument fields the LLM must provide",
+    )
+    call_instructions: str = Field(
+        default="",
+        description="Instructions for when this function should be called",
+    )
+    explanation: str | None = Field(
+        default=None,
+        description="Optional user-facing explanation of the function",
+    )
+    example_output: str | None = Field(
+        default=None,
+        description="Optional JSON example output for this function",
+    )
 
 
 class Agent(BaseModel):
@@ -67,12 +93,13 @@ class Agent(BaseModel):
     description: str
     prompt: str
     roles: list[Role] = Field(default_factory=list)
+    functions: list[AgentFunction] = Field(default_factory=list)
     llm_provider: str = Field(default="idun")
     llm_model: str
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=1000, gt=0)
     llm_api_key: str = Field(..., description="LLM service API key")
-    access_key: list[AccessKey]
+    access_key: list[AccessKey] = Field(default_factory=list)
     retrieval_method: str = Field(default="semantic")
     embedding_model: str
     status: str = Field(default="active")

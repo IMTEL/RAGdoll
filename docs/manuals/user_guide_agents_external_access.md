@@ -54,6 +54,41 @@ Roles are important for external use. An external request must specify the role 
 
 If the role does not have access to the relevant documents, the external chat request can still work, but the answer may not include the expected RAG context.
 
+## Configure Function Calling
+
+Function calling lets an external application receive structured function requests from the LLM. The backend does not execute the function itself. It returns the requested function calls in JSON so the external system can decide what to do.
+
+1. Open the agent.
+2. Go to the Function Calling tab.
+3. Add a function.
+4. Fill in:
+
+| Field | Description |
+| --- | --- |
+| Name | Function name used by the external system, for example `velociraptor`. |
+| Required Fields | Comma-separated JSON argument fields the LLM should provide. |
+| Call Instructions | When the LLM should request this function. |
+| Explanation | Optional description of what the external function does. |
+| Example Output | Optional JSON example for the LLM to follow. |
+
+5. Go to the Roles tab.
+6. Edit each role that should be allowed to use the function.
+7. Select the function under Function Access.
+8. Upload/save the agent.
+
+Only functions assigned to the active role can be called. If a function is defined on the agent but not assigned to the role, the backend does not expose it in the prompt.
+
+Example test function:
+
+```text
+Name: velociraptor
+Required fields: duration_seconds
+Call instructions: Call this when the user asks to see a velociraptor or dinosaur animation.
+Example output: {"name":"velociraptor","arguments":{"duration_seconds":3}}
+```
+
+The RAGdollChat external test page recognizes the `velociraptor` function and displays a dinosaur GIF for 3 seconds.
+
 ## Create an Agent Access Key
 
 1. Open the agent in the config application.
@@ -190,6 +225,14 @@ Example response shape:
 {
   "response": {
     "response": "The agent response text is here.",
+    "function_calls": [
+      {
+        "name": "velociraptor",
+        "arguments": {
+          "duration_seconds": 3
+        }
+      }
+    ],
     "context_used": [
       {
         "document_name": "example.pdf",
@@ -202,7 +245,7 @@ Example response shape:
 }
 ```
 
-The returned `response.response` value is the assistant answer. `response.context_used` shows which document chunks were used, when context is available.
+The returned `response.response` value is the assistant answer. `response.function_calls` contains external function requests. `response.context_used` shows which document chunks were used, when context is available.
 
 ### Chat Log Format
 
