@@ -17,6 +17,7 @@ from src.models.chat.command import (
 )
 from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
+from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio, transcribe_from_upload
 
 
@@ -44,6 +45,24 @@ def _get_authorized_agent(command: Command):
         )
 
     return agent, None
+
+
+def _attach_recent_progress(command: Command) -> None:
+    if not command.include_progress or not command.session_id or command.progress_limit <= 0:
+        return
+
+    recent_progress = get_recent_progress_for_session(
+        command.agent_id, command.session_id, command.progress_limit
+    )
+    if not recent_progress:
+        return
+
+    explicit_task_names = {task.task_name for task in command.progress}
+    merged_progress = [
+        task for task in recent_progress if task.task_name not in explicit_task_names
+    ]
+    merged_progress.extend(command.progress)
+    command.progress = merged_progress[: command.progress_limit]
 
 
 @router.post("/ask", response_model=Command)
@@ -80,6 +99,7 @@ async def ask(command: Command):
         agent, error_response = _get_authorized_agent(command)
         if error_response is not None:
             return error_response
+        _attach_recent_progress(command)
 
         # Generate response using agent configuration and role-based RAG
         response = assemble_prompt_with_agent(command, agent)
@@ -171,6 +191,7 @@ async def ask_transcribe(
     agent, error_response = _get_authorized_agent(command)
     if error_response is not None:
         return error_response
+    _attach_recent_progress(command)
 
     try:
         response = assemble_prompt_with_agent(command, agent)

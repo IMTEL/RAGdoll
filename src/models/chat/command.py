@@ -37,6 +37,20 @@ class Command(BaseModel):
     access_key: str | None = Field(
         default=None, description="API key for agent access authorization"
     )
+    session_id: str | None = Field(
+        default=None,
+        description="External session identifier used to load recent progress",
+    )
+    include_progress: bool = Field(
+        default=True,
+        description="If true, include recent stored session progress in the prompt",
+    )
+    progress_limit: int = Field(
+        default=5,
+        ge=0,
+        le=20,
+        description="Maximum number of recent stored progress tasks to include",
+    )
     user_information: list[str] = Field(
         default_factory=list,
         description="Optional external user/game-state facts to include in the prompt",

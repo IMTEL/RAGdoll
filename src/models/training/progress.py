@@ -57,10 +57,12 @@ class ProgressData(BaseModel):
     status: str = Field(default="started")
     agent_id: str | None = None
     access_key: str | None = None
+    session_id: str | None = None
     user_id: str | None = None
     subtask_progress: list[SubtaskProgressDTO] = Field(default_factory=list)
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    updated_at: datetime | None = None
     completet_at: datetime | None = (
         None  # Note: typo in original, keeping for compatibility
     )
@@ -75,4 +77,5 @@ class ListProgressData(BaseModel):
 
     agent_id: str
     access_key: str
+    session_id: str | None = None
     items: list[ProgressData] = Field(default_factory=list)

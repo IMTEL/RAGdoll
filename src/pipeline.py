@@ -244,6 +244,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             "response_length": len(parsed_response),
             "agent_name": agent.name,
             "num_context_retrieved": len(retrieved_contexts),
+            "num_progress_items": len(command.progress),
         },
         "function_call": function_call,
         "response": parsed_response,
@@ -305,6 +306,8 @@ def game_context_prompt_section(command: Command) -> str:
 
     return (
         "Additional live context from the external application. Use it only when it is relevant "
-        "to the user's question and the character's role:\n"
+        "to the user's question, the user's current task, or the character's role. "
+        "Do not mention task progress unless it helps answer the user or guide their next action. Tasks may be incomplete, do not assume that it is done entirely unless status is finished, as the user may need guidance in finishing the task:  :\n"
         + "\n\n".join(sections)
+        
     )
