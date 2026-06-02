@@ -83,6 +83,7 @@ The external application needs:
 - An agent access key.
 - A role name.
 - A chat history.
+- A session id if the application wants progress/task state to be remembered during a run.
 
 For the production server, the backend base URL is:
 
@@ -161,6 +162,9 @@ Body fields:
 | `user_information` | array of strings | No | Extra user or game-state facts to include in the prompt. |
 | `user_actions` | array of strings | No | Recent actions from the external application or game. |
 | `progress` | array | No | Structured task progress entries. |
+| `session_id` | string | No | External session identifier. If supplied, the backend automatically adds recent stored progress for this session. |
+| `include_progress` | boolean | No | Defaults to `true`. Set to `false` to prevent automatic session progress from being added. |
+| `progress_limit` | number | No | Defaults to `5`. Maximum number of recent stored progress tasks to add. Maximum accepted value is `20`. |
 
 Example:
 
@@ -241,6 +245,7 @@ Example:
   "agent_id": "6a1d614955f55909e1272f02",
   "active_role_id": "instructor",
   "access_key": "YOUR_AGENT_ACCESS_KEY",
+  "session_id": "unity-session-001",
   "chat_log": [
     {
       "role": "user",
@@ -280,6 +285,8 @@ Example:
 ```
 
 These fields are optional. Existing plain chat integrations can keep sending only `agent_id`, `active_role_id`, `access_key`, and `chat_log`.
+
+If `session_id` is included, the backend loads the most recent stored progress tasks for that agent/session and adds them to the prompt automatically. The prompt tells the LLM to use this progress only when it is relevant to the user's question, current task, or next action.
 
 ## Voice Endpoints
 
@@ -364,7 +371,28 @@ Example response shape:
 
 Progress endpoints are intended for external training applications, games, or simulators that want to store task state and reuse it in later chat requests.
 
-Progress is stored in memory in the backend process. For durable game state, the external application should still keep its own source of truth and send relevant progress in the chat command.
+Progress is stored in memory in the backend process and is scoped by:
+
+- `agent_id`
+- `session_id`
+
+Progress entries are pruned after roughly 24 hours and also disappear if the backend restarts. For durable game state, the external application should still keep its own source of truth.
+
+Recommended external workflow:
+
+1. Generate a `session_id` when the external run starts.
+2. Store that `session_id` in the game/client memory.
+3. Send the same `session_id` with progress updates.
+4. Send the same `session_id` with `/api/chat/ask` or `/api/chat/askTranscribe`.
+5. The backend automatically includes the most recent progress tasks in the LLM prompt.
+
+Example session id:
+
+```text
+unity-session-2026-06-02-player-123
+```
+
+The session id does not need to be secret. The access key is the authorization credential.
 
 ### Initialize Tasks
 
@@ -378,6 +406,7 @@ Body fields:
 | --- | --- | --- | --- |
 | `agent_id` | string | Yes | Agent id connected to the access key. |
 | `access_key` | string | Yes | Raw agent access key. |
+| `session_id` | string | Recommended | External session identifier. Defaults to `default` if omitted. |
 | `items` | array | Yes | List of progress task objects. |
 
 Example:
@@ -386,6 +415,7 @@ Example:
 {
   "agent_id": "6a1d614955f55909e1272f02",
   "access_key": "YOUR_AGENT_ACCESS_KEY",
+  "session_id": "unity-session-001",
   "items": [
     {
       "task_name": "Repair engine",
@@ -409,6 +439,7 @@ Body fields:
 | --- | --- | --- | --- |
 | `agent_id` | string | Yes | Agent id connected to the access key. |
 | `access_key` | string | Yes | Raw agent access key. |
+| `session_id` | string | Recommended | External session identifier. Defaults to `default` if omitted. |
 | `task_name` | string | Yes | Task identifier. |
 | `description` | string | Yes | Human-readable task description. |
 | `status` | string | Yes | `pending`, `started`, or `complete`. |
@@ -420,6 +451,7 @@ Example:
 {
   "agent_id": "6a1d614955f55909e1272f02",
   "access_key": "YOUR_AGENT_ACCESS_KEY",
+  "session_id": "unity-session-001",
   "task_name": "Repair engine",
   "description": "Repair the ship engine",
   "status": "started",
@@ -443,7 +475,7 @@ Example:
 ### Fetch Progress
 
 ```http
-GET /api/progress?agent_id=AGENT_ID
+GET /api/progress?agent_id=AGENT_ID&session_id=SESSION_ID
 ```
 
 Header:
@@ -455,11 +487,18 @@ access-key: YOUR_AGENT_ACCESS_KEY
 Example:
 
 ```bash
-curl "https://iplvr.it.ntnu.no/backend/api/progress?agent_id=6a1d614955f55909e1272f02" \
+curl "https://iplvr.it.ntnu.no/backend/api/progress?agent_id=6a1d614955f55909e1272f02&session_id=unity-session-001" \
   -H "access-key: YOUR_AGENT_ACCESS_KEY"
 ```
 
-Fetched progress can be passed back into `/api/chat/ask` or `/api/chat/askTranscribe` in the optional `progress` field.
+Optional query fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `session_id` | string | Return progress for this session. Defaults to `default` if omitted. |
+| `limit` | number | Return only the newest N progress tasks. |
+
+Fetched progress can be passed back into `/api/chat/ask` or `/api/chat/askTranscribe` in the optional `progress` field, but this is no longer required when the chat request includes the same `session_id`. The backend automatically loads recent progress for that session.
 
 ## External Chat UI for Testing
 
