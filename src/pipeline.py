@@ -178,6 +178,10 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         + agent.prompt
         + "\n"
     )
+    prompt += (
+        "Return only the character's spoken response. Do not prefix the answer "
+        "with AGENT:, ASSISTANT:, the character name, or any role label.\n"
+    )
     prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
     # Add retrieved context to prompt
     if retrieved_contexts:
@@ -186,6 +190,10 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         #     prompt += f"\n[Context {idx} from {ctx.document_name}]:\n{ctx.text}\n"
         for ctx in retrieved_contexts:
             prompt += f"\n-{ctx.text}\n"
+
+    game_context = game_context_prompt_section(command)
+    if game_context:
+        prompt += "\n\n" + game_context
 
     prompt = full_chat_history + "\n" + prompt
 
@@ -253,5 +261,50 @@ def chat_history_prompt_section(
         for msg in command.chat_log[
             limit_start : (-1 if not include_latest else None)
         ]:  # Exclude latest user message
-            chat_history += f"{msg.role.upper()}: {msg.content}\n"
+            role_label = "ASSISTANT" if msg.role.lower() == "agent" else msg.role.upper()
+            chat_history += f"{role_label}: {msg.content}\n"
     return chat_history
+
+
+def game_context_prompt_section(command: Command) -> str:
+    sections: list[str] = []
+
+    if command.user_information:
+        sections.append(
+            "User/game information:\n"
+            + "\n".join(f"- {item}" for item in command.user_information if item)
+        )
+
+    if command.user_actions:
+        sections.append(
+            "Recent user/game actions:\n"
+            + "\n".join(f"- {action}" for action in command.user_actions if action)
+        )
+
+    if command.progress:
+        progress_lines: list[str] = []
+        for task in command.progress:
+            progress_lines.append(
+                f"- {task.task_name}: {task.status}. {task.description}"
+            )
+            for subtask in task.subtask_progress:
+                state = "complete" if subtask.completed else "incomplete"
+                progress_lines.append(
+                    f"  - {subtask.subtask_name}: {state}. {subtask.description}"
+                )
+                for step in subtask.step_progress:
+                    step_state = "complete" if step.completed else "incomplete"
+                    progress_lines.append(
+                        f"    - {step.step_name} repetition {step.repetition_number}: {step_state}"
+                    )
+        if progress_lines:
+            sections.append("Training/task progress:\n" + "\n".join(progress_lines))
+
+    if not sections:
+        return ""
+
+    return (
+        "Additional live context from the external application. Use it only when it is relevant "
+        "to the user's question and the character's role:\n"
+        + "\n\n".join(sections)
+    )

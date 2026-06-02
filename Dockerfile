@@ -19,9 +19,11 @@ ENV PYTHONUNBUFFERED=1 \
 # - libgl1, libglib2.0-0: required by OpenCV (cv2) used by unstructured library
 # - poppler-utils: required for PDF processing (pdftotext, pdfinfo, etc.)
 # - tesseract-ocr: optional OCR support for scanned PDFs
+# - ffmpeg: required by Whisper for browser-recorded formats such as WebM/Opus
 RUN apt-get update && \
     apt-get install -y \
     curl \
+    ffmpeg \
     git \
     libgl1 \
     libglib2.0-0 \

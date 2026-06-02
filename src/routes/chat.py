@@ -24,6 +24,28 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 config = Config()
 
 
+def _get_authorized_agent(command: Command):
+    agent = agent_dao.get_agent_by_id(command.agent_id)
+    if agent is None:
+        return None, JSONResponse(
+            content={"message": f"Agent with id '{command.agent_id}' not found."},
+            status_code=400,
+        )
+
+    if not access_service.authenticate(agent.id, command.access_key):
+        raise HTTPException(status_code=401, detail="Unauthorized, check logs")
+
+    if command.active_role_id and agent.get_role_by_name(command.active_role_id) is None:
+        return None, JSONResponse(
+            content={
+                "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."
+            },
+            status_code=400,
+        )
+
+    return agent, None
+
+
 @router.post("/ask", response_model=Command)
 async def ask(command: Command):
     """Process a user question using the specified agent and roles.
@@ -55,29 +77,9 @@ async def ask(command: Command):
         500: Other processing errors
     """
     try:
-        # Retrieve the agent configuration
-        agent = agent_dao.get_agent_by_id(command.agent_id)
-        if agent is None:
-            return JSONResponse(
-                content={"message": f"Agent with id '{command.agent_id}' not found."},
-                status_code=400,
-            )
-
-        # Auth
-        if not access_service.authenticate(agent.id, command.access_key):
-            raise HTTPException(status_code=401, detail="Unauthorized, check logs")
-
-        # Validate that requested role exists in the agent
-        if (
-            command.active_role_id
-            and agent.get_role_by_name(command.active_role_id) is None
-        ):
-            return JSONResponse(
-                content={
-                    "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."
-                },
-                status_code=400,
-            )
+        agent, error_response = _get_authorized_agent(command)
+        if error_response is not None:
+            return error_response
 
         # Generate response using agent configuration and role-based RAG
         response = assemble_prompt_with_agent(command, agent)
@@ -149,8 +151,15 @@ async def ask_transcribe(
     Returns:
     - A JSON response with the agent's answer
     """
-    # Transcribe the audio
-    transcribed = transcribe_from_upload(audio)
+    try:
+        transcribed = transcribe_from_upload(audio)
+    except ValueError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=400)
+    except Exception as e:
+        return JSONResponse(
+            content={"message": f"Failed to transcribe audio: {e!s}"},
+            status_code=500,
+        )
 
     # Parse command and add transcribed text as user message
     command = command_from_json_transcribe_version(data, question=transcribed)
@@ -159,16 +168,17 @@ async def ask_transcribe(
             content={"message": "Invalid command format."}, status_code=400
         )
 
-    # Retrieve and validate agent (same logic as /ask)
-    agent = agent_dao.get_agent_by_id(command.agent_id)
-    if agent is None:
-        return JSONResponse(
-            content={"message": f"Agent with id '{command.agent_id}' not found."},
-            status_code=400,
-        )
+    agent, error_response = _get_authorized_agent(command)
+    if error_response is not None:
+        return error_response
 
-    # Generate response
-    response = assemble_prompt_with_agent(command, agent)
-    return JSONResponse(
-        content={"transcription": transcribed, "response": response}, status_code=200
-    )
+    try:
+        response = assemble_prompt_with_agent(command, agent)
+        return JSONResponse(
+            content={"transcription": transcribed, "response": response},
+            status_code=200,
+        )
+    except LLMAPIError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+    except LLMGenerationError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)

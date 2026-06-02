@@ -158,6 +158,9 @@ Body fields:
 | `active_role_id` | string | Yes | The role name to speak as, for example `student`. |
 | `access_key` | string | Yes | The raw agent access key. |
 | `chat_log` | array | Yes | The conversation history. Include the latest user message. |
+| `user_information` | array of strings | No | Extra user or game-state facts to include in the prompt. |
+| `user_actions` | array of strings | No | Recent actions from the external application or game. |
+| `progress` | array | No | Structured task progress entries. |
 
 Example:
 
@@ -227,6 +230,237 @@ Example multi-turn request:
 
 The final item should normally be the newest user question.
 
+### Optional Live Context
+
+External clients can send extra context with each chat request. This is useful for games, simulators, or training applications where the LLM should know what the user has done.
+
+Example:
+
+```json
+{
+  "agent_id": "6a1d614955f55909e1272f02",
+  "active_role_id": "instructor",
+  "access_key": "YOUR_AGENT_ACCESS_KEY",
+  "chat_log": [
+    {
+      "role": "user",
+      "content": "What should I do next?"
+    }
+  ],
+  "user_information": [
+    "The player is in the engine room.",
+    "The player has low health."
+  ],
+  "user_actions": [
+    "Opened the toolbox",
+    "Inspected the broken cable"
+  ],
+  "progress": [
+    {
+      "task_name": "Repair engine",
+      "description": "Repair the ship engine",
+      "status": "started",
+      "subtask_progress": [
+        {
+          "subtask_name": "Find tool",
+          "description": "Find the wrench",
+          "completed": true,
+          "step_progress": [
+            {
+              "step_name": "Open toolbox",
+              "repetition_number": 0,
+              "completed": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+These fields are optional. Existing plain chat integrations can keep sending only `agent_id`, `active_role_id`, `access_key`, and `chat_log`.
+
+## Voice Endpoints
+
+RAGdoll includes Whisper-based transcription endpoints for external applications that send recorded audio.
+
+### Transcribe Audio Only
+
+```http
+POST /api/chat/transcribe
+```
+
+Form fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `audio` | file | Yes | Audio file to transcribe. WAV is recommended. |
+| `language` | string | No | Optional language code, for example `en` or `no`. |
+
+Example:
+
+```bash
+curl https://iplvr.it.ntnu.no/backend/api/chat/transcribe \
+  -F "audio=@question.wav" \
+  -F "language=en"
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "transcription": "What should I do next?",
+  "server_processed": true,
+  "processing_time_seconds": 1.2,
+  "processor": "Server-based Whisper"
+}
+```
+
+This endpoint does not talk to an agent. It only returns text.
+
+### Transcribe Audio and Ask Agent
+
+```http
+POST /api/chat/askTranscribe
+```
+
+Form fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `audio` | file | Yes | Audio file containing the user's question. |
+| `data` | JSON string | Yes | A serialized chat command with `agent_id`, `active_role_id`, `access_key`, and optional context fields. |
+
+Example:
+
+```bash
+curl https://iplvr.it.ntnu.no/backend/api/chat/askTranscribe \
+  -F "audio=@question.wav" \
+  -F 'data={
+    "agent_id": "6a1d614955f55909e1272f02",
+    "active_role_id": "student",
+    "access_key": "YOUR_AGENT_ACCESS_KEY",
+    "chat_log": []
+  }'
+```
+
+The backend transcribes the audio, appends the transcription as the latest user message, validates the access key, and sends the request through the same RAG pipeline as `/api/chat/ask`.
+
+Example response shape:
+
+```json
+{
+  "transcription": "What should I do next?",
+  "response": {
+    "response": "The agent response text is here.",
+    "context_used": []
+  }
+}
+```
+
+## Progress Endpoints
+
+Progress endpoints are intended for external training applications, games, or simulators that want to store task state and reuse it in later chat requests.
+
+Progress is stored in memory in the backend process. For durable game state, the external application should still keep its own source of truth and send relevant progress in the chat command.
+
+### Initialize Tasks
+
+```http
+POST /api/progress/initializeTasks
+```
+
+Body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `agent_id` | string | Yes | Agent id connected to the access key. |
+| `access_key` | string | Yes | Raw agent access key. |
+| `items` | array | Yes | List of progress task objects. |
+
+Example:
+
+```json
+{
+  "agent_id": "6a1d614955f55909e1272f02",
+  "access_key": "YOUR_AGENT_ACCESS_KEY",
+  "items": [
+    {
+      "task_name": "Repair engine",
+      "description": "Repair the ship engine",
+      "status": "pending",
+      "subtask_progress": []
+    }
+  ]
+}
+```
+
+### Update One Task
+
+```http
+POST /api/progress/updateTask
+```
+
+Body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `agent_id` | string | Yes | Agent id connected to the access key. |
+| `access_key` | string | Yes | Raw agent access key. |
+| `task_name` | string | Yes | Task identifier. |
+| `description` | string | Yes | Human-readable task description. |
+| `status` | string | Yes | `pending`, `started`, or `complete`. |
+| `subtask_progress` | array | No | Subtasks and step progress. |
+
+Example:
+
+```json
+{
+  "agent_id": "6a1d614955f55909e1272f02",
+  "access_key": "YOUR_AGENT_ACCESS_KEY",
+  "task_name": "Repair engine",
+  "description": "Repair the ship engine",
+  "status": "started",
+  "subtask_progress": [
+    {
+      "subtask_name": "Find tool",
+      "description": "Find the wrench",
+      "completed": true,
+      "step_progress": [
+        {
+          "step_name": "Open toolbox",
+          "repetition_number": 0,
+          "completed": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Fetch Progress
+
+```http
+GET /api/progress?agent_id=AGENT_ID
+```
+
+Header:
+
+```text
+access-key: YOUR_AGENT_ACCESS_KEY
+```
+
+Example:
+
+```bash
+curl "https://iplvr.it.ntnu.no/backend/api/progress?agent_id=6a1d614955f55909e1272f02" \
+  -H "access-key: YOUR_AGENT_ACCESS_KEY"
+```
+
+Fetched progress can be passed back into `/api/chat/ask` or `/api/chat/askTranscribe` in the optional `progress` field.
+
 ## External Chat UI for Testing
 
 RAGdollChat includes a test page for external access-key use:
@@ -257,7 +491,14 @@ Then enter:
 - Agent access key
 - Role name
 
-Use this page to verify that a key and role work before integrating an external application.
+Use this page to verify that a key and role work before integrating an external application. After connecting, the page also includes endpoint test tools for:
+
+- `POST /api/chat/ask`
+- `POST /api/chat/transcribe`
+- `POST /api/chat/askTranscribe`
+- `POST /api/progress/initializeTasks`
+- `POST /api/progress/updateTask`
+- `GET /api/progress`
 
 ## Minimal JavaScript Example
 
