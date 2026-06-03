@@ -43,7 +43,7 @@ class AgentFunction(BaseModel):
     """Function/tool configuration available to an external application."""
 
     name: str = Field(..., description="External function name")
-    required_fields: list[str] = Field(
+    required_fields: list[str | dict[str, str]] = Field(
         default_factory=list,
         description="JSON argument fields the LLM must provide",
     )

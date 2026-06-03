@@ -66,7 +66,7 @@ Function calling lets an external application receive structured function reques
 | Field | Description |
 | --- | --- |
 | Name | Function name used by the external system, for example `velociraptor`. |
-| Required Fields | Comma-separated JSON argument fields the LLM should provide. |
+| Required Fields | A vertical list of JSON argument fields the LLM should provide. Each field has a name and data type. You can choose a common type, enter a custom type, and optionally specify the item type for arrays. |
 | Call Instructions | When the LLM should request this function. |
 | Explanation | Optional description of what the external function does. |
 | Example Output | Optional JSON example for the LLM to follow. |
@@ -82,7 +82,7 @@ Example test function:
 
 ```text
 Name: velociraptor
-Required fields: duration_seconds
+Required fields: duration_seconds: number
 Call instructions: Call this when the user asks to see a velociraptor or dinosaur animation.
 Example output: {"name":"velociraptor","arguments":{"duration_seconds":3}}
 ```
@@ -245,7 +245,7 @@ Example response shape:
 }
 ```
 
-The returned `response.response` value is the assistant answer. `response.function_calls` contains external function requests. `response.context_used` shows which document chunks were used, when context is available.
+Display only the returned `response.response` value to the user. Do not display the whole response object or the function-calling JSON. `response.function_calls` contains external function requests that your application can execute separately. `response.context_used` shows which document chunks were used, when context is available.
 
 ### Chat Log Format
 

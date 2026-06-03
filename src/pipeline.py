@@ -32,14 +32,39 @@ def _extract_json_object(text: str) -> dict | None:
     except json.JSONDecodeError:
         pass
 
-    match = re.search(r"\{.*\}", stripped, re.DOTALL)
-    if not match:
+    start_index = stripped.find("{")
+    if start_index == -1:
         return None
-    try:
-        parsed = json.loads(match.group(0))
-        return parsed if isinstance(parsed, dict) else None
-    except json.JSONDecodeError:
-        return None
+
+    in_string = False
+    escape_next = False
+    depth = 0
+    for index in range(start_index, len(stripped)):
+        char = stripped[index]
+        if escape_next:
+            escape_next = False
+            continue
+        if char == "\\":
+            escape_next = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = stripped[start_index : index + 1]
+                try:
+                    parsed = json.loads(candidate)
+                    return parsed if isinstance(parsed, dict) else None
+                except json.JSONDecodeError:
+                    return None
+
+    return None
 
 
 def _parse_llm_response(raw_response: str, allowed_function_names: set[str]) -> tuple[str, list[dict]]:
@@ -107,8 +132,22 @@ def function_prompt_section(agent: Agent, active_role_id: str | None) -> tuple[s
     ]
 
     for function in function_definitions:
+        required_fields = []
+        for field in function.required_fields:
+            if isinstance(field, dict):
+                name = field.get("name", "")
+                field_type = field.get("type", "string")
+                if name:
+                    field_config = {"name": name, "type": field_type}
+                    array_item_type = field.get("array_item_type")
+                    if array_item_type:
+                        field_config["array_item_type"] = array_item_type
+                    required_fields.append(field_config)
+            elif field:
+                required_fields.append({"name": field, "type": "string"})
+
         lines.append(f"- name: {function.name}")
-        lines.append(f"  required_fields: {function.required_fields}")
+        lines.append(f"  required_fields: {required_fields}")
         lines.append(f"  call_instructions: {function.call_instructions}")
         if function.explanation:
             lines.append(f"  explanation: {function.explanation}")
