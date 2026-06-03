@@ -1,3 +1,4 @@
+import json
 import re
 import time
 import uuid
@@ -13,6 +14,147 @@ from src.rag_service.embeddings import (
 
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
+
+
+def _normalize_function_name(name: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "", name.strip())
+
+
+def _extract_json_object(text: str) -> dict | None:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
+        stripped = re.sub(r"\s*```$", "", stripped)
+
+    try:
+        parsed = json.loads(stripped)
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        pass
+
+    start_index = stripped.find("{")
+    if start_index == -1:
+        return None
+
+    in_string = False
+    escape_next = False
+    depth = 0
+    for index in range(start_index, len(stripped)):
+        char = stripped[index]
+        if escape_next:
+            escape_next = False
+            continue
+        if char == "\\":
+            escape_next = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = stripped[start_index : index + 1]
+                try:
+                    parsed = json.loads(candidate)
+                    return parsed if isinstance(parsed, dict) else None
+                except json.JSONDecodeError:
+                    return None
+
+    return None
+
+
+def _parse_llm_response(raw_response: str, allowed_function_names: set[str]) -> tuple[str, list[dict]]:
+    parsed = _extract_json_object(raw_response)
+    if parsed is not None:
+        message = parsed.get("message")
+        calls = parsed.get("functions", [])
+        function_calls = []
+        if isinstance(calls, list):
+            for call in calls:
+                if not isinstance(call, dict):
+                    continue
+                name = _normalize_function_name(str(call.get("name", "")))
+                if not name or name not in allowed_function_names:
+                    continue
+                arguments = call.get("arguments", {})
+                if not isinstance(arguments, dict):
+                    arguments = {}
+                function_calls.append({"name": name, "arguments": arguments})
+        return str(message or ""), function_calls
+
+    function_calls = []
+    parsed_response = raw_response
+    for function_match in re.finditer(
+        r"\[FUNCTION\](.*?)\|(.*?)\[\/FUNCTION\]", raw_response, re.DOTALL
+    ):
+        function_name = _normalize_function_name(function_match.group(1))
+        if function_name and function_name in allowed_function_names:
+            function_calls.append(
+                {
+                    "name": function_name,
+                    "arguments": {"value": function_match.group(2).strip()},
+                }
+            )
+        parsed_response = parsed_response.replace(function_match.group(0), "").strip()
+
+    return parsed_response.strip(), function_calls
+
+
+def function_prompt_section(agent: Agent, active_role_id: str | None) -> tuple[str, set[str]]:
+    if not active_role_id:
+        return "", set()
+
+    role = agent.get_role_by_name(active_role_id)
+    if role is None or not role.function_access:
+        return "", set()
+
+    function_definitions = [
+        function
+        for function in agent.functions
+        if function.name in role.function_access
+    ]
+    if not function_definitions:
+        return "", set()
+
+    allowed_names = {_normalize_function_name(function.name) for function in function_definitions}
+    lines = [
+        "You may request external function calls, but only from this allowed list.",
+        "Always respond as valid JSON and nothing else, using this exact shape:",
+        '{"message":"visible response to the user","functions":[{"name":"function_name","arguments":{"field":"value"}}]}',
+        "If no function should be called, return an empty functions array.",
+        "The message should be conversational and should not mention implementation details unless useful.",
+        "Only call a function when its call instructions are satisfied.",
+        "Available functions:",
+    ]
+
+    for function in function_definitions:
+        required_fields = []
+        for field in function.required_fields:
+            if isinstance(field, dict):
+                name = field.get("name", "")
+                field_type = field.get("type", "string")
+                if name:
+                    field_config = {"name": name, "type": field_type}
+                    array_item_type = field.get("array_item_type")
+                    if array_item_type:
+                        field_config["array_item_type"] = array_item_type
+                    required_fields.append(field_config)
+            elif field:
+                required_fields.append({"name": field, "type": "string"})
+
+        lines.append(f"- name: {function.name}")
+        lines.append(f"  required_fields: {required_fields}")
+        lines.append(f"  call_instructions: {function.call_instructions}")
+        if function.explanation:
+            lines.append(f"  explanation: {function.explanation}")
+        if function.example_output:
+            lines.append(f"  example_output: {function.example_output}")
+
+    return "\n".join(lines), allowed_names
 
 
 def generate_retrieval_query(
@@ -90,6 +232,9 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         agent.get_role_by_name(command.active_role_id).description
         if command.active_role_id
         else None
+    )
+    function_prompt, allowed_function_names = function_prompt_section(
+        agent, command.active_role_id
     )
     last_user_response = command.chat_log[-1].content if command.chat_log else ""
 
@@ -183,6 +328,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         "with AGENT:, ASSISTANT:, the character name, or any role label.\n"
     )
     prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
+    if function_prompt:
+        prompt += "\n\nExternal function calling instructions:\n" + function_prompt + "\n"
     # Add retrieved context to prompt
     if retrieved_contexts:
         prompt += "\n\nRelevant Information (IMPORTANT: this information is 100% true for your role in your world, prioritise it over all other sources):\n"
@@ -207,23 +354,17 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     )
     response = language_model.generate(prompt)
 
-    # Parse function calls from response
-    function_call = None
-    parsed_response = response
-
-    function_match = re.search(
-        r"\[FUNCTION\](.*?)\|(.*?)\[\/FUNCTION\](.*)", response, re.DOTALL
+    parsed_response, function_calls = _parse_llm_response(
+        response, allowed_function_names
     )
-    if function_match:
-        function_name = function_match.group(1).strip()
-        function_param = function_match.group(2).strip()
-        function_tag_text = function_match.group(0)
-        parsed_response = response.replace(function_tag_text, "").strip()
-
-        function_call = {
-            "function_name": function_name,
-            "function_parameters": [function_param],
+    legacy_function_call = (
+        {
+            "function_name": function_calls[0]["name"],
+            "function_parameters": [function_calls[0]["arguments"]],
         }
+        if function_calls
+        else None
+    )
 
     return {
         "id": str(uuid.uuid4()),
@@ -246,7 +387,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             "num_context_retrieved": len(retrieved_contexts),
             "num_progress_items": len(command.progress),
         },
-        "function_call": function_call,
+        "function_call": legacy_function_call,
+        "function_calls": function_calls,
         "response": parsed_response,
     }
 
