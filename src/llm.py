@@ -307,13 +307,7 @@ def list_idun_models(api_key: str) -> list[Model]:
     config = Config()
     headers = {"Authorization": f"Bearer {api_key}"}
 
-    base_url = config.IDUN_API_URL.rstrip("/")
-    if base_url.endswith("/chat/completions"):
-        models_url = f"{base_url.replace('/chat/completions', '')}/models"
-    else:
-        models_url = f"{base_url}/models"
-
-    # logger.info(models_url)
+    models_url = f"{config.IDUN_API_BASE_URL.rstrip('/')}/models"
 
     try:
         response = requests.get(models_url, headers=headers, timeout=10)

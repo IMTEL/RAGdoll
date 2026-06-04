@@ -58,6 +58,8 @@ class Config:
         self.IDUN_API_URL = os.getenv(
             "IDUN_API_URL", f"{self.IDUN_API_BASE_URL}/chat/completions"
         )
+        if "idun-llm.hpc.ntnu.no" in self.IDUN_API_URL:
+            self.IDUN_API_URL = f"{self.IDUN_API_BASE_URL}/chat/completions"
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
