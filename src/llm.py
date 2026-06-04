@@ -293,6 +293,13 @@ def _filter_language_models(provider: str, models: list[Model]) -> list[Model]:
             and not any(keyword in model.name for keyword in blocked_keywords)
         ]
 
+    if provider == "idun":
+        return [
+            model
+            for model in models
+            if not any(keyword in model.name.lower() for keyword in blocked_keywords)
+        ]
+
     return models
 
 
@@ -325,7 +332,6 @@ def list_idun_models(api_key: str) -> list[Model]:
         )
 
     data = response.json()
-    print(data)
     items = data.get("data", data) if isinstance(data, dict) else data
 
     models: list[Model] = []
@@ -334,7 +340,7 @@ def list_idun_models(api_key: str) -> list[Model]:
         if model_id:
             models.append(Model("idun", model_id, True, item.get("description")))
 
-    return models
+    return _filter_language_models("idun", models)
 
 
 def list_openai_models(api_key: str) -> list[Model]:

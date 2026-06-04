@@ -52,8 +52,11 @@ class Config:
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
         self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_gemini_api_key")
+        self.IDUN_API_BASE_URL = os.getenv(
+            "IDUN_API_BASE_URL", "https://llm.hpc.ntnu.no/v1"
+        ).rstrip("/")
         self.IDUN_API_URL = os.getenv(
-            "IDUN_API_URL", "https://idun-llm.hpc.ntnu.no/api/chat/completions"
+            "IDUN_API_URL", f"{self.IDUN_API_BASE_URL}/chat/completions"
         )
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")

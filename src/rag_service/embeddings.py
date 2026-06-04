@@ -123,6 +123,49 @@ class GoogleEmbedding(EmbeddingsModel):
                 raise EmbeddingError(f"Error getting Gemini embedding: {e!s}", e) from e
 
 
+class IdunEmbedding(EmbeddingsModel):
+    def __init__(
+        self,
+        model_name: str = "Qwen/Qwen3-Embedding-8B",
+        embedding_api_key: str | None = None,
+    ):
+        self.config = Config()
+        if not embedding_api_key:
+            raise EmbeddingAPIError(
+                "Idun",
+                model_name,
+                "IdunEmbedding requires an explicit embedding_api_key.",
+            )
+        self.client = openai.Client(
+            api_key=embedding_api_key,
+            base_url=self.config.IDUN_API_BASE_URL,
+        )
+        self.model_name = model_name
+
+    def get_embedding(self, text: str) -> list[float]:
+        text = text.replace("\n", " ")
+        try:
+            response = self.client.embeddings.create(
+                input=text,
+                model=self.model_name,
+            )
+            return response.data[0].embedding
+        except openai.AuthenticationError as e:
+            raise EmbeddingAPIError("Idun", self.model_name, e) from e
+        except openai.PermissionDeniedError as e:
+            raise EmbeddingAPIError("Idun", self.model_name, e) from e
+        except openai.RateLimitError as e:
+            raise EmbeddingAPIError("Idun", self.model_name, e) from e
+        except openai.NotFoundError as e:
+            raise EmbeddingError(
+                f"Idun embedding model '{self.model_name}' not found. "
+                "Please verify the model name is correct.",
+                e,
+            ) from e
+        except Exception as e:
+            raise EmbeddingError(f"Error getting Idun embedding: {e!s}", e) from e
+
+
 def _filter_openai_embedding_models(models, provider_label: str) -> list[str]:
     filtered: list[str] = []
     for item in models:
@@ -190,16 +233,46 @@ def list_gemini_embedding_models(
     return embedding_models
 
 
+def list_idun_embedding_models(api_key: str) -> list[str]:
+    config = Config()
+    try:
+        client = openai.Client(api_key=api_key, base_url=config.IDUN_API_BASE_URL)
+        response = client.models.list()
+    except openai.AuthenticationError as exc:
+        raise EmbeddingAPIError("Idun", "*", exc) from exc
+    except openai.PermissionDeniedError as exc:
+        raise EmbeddingAPIError("Idun", "*", exc) from exc
+    except openai.RateLimitError as exc:
+        raise EmbeddingAPIError("Idun", "*", exc) from exc
+    except Exception as exc:
+        raise EmbeddingError("Failed to list Idun embedding models", exc) from exc
+
+    embedding_models: list[str] = []
+    for item in response.data:
+        model_id = getattr(item, "id", "")
+        if not isinstance(model_id, str) or not model_id:
+            continue
+        if "embedding" in model_id.lower():
+            embedding_models.append(f"idun:{model_id}")
+
+    if "idun:Qwen/Qwen3-Embedding-8B" not in embedding_models:
+        embedding_models.append("idun:Qwen/Qwen3-Embedding-8B")
+
+    return embedding_models
+
+
 def list_embedding_models(provider: str, api_key: str) -> list[str]:
     normalized = provider.lower().strip()
 
+    if normalized == "idun":
+        return list_idun_embedding_models(api_key)
     if normalized == "openai":
         return list_openai_embedding_models(api_key, provider_label=normalized)
     if normalized in {"gemini", "google"}:
         return list_gemini_embedding_models(api_key, provider_label=normalized)
 
     raise ValueError(
-        f"Embedding provider '{provider}' not supported. Use 'openai' or 'gemini'."
+        f"Embedding provider '{provider}' not supported. Use 'idun', 'openai' or 'gemini'."
     )
 
 
@@ -215,6 +288,7 @@ def create_embeddings_model(
             Format differs by provider:
             - OpenAI: "openai:text-embedding-3-small"
             - Gemini: "gemini:models/text-embedding-004" (includes "models/" prefix)
+            - Idun: "idun:Qwen/Qwen3-Embedding-8B"
         embedding_api_key (str | None, optional): API key for the embedding model. Defaults to None.
 
     Examples:
@@ -222,6 +296,7 @@ def create_embeddings_model(
         - "openai:text-embedding-3-large"
         - "gemini:models/text-embedding-004"
         - "gemini:models/embedding-001"
+        - "idun:Qwen/Qwen3-Embedding-8B"
 
     Raises:
         ValueError: If provider is not supported or format is invalid
@@ -241,6 +316,12 @@ def create_embeddings_model(
         )
 
     match provider.lower():
+        case "idun":
+            if model_name:
+                return IdunEmbedding(
+                    model_name=model_name, embedding_api_key=embedding_api_key
+                )
+            return IdunEmbedding(embedding_api_key=embedding_api_key)
         case "openai":
             if model_name:
                 return OpenAIEmbedding(
@@ -255,7 +336,7 @@ def create_embeddings_model(
             return GoogleEmbedding(embedding_api_key=embedding_api_key)
         case _:
             raise ValueError(
-                f"Embedding provider '{provider}' not supported. Use 'openai' or 'gemini' in the form 'provider:model_name'."
+                f"Embedding provider '{provider}' not supported. Use 'idun', 'openai' or 'gemini' in the form 'provider:model_name'."
             )
 
 

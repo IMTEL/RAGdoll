@@ -114,7 +114,8 @@ services:
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-lite}
       - IDUN_API_KEY=${IDUN_API_KEY}
       - IDUN_MODEL=${IDUN_MODEL:-openai/gpt-oss-120b}
-      - IDUN_API_URL=${IDUN_API_URL:-https://idun-llm.hpc.ntnu.no/api/chat/completions}
+      - IDUN_API_BASE_URL=${IDUN_API_BASE_URL:-https://llm.hpc.ntnu.no/v1}
+      - IDUN_API_URL=${IDUN_API_URL:-https://llm.hpc.ntnu.no/v1/chat/completions}
       - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
       - FERNET_KEY=${FERNET_KEY:?Set FERNET_KEY in RAGdoll/.env}
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in RAGdoll/.env}

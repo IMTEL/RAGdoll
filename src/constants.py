@@ -35,6 +35,7 @@ SUPPORTED_LLM_PROVIDERS = [
 ]
 
 SUPPORTED_EMBEDDING_PROVIDERS = [
+    {"id": "idun", "label": "Idun"},
     {"id": "openai", "label": "OpenAI"},
     {"id": "gemini", "label": "Google Gemini"},
 ]
