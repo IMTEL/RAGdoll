@@ -36,6 +36,7 @@ dependencies = [
     "fastapi-jwt-auth-compat==1.0.1",
     "faiss-cpu>=1.8.0",
     "scikit-learn>=1.5.0",
+    "faster-whisper>=1.1.1",
 ]
 
 [dependency-groups]

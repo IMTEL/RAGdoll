@@ -19,6 +19,7 @@ from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio, transcribe_from_upload
+from src.whisper_model import warmup_whisper_model
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -150,6 +151,19 @@ async def transcribe_endpoint(
         return JSONResponse(content=result, status_code=200)
     else:
         return JSONResponse(content=result, status_code=400)
+
+
+@router.post("/stt/warmup")
+async def stt_warmup():
+    """Lazy-load and warm the speech-to-text model."""
+    try:
+        result = warmup_whisper_model()
+        return JSONResponse(content=result, status_code=200)
+    except Exception as e:
+        return JSONResponse(
+            content={"success": False, "error": f"Failed to warm STT model: {e!s}"},
+            status_code=500,
+        )
 
 
 @router.post("/askTranscribe")
