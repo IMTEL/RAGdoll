@@ -85,6 +85,8 @@ services:
       - ./temp_files:/app/temp_files
       # Volume for local FAISS vector indices
       - faiss_indices:/data/faiss_indices
+      # Volume for local Piper TTS voices
+      - piper_voices:/data/piper/voices
     env_file:
       - .env
     environment:
@@ -100,6 +102,21 @@ services:
       - KEYCLOAK_ALLOWED_ISSUERS=http://localhost:8080/realms/ragdoll,http://localhost/realms/ragdoll
       - KEYCLOAK_JWKS_URL=http://keycloak:8080/realms/ragdoll/protocol/openid-connect/certs
       - AUTH_BOOTSTRAP_ENABLED=${AUTH_BOOTSTRAP_ENABLED:-true}
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - WHISPER_CPU_THREADS=${WHISPER_CPU_THREADS:-0}
+      - WHISPER_NUM_WORKERS=${WHISPER_NUM_WORKERS:-1}
+      - WHISPER_BEAM_SIZE=${WHISPER_BEAM_SIZE:-1}
+      - WHISPER_VAD_FILTER=${WHISPER_VAD_FILTER:-false}
+      - TTS_ENGINE=${TTS_ENGINE:-piper}
+      - TTS_VOICE_DIR=${TTS_VOICE_DIR:-/data/piper/voices}
+      - TTS_DEFAULT_LANGUAGE=${TTS_DEFAULT_LANGUAGE:-en}
+      - TTS_DEFAULT_VOICE_EN=${TTS_DEFAULT_VOICE_EN:-en_US-lessac-medium}
+      - TTS_DEFAULT_VOICE_NO=${TTS_DEFAULT_VOICE_NO:-no_NO-talesyntese-medium}
+      - TTS_DEFAULT_VOICE_ES=${TTS_DEFAULT_VOICE_ES:-es_ES-davefx-medium}
+      - TTS_USE_CUDA=${TTS_USE_CUDA:-false}
+      - TTS_WARMUP_TEXT=${TTS_WARMUP_TEXT:-Ready.}
     networks:
       - ragdoll-network
     depends_on:
@@ -128,6 +145,9 @@ volumes:
   faiss_indices:
     driver: local
     name: ragdoll_faiss_indices
+  piper_voices:
+    driver: local
+    name: ragdoll_piper_voices
 
 # Network for service communication
 networks:

@@ -86,6 +86,7 @@ services:
       - "8000"
     volumes:
       - faiss_indices:/data/faiss_indices
+      - piper_voices:/data/piper/voices
     environment:
       - ENV=prod
       - RAGDOLL_CONFIG_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
@@ -128,6 +129,14 @@ services:
       - WHISPER_NUM_WORKERS=${WHISPER_NUM_WORKERS:-1}
       - WHISPER_BEAM_SIZE=${WHISPER_BEAM_SIZE:-1}
       - WHISPER_VAD_FILTER=${WHISPER_VAD_FILTER:-false}
+      - TTS_ENGINE=${TTS_ENGINE:-piper}
+      - TTS_VOICE_DIR=${TTS_VOICE_DIR:-/data/piper/voices}
+      - TTS_DEFAULT_LANGUAGE=${TTS_DEFAULT_LANGUAGE:-en}
+      - TTS_DEFAULT_VOICE_EN=${TTS_DEFAULT_VOICE_EN:-en_US-lessac-medium}
+      - TTS_DEFAULT_VOICE_NO=${TTS_DEFAULT_VOICE_NO:-no_NO-talesyntese-medium}
+      - TTS_DEFAULT_VOICE_ES=${TTS_DEFAULT_VOICE_ES:-es_ES-davefx-medium}
+      - TTS_USE_CUDA=${TTS_USE_CUDA:-false}
+      - TTS_WARMUP_TEXT=${TTS_WARMUP_TEXT:-Ready.}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -201,3 +210,6 @@ volumes:
   faiss_indices:
     driver: local
     name: ragdoll_faiss_indices
+  piper_voices:
+    driver: local
+    name: ragdoll_piper_voices

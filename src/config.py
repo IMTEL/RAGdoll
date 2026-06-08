@@ -64,6 +64,21 @@ class Config:
         self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
 
+        self.TTS_ENGINE = os.getenv("TTS_ENGINE", "piper").lower()
+        self.TTS_VOICE_DIR = os.getenv("TTS_VOICE_DIR", "/data/piper/voices")
+        self.TTS_DEFAULT_LANGUAGE = os.getenv("TTS_DEFAULT_LANGUAGE", "en").lower()
+        self.TTS_DEFAULT_VOICE_EN = os.getenv(
+            "TTS_DEFAULT_VOICE_EN", "en_US-lessac-medium"
+        )
+        self.TTS_DEFAULT_VOICE_NO = os.getenv(
+            "TTS_DEFAULT_VOICE_NO", "no_NO-talesyntese-medium"
+        )
+        self.TTS_DEFAULT_VOICE_ES = os.getenv(
+            "TTS_DEFAULT_VOICE_ES", "es_ES-davefx-medium"
+        )
+        self.TTS_USE_CUDA = os.getenv("TTS_USE_CUDA", "false").lower() == "true"
+        self.TTS_WARMUP_TEXT = os.getenv("TTS_WARMUP_TEXT", "Ready.")
+
         self.RAG_DATABASE_SYSTEM = os.getenv(
             self._prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
         )

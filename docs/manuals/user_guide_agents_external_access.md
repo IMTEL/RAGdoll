@@ -333,7 +333,95 @@ If `session_id` is included, the backend loads the most recent stored progress t
 
 ## Voice Endpoints
 
-RAGdoll includes Whisper-based transcription endpoints for external applications that send recorded audio.
+RAGdoll includes Whisper-based transcription endpoints for external applications that send recorded audio. It also includes local text-to-speech endpoints backed by a configurable TTS interface. The default implementation is Piper, which runs locally and uses voice model files installed on the backend server.
+
+### Text to Speech Setup
+
+Text-to-speech does not use a cloud provider. The backend loads local Piper voice files from:
+
+```text
+/data/piper/voices
+```
+
+Each voice needs both files:
+
+```text
+VOICE_NAME.onnx
+VOICE_NAME.onnx.json
+```
+
+For local Docker testing on Windows, install the default voices into the Docker volume with:
+
+```powershell
+.\scripts\install-piper-voices.ps1
+```
+
+To install only one language:
+
+```powershell
+.\scripts\install-piper-voices.ps1 -Voices en
+```
+
+The voice names are configured with environment variables:
+
+```env
+TTS_ENGINE=piper
+TTS_VOICE_DIR=/data/piper/voices
+TTS_DEFAULT_LANGUAGE=en
+TTS_DEFAULT_VOICE_EN=en_US-lessac-medium
+TTS_DEFAULT_VOICE_NO=no_NO-talesyntese-medium
+TTS_DEFAULT_VOICE_ES=es_ES-davefx-medium
+TTS_USE_CUDA=false
+```
+
+If a requested language has no installed voice, speech endpoints return an error. Text-only chat endpoints still work.
+
+### Warm Text to Speech
+
+```http
+POST /api/chat/tts/warmup
+```
+
+Body:
+
+```json
+{
+  "language": "en"
+}
+```
+
+This lazy-loads the configured local voice and keeps it warm in backend memory.
+
+### Convert Text to Speech
+
+```http
+POST /api/chat/tts
+```
+
+Body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `text` | string | Yes | Text to synthesize. |
+| `language` | string | No | Voice language, for example `en`, `no`, or `es`. |
+
+Example response:
+
+```json
+{
+  "speech": {
+    "audio_base64": "UklGRi...",
+    "format": "wav",
+    "mime_type": "audio/wav",
+    "engine": "piper",
+    "voice": "en_US-lessac-medium",
+    "language": "en",
+    "processing_time_seconds": 0.12
+  }
+}
+```
+
+Decode `speech.audio_base64` as a WAV file and play it with MIME type `speech.mime_type`.
 
 ### Transcribe Audio Only
 
@@ -409,6 +497,76 @@ Example response shape:
   }
 }
 ```
+
+### Ask Agent and Return Speech
+
+```http
+POST /api/chat/askWithSpeech
+```
+
+Body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `command` | object | Yes | The same command body used by `/api/chat/ask`. |
+| `tts_language` | string | No | Voice language, for example `en`, `no`, or `es`. |
+
+Example:
+
+```json
+{
+  "command": {
+    "agent_id": "6a1d614955f55909e1272f02",
+    "active_role_id": "student",
+    "access_key": "YOUR_AGENT_ACCESS_KEY",
+    "chat_log": [
+      {
+        "role": "user",
+        "content": "What should I do next?"
+      }
+    ]
+  },
+  "tts_language": "en"
+}
+```
+
+Example response shape:
+
+```json
+{
+  "response": {
+    "response": "The agent response text is here.",
+    "function_calls": [],
+    "context_used": []
+  },
+  "speech": {
+    "audio_base64": "UklGRi...",
+    "format": "wav",
+    "mime_type": "audio/wav",
+    "engine": "piper",
+    "voice": "en_US-lessac-medium",
+    "language": "en"
+  }
+}
+```
+
+Display `response.response` as text. Decode and play `speech.audio_base64` if the external application wants voice output.
+
+### Transcribe Audio, Ask Agent, and Return Speech
+
+```http
+POST /api/chat/askTranscribeWithSpeech
+```
+
+Form fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `audio` | file | Yes | Audio file containing the user's question. |
+| `data` | JSON string | Yes | A serialized chat command with `agent_id`, `active_role_id`, `access_key`, and optional context fields. |
+| `tts_language` | string | No | Voice language, for example `en`, `no`, or `es`. |
+
+The response includes `transcription`, `response`, and `speech`.
 
 ## Progress Endpoints
 
@@ -607,8 +765,12 @@ Then enter:
 Use this page to verify that a key and role work before integrating an external application. After connecting, the page also includes endpoint test tools for:
 
 - `POST /api/chat/ask`
+- `POST /api/chat/askWithSpeech`
 - `POST /api/chat/transcribe`
 - `POST /api/chat/askTranscribe`
+- `POST /api/chat/askTranscribeWithSpeech`
+- `POST /api/chat/tts`
+- `POST /api/chat/tts/warmup`
 - `POST /api/progress/initializeTasks`
 - `POST /api/progress/updateTask`
 - `GET /api/progress`
