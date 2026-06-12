@@ -117,6 +117,12 @@ services:
       - TTS_DEFAULT_VOICE_ES=${TTS_DEFAULT_VOICE_ES:-es_ES-davefx-medium}
       - TTS_USE_CUDA=${TTS_USE_CUDA:-false}
       - TTS_WARMUP_TEXT=${TTS_WARMUP_TEXT:-Ready.}
+      - TRANSLATION_PROVIDER=${TRANSLATION_PROVIDER:-libretranslate}
+      - TRANSLATION_BASE_URL=${TRANSLATION_BASE_URL:-http://libretranslate:5000}
+      - TRANSLATION_API_KEY=${TRANSLATION_API_KEY:-}
+      - TRANSLATION_TIMEOUT_SECONDS=${TRANSLATION_TIMEOUT_SECONDS:-30}
+      - TRANSLATION_CACHE_TTL_SECONDS=${TRANSLATION_CACHE_TTL_SECONDS:-3600}
+      - TRANSLATION_CACHE_MAX_ENTRIES=${TRANSLATION_CACHE_MAX_ENTRIES:-2000}
     networks:
       - ragdoll-network
     depends_on:
@@ -124,12 +130,38 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      libretranslate:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Local self-hosted translation service
+  libretranslate:
+    image: libretranslate/libretranslate:v1.9.6
+    container_name: ragdoll-libretranslate
+    restart: unless-stopped
+    command:
+      - --load-only
+      - ${LT_LOAD_ONLY:-en,es}
+      - --update-models
+    ports:
+      - "5000:5000"
+    volumes:
+      - libretranslate_data:/home/libretranslate/.local
+    environment:
+      - LT_LOAD_ONLY=${LT_LOAD_ONLY:-en,es}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=5)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    networks:
+      - ragdoll-network
 
 # Persistent volumes for MongoDB data and FAISS indices
 volumes:
@@ -148,6 +180,9 @@ volumes:
   piper_voices:
     driver: local
     name: ragdoll_piper_voices
+  libretranslate_data:
+    driver: local
+    name: ragdoll_libretranslate_data
 
 # Network for service communication
 networks:

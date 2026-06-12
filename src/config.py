@@ -78,6 +78,22 @@ class Config:
         )
         self.TTS_USE_CUDA = os.getenv("TTS_USE_CUDA", "false").lower() == "true"
         self.TTS_WARMUP_TEXT = os.getenv("TTS_WARMUP_TEXT", "Ready.")
+        self.TRANSLATION_PROVIDER = os.getenv(
+            "TRANSLATION_PROVIDER", "libretranslate"
+        ).lower()
+        self.TRANSLATION_BASE_URL = os.getenv(
+            "TRANSLATION_BASE_URL", "http://libretranslate:5000"
+        )
+        self.TRANSLATION_API_KEY = os.getenv("TRANSLATION_API_KEY", "")
+        self.TRANSLATION_TIMEOUT_SECONDS = float(
+            os.getenv("TRANSLATION_TIMEOUT_SECONDS", "30")
+        )
+        self.TRANSLATION_CACHE_TTL_SECONDS = int(
+            os.getenv("TRANSLATION_CACHE_TTL_SECONDS", "3600")
+        )
+        self.TRANSLATION_CACHE_MAX_ENTRIES = int(
+            os.getenv("TRANSLATION_CACHE_MAX_ENTRIES", "2000")
+        )
 
         self.RAG_DATABASE_SYSTEM = os.getenv(
             self._prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"

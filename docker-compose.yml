@@ -91,7 +91,7 @@ services:
       - ENV=prod
       - RAGDOLL_CONFIG_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
       - RAGDOLL_CHAT_API_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3001,http://localhost:4001}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3001,http://localhost:4001,http://localhost:3010}
       - MONGODB_URI=${MONGODB_URI:?Set MONGODB_URI in RAGdoll/.env. URL-encode special characters in the username/password.}
       - MONGODB_DATABASE=${MONGODB_DATABASE:-ragdoll_prod}
       - MONGODB_CONTEXT_COLLECTION=${MONGODB_CONTEXT_COLLECTION:-context}
@@ -137,10 +137,18 @@ services:
       - TTS_DEFAULT_VOICE_ES=${TTS_DEFAULT_VOICE_ES:-es_ES-davefx-medium}
       - TTS_USE_CUDA=${TTS_USE_CUDA:-false}
       - TTS_WARMUP_TEXT=${TTS_WARMUP_TEXT:-Ready.}
+      - TRANSLATION_PROVIDER=${TRANSLATION_PROVIDER:-libretranslate}
+      - TRANSLATION_BASE_URL=${TRANSLATION_BASE_URL:-http://libretranslate:5000}
+      - TRANSLATION_API_KEY=${TRANSLATION_API_KEY:-}
+      - TRANSLATION_TIMEOUT_SECONDS=${TRANSLATION_TIMEOUT_SECONDS:-30}
+      - TRANSLATION_CACHE_TTL_SECONDS=${TRANSLATION_CACHE_TTL_SECONDS:-3600}
+      - TRANSLATION_CACHE_MAX_ENTRIES=${TRANSLATION_CACHE_MAX_ENTRIES:-2000}
     depends_on:
       mongodb:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      libretranslate:
         condition: service_healthy
     restart: unless-stopped
     logging:
@@ -197,6 +205,32 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  libretranslate:
+    image: libretranslate/libretranslate:v1.9.6
+    container_name: ragdoll-libretranslate
+    restart: unless-stopped
+    command:
+      - --load-only
+      - ${LT_LOAD_ONLY:-en,es}
+      - --update-models
+    expose:
+      - "5000"
+    volumes:
+      - libretranslate_data:/home/libretranslate/.local
+    environment:
+      - LT_LOAD_ONLY=${LT_LOAD_ONLY:-en,es}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=5)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   mongodb_data:
     driver: local
@@ -213,3 +247,6 @@ volumes:
   piper_voices:
     driver: local
     name: ragdoll_piper_voices
+  libretranslate_data:
+    driver: local
+    name: ragdoll_libretranslate_data
