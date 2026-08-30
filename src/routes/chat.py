@@ -8,6 +8,7 @@ This module handles the main chat functionality including:
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from src.config import Config
 from src.globals import access_service, agent_dao
@@ -18,11 +19,31 @@ from src.models.chat.command import (
 from src.models.errors import LLMAPIError, LLMGenerationError
 from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
-from src.transcribe import transcribe_audio, transcribe_from_upload
+from src.transcribe import transcribe_audio
+from src.tts import get_tts_service
+from src.whisper_model import warmup_whisper_model
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 config = Config()
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    language: str | None = None
+
+
+class TTSWarmupRequest(BaseModel):
+    language: str | None = None
+
+
+class STTWarmupRequest(BaseModel):
+    language: str | None = None
+
+
+class AskWithSpeechRequest(BaseModel):
+    command: Command
+    tts_language: str | None = None
 
 
 def _get_authorized_agent(command: Command):
@@ -63,6 +84,17 @@ def _attach_recent_progress(command: Command) -> None:
     ]
     merged_progress.extend(command.progress)
     command.progress = merged_progress[: command.progress_limit]
+
+
+def _generate_speech_payload(text: str, language: str | None = None) -> dict:
+    return get_tts_service().synthesize(text, language).to_dict()
+
+
+def _build_response_with_speech(response: dict, language: str | None = None) -> dict:
+    return {
+        "response": response,
+        "speech": _generate_speech_payload(response.get("response", ""), language),
+    }
 
 
 @router.post("/ask", response_model=Command)
@@ -152,10 +184,86 @@ async def transcribe_endpoint(
         return JSONResponse(content=result, status_code=400)
 
 
+@router.post("/stt/warmup")
+async def stt_warmup(request: STTWarmupRequest | None = None):
+    """Lazy-load and warm the speech-to-text model."""
+    try:
+        result = warmup_whisper_model(request.language if request else None)
+        return JSONResponse(content=result, status_code=200)
+    except Exception as e:
+        return JSONResponse(
+            content={"success": False, "error": f"Failed to warm STT model: {e!s}"},
+            status_code=500,
+        )
+
+
+@router.post("/tts/warmup")
+async def tts_warmup(request: TTSWarmupRequest | None = None):
+    """Lazy-load and warm the configured local text-to-speech model."""
+    try:
+        language = request.language if request else None
+        result = get_tts_service().warmup(language)
+        return JSONResponse(content=result, status_code=200)
+    except Exception as e:
+        return JSONResponse(
+            content={"success": False, "error": f"Failed to warm TTS model: {e!s}"},
+            status_code=500,
+        )
+
+
+@router.post("/tts")
+async def text_to_speech(request: TTSRequest):
+    """Synthesize text using the configured local text-to-speech engine."""
+    try:
+        result = _generate_speech_payload(request.text, request.language)
+        return JSONResponse(content={"speech": result}, status_code=200)
+    except ValueError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=400)
+    except FileNotFoundError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=503)
+    except Exception as e:
+        return JSONResponse(
+            content={"message": f"Failed to synthesize speech: {e!s}"},
+            status_code=500,
+        )
+
+
+@router.post("/askWithSpeech")
+async def ask_with_speech(request: AskWithSpeechRequest):
+    """Process a text chat request and return both text and local speech audio."""
+    command = request.command
+
+    try:
+        agent, error_response = _get_authorized_agent(command)
+        if error_response is not None:
+            return error_response
+        _attach_recent_progress(command)
+
+        response = assemble_prompt_with_agent(command, agent)
+        return JSONResponse(
+            content=_build_response_with_speech(response, request.tts_language),
+            status_code=200,
+        )
+    except LLMAPIError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+    except LLMGenerationError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+    except FileNotFoundError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=503)
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse(
+            content={"message": f"Error processing speech request: {e!s}"},
+            status_code=500,
+        )
+
+
 @router.post("/askTranscribe")
 async def ask_transcribe(
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
+    stt_language: str = Form(None),
 ):
     """Transcribe audio and process with agent in a single request.
 
@@ -171,15 +279,13 @@ async def ask_transcribe(
     Returns:
     - A JSON response with the agent's answer
     """
-    try:
-        transcribed = transcribe_from_upload(audio)
-    except ValueError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=400)
-    except Exception as e:
+    transcription_result = transcribe_audio(audio, stt_language)
+    if not transcription_result["success"]:
         return JSONResponse(
-            content={"message": f"Failed to transcribe audio: {e!s}"},
-            status_code=500,
+            content={"message": transcription_result["error"]},
+            status_code=400,
         )
+    transcribed = transcription_result["transcription"]
 
     # Parse command and add transcribed text as user message
     command = command_from_json_transcribe_version(data, question=transcribed)
@@ -196,10 +302,72 @@ async def ask_transcribe(
     try:
         response = assemble_prompt_with_agent(command, agent)
         return JSONResponse(
-            content={"transcription": transcribed, "response": response},
+            content={
+                "transcription": transcribed,
+                "transcription_language": transcription_result["language"],
+                "transcription_language_probability": transcription_result[
+                    "language_probability"
+                ],
+                "response": response,
+            },
             status_code=200,
         )
     except LLMAPIError as e:
         return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
     except LLMGenerationError as e:
         return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+
+
+@router.post("/askTranscribeWithSpeech")
+async def ask_transcribe_with_speech(
+    audio: UploadFile = File(...),  # noqa: B008
+    data: str = Form(...),
+    tts_language: str = Form(None),
+    stt_language: str = Form(None),
+):
+    """Transcribe audio, ask the agent, and return text plus local speech audio."""
+    transcription_result = transcribe_audio(audio, stt_language)
+    if not transcription_result["success"]:
+        return JSONResponse(
+            content={"message": transcription_result["error"]},
+            status_code=400,
+        )
+    transcribed = transcription_result["transcription"]
+
+    command = command_from_json_transcribe_version(data, question=transcribed)
+    if command is None:
+        return JSONResponse(
+            content={"message": "Invalid command format."}, status_code=400
+        )
+
+    try:
+        agent, error_response = _get_authorized_agent(command)
+        if error_response is not None:
+            return error_response
+        _attach_recent_progress(command)
+
+        response = assemble_prompt_with_agent(command, agent)
+        return JSONResponse(
+            content={
+                "transcription": transcribed,
+                "transcription_language": transcription_result["language"],
+                "transcription_language_probability": transcription_result[
+                    "language_probability"
+                ],
+                **_build_response_with_speech(response, tts_language),
+            },
+            status_code=200,
+        )
+    except LLMAPIError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+    except LLMGenerationError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+    except FileNotFoundError as e:
+        return JSONResponse(content={"message": str(e)}, status_code=503)
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse(
+            content={"message": f"Error processing speech request: {e!s}"},
+            status_code=500,
+        )

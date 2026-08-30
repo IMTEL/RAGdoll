@@ -36,6 +36,9 @@ dependencies = [
     "fastapi-jwt-auth-compat==1.0.1",
     "faiss-cpu>=1.8.0",
     "scikit-learn>=1.5.0",
+    "faster-whisper>=1.1.1",
+    "piper-tts>=1.4.2",
+    "pypinyin>=0.53.0",
 ]
 
 [dependency-groups]

@@ -17,6 +17,8 @@ from src.routes import (
     debug,
     progress,
     providers,
+    translation,
+    transliteration,
     upload,
 )
 
@@ -68,6 +70,12 @@ app.include_router(providers.router)
 
 # Chat router (handles /ask, /transcribe, /askTranscribe)
 app.include_router(chat.router)
+
+# Translation router
+app.include_router(translation.router)
+
+# Transliteration router
+app.include_router(transliteration.router)
 
 # Authentication router
 app.include_router(auth.router)

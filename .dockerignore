@@ -1,0 +1,56 @@
+# =============================================================================
+# Docker build context exclusions
+# =============================================================================
+# Keeps the build context small and prevents local artifacts (logs, venvs,
+# caches) from being baked into the image by the `COPY . .` step.
+# Note: docker-compose.local.yml bind-mounts `.:/app` for hot-reload, so
+# anything excluded here is still visible at runtime during local development.
+# =============================================================================
+
+# Log files (app.log alone is hundreds of MB)
+*.log
+
+# Virtual environments
+.venv/
+venv/
+venv311/
+py311/
+fresh_env/
+fresh_venv/
+
+# Version control
+.git/
+.github/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Coverage reports
+.coverage
+*.coverage
+.coverage/
+coverage/
+htmlcov/
+
+# Runtime scratch dirs (mounted as volumes by compose)
+temp_files/
+*context_files/
+
+# Secrets - injected at runtime via compose `env_file` / `docker run --env-file`,
+# never baked into the image. .env.example is kept as documentation.
+.env
+
+# Docker / editor files not needed inside the image
+Dockerfile
+.dockerignore
+docker-compose*.yml
+keycloak.Dockerfile
+.vscode/
+.idea/
