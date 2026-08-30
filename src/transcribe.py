@@ -58,11 +58,23 @@ def load_audio_from_upload(file) -> np.ndarray:
         raise ValueError("Failed to process audio file.") from e
 
 
+def _normalize_whisper_language(language: str | None) -> str | None:
+    value = (language or "").strip().lower().replace("_", "-")
+    if not value or value == "auto":
+        return None
+    if value in {"nb", "nn", "nb-no", "nn-no", "nor"}:
+        return "no"
+    if value in {"zh-cn", "zh-hans", "zh_cn", "cmn", "mandarin", "chinese"}:
+        return "zh"
+    return value.split("-")[0]
+
+
 def _transcribe_input(audio_input: np.ndarray | str, language: str | None = None) -> dict:
     model = get_whisper_model()
+    whisper_language = _normalize_whisper_language(language)
     segments, info = model.transcribe(
         audio_input,
-        language=language or None,
+        language=whisper_language,
         beam_size=int(os.getenv("WHISPER_BEAM_SIZE", "1")),
         vad_filter=os.getenv("WHISPER_VAD_FILTER", "false").lower() == "true",
     )
@@ -96,8 +108,8 @@ def _transcribe_upload(file: UploadFile, language: str | None = None) -> dict:
                 logger.warning(f"Failed to remove temporary audio file: {temp_path}")
 
 
-def transcribe_from_upload(file: UploadFile) -> str:
-    return _transcribe_upload(file)["text"]
+def transcribe_from_upload(file: UploadFile, language: str | None = None) -> str:
+    return _transcribe_upload(file, language)["text"]
 
 
 def transcribe_audio(file: UploadFile, language: str | None = None) -> dict:

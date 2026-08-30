@@ -225,6 +225,8 @@ class LibreTranslateService(TranslationService):
             return "nb"
         if normalized in {"nn-no"}:
             return "nn"
+        if normalized in {"zh-cn", "zh-hans", "zh_cn", "cmn", "mandarin", "chinese"}:
+            return "zh"
         return normalized
 
 

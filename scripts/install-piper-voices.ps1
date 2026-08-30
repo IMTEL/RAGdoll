@@ -1,6 +1,6 @@
 param(
     [string]$VolumeName = "ragdoll_piper_voices",
-    [string[]]$Voices = @("en", "no", "es")
+    [string[]]$Voices = @("en", "no", "es", "zh")
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +34,16 @@ $voiceFiles = @{
         @{
             Name = "es_ES-davefx-medium.onnx.json"
             Url = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
+        }
+    )
+    zh = @(
+        @{
+            Name = "zh_CN-huayan-medium.onnx"
+            Url = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx"
+        },
+        @{
+            Name = "zh_CN-huayan-medium.onnx.json"
+            Url = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx.json"
         }
     )
 }

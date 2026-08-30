@@ -359,7 +359,7 @@ For local Docker testing on Windows, install the default voices into the Docker 
 To install only one language:
 
 ```powershell
-.\scripts\install-piper-voices.ps1 -Voices en
+.\scripts\install-piper-voices.ps1 -Voices en,es,zh
 ```
 
 The voice names are configured with environment variables:
@@ -371,6 +371,7 @@ TTS_DEFAULT_LANGUAGE=en
 TTS_DEFAULT_VOICE_EN=en_US-lessac-medium
 TTS_DEFAULT_VOICE_NO=no_NO-talesyntese-medium
 TTS_DEFAULT_VOICE_ES=es_ES-davefx-medium
+TTS_DEFAULT_VOICE_ZH=zh_CN-huayan-medium
 TTS_USE_CUDA=false
 ```
 
@@ -434,7 +435,7 @@ Form fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `audio` | file | Yes | Audio file to transcribe. WAV is recommended. |
-| `language` | string | No | Optional language code, for example `en` or `no`. |
+| `language` | string | No | Optional language code, for example `en`, `es`, or `no`. Passing this improves transcription accuracy. |
 
 Example:
 
@@ -450,9 +451,11 @@ Example response:
 {
   "success": true,
   "transcription": "What should I do next?",
+  "language": "en",
+  "language_probability": 1.0,
   "server_processed": true,
   "processing_time_seconds": 1.2,
-  "processor": "Server-based Whisper"
+  "processor": "Server-based faster-whisper"
 }
 ```
 
@@ -470,6 +473,7 @@ Form fields:
 | --- | --- | --- | --- |
 | `audio` | file | Yes | Audio file containing the user's question. |
 | `data` | JSON string | Yes | A serialized chat command with `agent_id`, `active_role_id`, `access_key`, and optional context fields. |
+| `stt_language` | string | No | Speech input language, for example `en`, `es`, or `no`. Passing this avoids Whisper auto-detection mistakes. |
 
 Example:
 
@@ -491,6 +495,8 @@ Example response shape:
 ```json
 {
   "transcription": "What should I do next?",
+  "transcription_language": "en",
+  "transcription_language_probability": 1.0,
   "response": {
     "response": "The agent response text is here.",
     "context_used": []
@@ -564,9 +570,10 @@ Form fields:
 | --- | --- | --- | --- |
 | `audio` | file | Yes | Audio file containing the user's question. |
 | `data` | JSON string | Yes | A serialized chat command with `agent_id`, `active_role_id`, `access_key`, and optional context fields. |
+| `stt_language` | string | No | Speech input language, for example `en`, `es`, or `no`. Passing this avoids Whisper auto-detection mistakes. |
 | `tts_language` | string | No | Voice language, for example `en`, `no`, or `es`. |
 
-The response includes `transcription`, `response`, and `speech`.
+The response includes `transcription`, `transcription_language`, `transcription_language_probability`, `response`, and `speech`.
 
 ## Progress Endpoints
 

@@ -18,6 +18,7 @@ from src.routes import (
     progress,
     providers,
     translation,
+    transliteration,
     upload,
 )
 
@@ -72,6 +73,9 @@ app.include_router(chat.router)
 
 # Translation router
 app.include_router(translation.router)
+
+# Transliteration router
+app.include_router(transliteration.router)
 
 # Authentication router
 app.include_router(auth.router)

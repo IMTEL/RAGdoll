@@ -46,12 +46,14 @@ TRANSLATION_CACHE_MAX_ENTRIES=2000
 LibreTranslate:
 
 ```env
-LT_LOAD_ONLY=en,es
+LT_LOAD_ONLY=en,es,zh
 ```
 
-`LT_LOAD_ONLY` limits the downloaded/loaded models. The default is `en,es` because those packages are the required pair for the Spanish learning app and are known to work reliably with LibreTranslate.
+`LT_LOAD_ONLY` limits the downloaded/loaded models. The default is `en,es,zh` for English, Spanish, and Mandarin Chinese.
 
 Norwegian can be added later if the LibreTranslate image has a matching Argos package for the exact language code you need. Do not add unsupported language codes here, because LibreTranslate can boot with zero loaded languages and crash during startup.
+
+Mandarin romanization does not use LibreTranslate. RAGdoll exposes `/api/transliterate`, which uses local `pypinyin` to generate pinyin from Chinese characters.
 
 ## Start Locally
 
@@ -70,7 +72,7 @@ ragdoll_libretranslate_data
 The compose file starts LibreTranslate with:
 
 ```text
---load-only ${LT_LOAD_ONLY:-en,es} --update-models
+--load-only ${LT_LOAD_ONLY:-en,es,zh} --update-models
 ```
 
 This makes model installation explicit during container startup. The backend waits for LibreTranslate's `/languages` endpoint before it starts.
@@ -182,7 +184,7 @@ If the logs contain:
 IndexError: list index out of range
 ```
 
-from `language_target_fallback`, LibreTranslate has started with no loaded languages. Check that `LT_LOAD_ONLY` only contains supported language codes. For this project, start with:
+from `language_target_fallback`, LibreTranslate has started with no loaded languages. Check that `LT_LOAD_ONLY` only contains supported language codes. For Spanish-only testing, start with:
 
 ```env
 LT_LOAD_ONLY=en,es

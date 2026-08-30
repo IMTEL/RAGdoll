@@ -57,14 +57,20 @@ class WhisperModelLoader:
             )
             return self._model
 
-    def warmup(self) -> dict:
+    def warmup(self, language: str | None = None) -> dict:
         start_time = time.time()
         model = self.get_model()
+        warmup_language = (language or "en").strip().lower() or "en"
+        if warmup_language in {"nb", "nn", "nb-no", "nn-no", "nor"}:
+            warmup_language = "no"
+        if warmup_language in {"zh-cn", "zh-hans", "zh_cn", "cmn", "mandarin", "chinese"}:
+            warmup_language = "zh"
+        warmup_language = warmup_language.split("-")[0]
         # Force lazy runtime initialization inside CTranslate2 by running a tiny decode.
         segments, info = model.transcribe(
             np.zeros(16_000, dtype=np.float32),
             beam_size=1,
-            language="en",
+            language=warmup_language,
             vad_filter=False,
         )
         list(segments)
@@ -74,6 +80,7 @@ class WhisperModelLoader:
             "device": os.getenv("WHISPER_DEVICE", "cpu"),
             "compute_type": os.getenv("WHISPER_COMPUTE_TYPE", "int8"),
             "language": info.language,
+            "requested_language": warmup_language,
             "warmup_time_seconds": round(time.time() - start_time, 3),
             "loaded": self._model is not None,
         }
@@ -83,5 +90,5 @@ def get_whisper_model() -> WhisperModel:
     return WhisperModelLoader().get_model()
 
 
-def warmup_whisper_model() -> dict:
-    return WhisperModelLoader().warmup()
+def warmup_whisper_model(language: str | None = None) -> dict:
+    return WhisperModelLoader().warmup(language)

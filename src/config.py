@@ -76,6 +76,9 @@ class Config:
         self.TTS_DEFAULT_VOICE_ES = os.getenv(
             "TTS_DEFAULT_VOICE_ES", "es_ES-davefx-medium"
         )
+        self.TTS_DEFAULT_VOICE_ZH = os.getenv(
+            "TTS_DEFAULT_VOICE_ZH", "zh_CN-huayan-medium"
+        )
         self.TTS_USE_CUDA = os.getenv("TTS_USE_CUDA", "false").lower() == "true"
         self.TTS_WARMUP_TEXT = os.getenv("TTS_WARMUP_TEXT", "Ready.")
         self.TRANSLATION_PROVIDER = os.getenv(

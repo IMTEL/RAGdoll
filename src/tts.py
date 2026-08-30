@@ -101,6 +101,8 @@ class PiperTextToSpeechService(TextToSpeechService):
             return "en"
         if value in {"es_es", "spa"}:
             return "es"
+        if value in {"zh", "zh-cn", "zh_cn", "cmn", "mandarin", "chinese"}:
+            return "zh"
         return value.split("-")[0].split("_")[0] or "en"
 
     def _voice_name_for_language(self, language: str) -> str:
@@ -108,6 +110,7 @@ class PiperTextToSpeechService(TextToSpeechService):
             "en": self.config.TTS_DEFAULT_VOICE_EN,
             "no": self.config.TTS_DEFAULT_VOICE_NO,
             "es": self.config.TTS_DEFAULT_VOICE_ES,
+            "zh": self.config.TTS_DEFAULT_VOICE_ZH,
         }
         return voice_map.get(language, voice_map.get(self.config.TTS_DEFAULT_LANGUAGE, ""))
 

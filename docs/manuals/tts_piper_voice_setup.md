@@ -30,6 +30,7 @@ The current default voices are:
 | English | `TTS_DEFAULT_VOICE_EN` | `en_US-lessac-medium` |
 | Norwegian | `TTS_DEFAULT_VOICE_NO` | `no_NO-talesyntese-medium` |
 | Spanish | `TTS_DEFAULT_VOICE_ES` | `es_ES-davefx-medium` |
+| Chinese (Mandarin) | `TTS_DEFAULT_VOICE_ZH` | `zh_CN-huayan-medium` |
 
 These values are configured in `RAGdoll/.env`:
 
@@ -40,6 +41,7 @@ TTS_DEFAULT_LANGUAGE=en
 TTS_DEFAULT_VOICE_EN=en_US-lessac-medium
 TTS_DEFAULT_VOICE_NO=no_NO-talesyntese-medium
 TTS_DEFAULT_VOICE_ES=es_ES-davefx-medium
+TTS_DEFAULT_VOICE_ZH=zh_CN-huayan-medium
 TTS_USE_CUDA=false
 TTS_WARMUP_TEXT=Ready.
 ```
