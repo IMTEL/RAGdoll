@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Request
 from fastapi_jwt_auth import AuthJWT
@@ -26,12 +26,12 @@ def agent_with_id(agent_id : str) -> Agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
 
-def has_agent_ownership(agent_id : str, user : Annotated[User, Depends(current_user)]):
-    if agent_id in user.owned_agents:
-        return
-    raise HTTPException(status_code=404, detail="Agent not found")
+def has_agent_ownership(agent_id : str, user : Annotated[User, Depends(current_user)]) -> Literal[True]:
+    if not agent_id in user.owned_agents:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return True
 
-def has_agent_access(agent_id : str, user : Annotated[User, Depends(current_user)]):
-    if agent_id in user.collaborating_agents or has_agent_ownership(agent_id, user):
-        return
-    raise HTTPException(status_code=404, detail="Agent not found") 
+def has_agent_access(agent_id : str, user : Annotated[User, Depends(current_user)]) -> Literal[True]:
+    if not (agent_id in user.collaborating_agents or has_agent_ownership(agent_id, user)):
+        raise HTTPException(status_code=404, detail="Agent not found") 
+    return True
