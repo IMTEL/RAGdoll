@@ -54,10 +54,6 @@ class AuthService(BaseAuthService):
         if authorize is None:
             logger.warning("No authorization provided")
             raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
-        # Demo mode - bypass authentication
-        if os.getenv("DISABLE_AUTH", "").lower() == "true":
-            # Return a demo user
-            return self._get_or_create_demo_user()
         authorize.jwt_required()
         user_id = authorize.get_jwt_subject()
         user = self.user_db.get_user_by_id(user_id)
