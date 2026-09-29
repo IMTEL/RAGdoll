@@ -29,3 +29,6 @@ htmlcov
 
 # Context files
 *context_files/
+
+#IDE
+.vscode
