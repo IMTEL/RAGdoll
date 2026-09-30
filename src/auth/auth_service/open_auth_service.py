@@ -1,5 +1,3 @@
-from fastapi_jwt_auth import AuthJWT
-
 from src.auth.auth_service.base import BaseAuthService
 from src.models.users.user import User
 from src.rag_service.dao.agent.base import AgentDAO
@@ -29,13 +27,13 @@ class OpenAuthService(BaseAuthService):
         user = self.user_db.set_user(user)
         return user
 
-    def login_user(self, token: str, provider: str) -> str:
-        return self.get_mock_user().id
+    def login_user(self, token: str, provider: str) -> User:
+        return self.get_mock_user()
 
     """ Always pass """
 
-    def auth(self, authorize: AuthJWT | None, agent_id: str):
+    def auth(self, authorize: str | None, agent_id: str):
         return
 
-    def get_authenticated_user(self, authorize: AuthJWT | None) -> User:
+    def get_authenticated_user(self, authorize: str | None) -> User:
         return self.get_mock_user()

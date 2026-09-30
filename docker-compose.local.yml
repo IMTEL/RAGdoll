@@ -98,8 +98,8 @@ services:
       - KEYCLOAK_CLIENT_ID=ragdoll-config
       - KEYCLOAK_CLIENT_SECRET=ragdoll-config-secret
       - KEYCLOAK_VERIFY_AUDIENCE=false
-      - KEYCLOAK_ISSUER=http://localhost:8080/realms/ragdoll
-      - KEYCLOAK_ALLOWED_ISSUERS=http://localhost:8080/realms/ragdoll,http://localhost/realms/ragdoll
+      - KEYCLOAK_ISSUER=http://keycloak:8080/realms/ragdoll
+      - KEYCLOAK_ALLOWED_ISSUERS=http://keycloak:8080/realms/ragdoll,http://localhost/realms/ragdoll
       - KEYCLOAK_JWKS_URL=http://keycloak:8080/realms/ragdoll/protocol/openid-connect/certs
       - AUTH_BOOTSTRAP_ENABLED=${AUTH_BOOTSTRAP_ENABLED:-true}
       - WHISPER_MODEL=${WHISPER_MODEL:-base}

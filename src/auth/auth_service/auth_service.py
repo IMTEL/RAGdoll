@@ -3,14 +3,11 @@ import os
 from collections.abc import Callable
 
 from fastapi import HTTPException
-from fastapi_jwt_auth import AuthJWT
-
 from src.auth.auth_provider.base import AuthProvider
 from src.auth.auth_service.base import BaseAuthService
 from src.config import Config
 from src.models.users.user import User
 from src.rag_service.dao.user.base import UserDao
-
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +22,7 @@ class AuthService(BaseAuthService):
         self.auth_provider_factory = auth_provider_factory
         self.config = Config()
 
-    def login_user(self, token: str, provider: str) -> str:
+    def login_user(self, token: str, provider: str = "keycloak") -> User:
         logger.info("Logging in user")
         auth_provider: AuthProvider = self.auth_provider_factory(provider, self.user_db)
         user = auth_provider.get_authenticated_user(token)
@@ -34,9 +31,9 @@ class AuthService(BaseAuthService):
             raise ValueError("Login failed")
         if user.id is None:
             raise ValueError("Login failed: user has no local id")
-        return user.id
+        return user
 
-    def auth(self, authorize: AuthJWT | None, agent_id: str):
+    def auth(self, authorize: str | None, agent_id: str):
         if authorize is None:
             logger.warning("No authorization provided")
             raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
@@ -50,19 +47,13 @@ class AuthService(BaseAuthService):
             )
             raise HTTPException(status_code=401, detail="Unnauthorized edit of agent")
 
-    def get_authenticated_user(self, authorize: AuthJWT | None) -> User:
+    def get_authenticated_user(self, authorize: str | None) -> User:
         if authorize is None:
             logger.warning("No authorization provided")
             raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
-        # Demo mode - bypass authentication
-        if os.getenv("DISABLE_AUTH", "").lower() == "true":
-            # Return a demo user
-            return self._get_or_create_demo_user()
-        authorize.jwt_required()
-        user_id = authorize.get_jwt_subject()
-        user = self.user_db.get_user_by_id(user_id)
+        user = self.login_user(authorize)
         if user is None:
-            logger.warning(f"User with userId: {user_id} does not exist")
+            logger.warning(f"User does not exist")
             raise HTTPException(
                 status_code=404, detail="Invalid user, could not find user"
             )
