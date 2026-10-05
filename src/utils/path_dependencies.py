@@ -1,13 +1,12 @@
 from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Request
-from fastapi_jwt_auth import AuthJWT
 
 from src.globals import auth_service, agent_dao
 from src.models.agent import Agent
 from src.models.users.user import User
 
-def get_auth(request: Request) -> AuthJWT | str | None:
+def get_auth(request: Request) -> str:
     """
     Gets the authentication headers. 
     Returns either JWT token if it is one or a access token 
@@ -21,24 +20,26 @@ def get_auth(request: Request) -> AuthJWT | str | None:
     Returns:
         AuthJWT | str : 
     """
-    key  = request.headers.get("authorization")
-    if not key:
-        raise HTTPException(status_code=403, detail="Unauthorized access")
-    try:
-        return AuthJWT(request)
-    except Exception:
-        return key
+    auth_header = request.headers.get("authorization")
+    if not auth_header:
+        # If no header and auth is required, AuthJWT will handle the error
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid header bearer token")
+    return auth_header[7:]
 
-def get_optional_user(authorize: Annotated[AuthJWT | str, Depends(get_auth)]) -> User | str:
+def get_optional_user(authorize: Annotated[str, Depends(get_auth)]) -> User | str:
     """
     If you want to ensure only a user can be fetched use get_user instead
     
     Dependency allowing for fetching of the current user
     Return the User or the access token
     """
-    if not isinstance(authorize, AuthJWT):
-        return authorize
-    return auth_service.get_authenticated_user(authorize);
+    user = authorize
+    try:
+        user = auth_service.get_authenticated_user(authorize)
+    finally:
+        return user
 
 def require_user(maybeUser : Annotated[User | str, Depends(get_optional_user)]) -> User:
     """
@@ -90,13 +91,13 @@ def agent_with_id(agent_id : str) -> Agent:
     return agent
 
 
-def has_agent_call_access(agent_id: str, authorize : Annotated[str | AuthJWT, Depends(get_auth)]) -> Literal[True]:
+def has_agent_call_access(agent_id: str, authorize : Annotated[str, Depends(get_optional_user)]) -> Literal[True]:
     """
         Checks if a user or access key can fetch the information from the agent
     """
     if authorize == None:
         raise HTTPException(status_code=403, detail="Not authorized")
-    elif isinstance(authorize, AuthJWT):
+    if isinstance(authorize, User):
         user = get_optional_user(authorize)
         require_user_has_agent_access(agent_id, require_user(user))
     else:

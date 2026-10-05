@@ -1,13 +1,11 @@
+import requests
 import base64
 import logging
 from dataclasses import dataclass
-from time import monotonic
 from typing import Any
 
 import jwt
-import requests
-from jwt import InvalidIssuerError
-from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt import PyJWKClient
 
 from src.auth.auth_provider.base import AuthProvider
 from src.models.users.user import User
@@ -15,7 +13,6 @@ from src.rag_service.dao.user.base import UserDao
 
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class KeycloakUserData:
@@ -35,11 +32,18 @@ class KeycloakAuthProvider(AuthProvider):
         verify_audience: bool,
         user_db: UserDao,
     ):
-        self.issuer = issuer.rstrip("/")
         self.allowed_issuers = {
             issuer.rstrip("/"),
             *(item.rstrip("/") for item in (allowed_issuers or [])),
         }
+        self.issuer = issuer.rstrip("/")
+        if self.issuer not in self.allowed_issuers:
+            raise ValueError("This is not a valid issuer")
+        oidc_config = requests.get(f"{issuer}/.well-known/openid-configuration").json()
+        self.signing_algos = oidc_config["id_token_signing_alg_values_supported"]
+        # This should be fetched trough the oidc_config instead, however docker connection issues is causing some issues with
+        # Localhost development testing
+        self.jwks_client = PyJWKClient(f"{issuer}/protocol/openid-connect/certs")
         self.jwks_url = jwks_url
         self.client_id = client_id
         self.verify_audience = verify_audience
@@ -82,67 +86,15 @@ class KeycloakAuthProvider(AuthProvider):
         return KeycloakUserData(provider_user_id, name, email, picture)
 
     def _decode_token(self, token: str) -> dict[str, Any]:
-        header = jwt.get_unverified_header(token)
-        kid = header.get("kid")
-        if not kid:
-            raise ValueError("Keycloak token is missing key id")
+        signing_key = self.jwks_client.get_signing_key_from_jwt(token)
+        data = jwt.decode(
+            token,
+            key=signing_key,
+            audience=self.client_id,
+            algorithms=self.signing_algos
+        )
+        return data
 
-        public_key = self._get_public_key(kid)
-        decode_kwargs: dict[str, Any] = {
-            "key": public_key,
-            "algorithms": ["RS256"],
-        }
-        if self.verify_audience:
-            decode_kwargs["audience"] = self.client_id
-        else:
-            decode_kwargs["options"] = {"verify_aud": False}
-
-        claims = jwt.decode(token, **decode_kwargs)
-        token_issuer = str(claims.get("iss", "")).rstrip("/")
-        if token_issuer not in self.allowed_issuers:
-            logger.warning(
-                "Invalid Keycloak issuer. Expected one of %s, got '%s'",
-                sorted(self.allowed_issuers),
-                token_issuer,
-            )
-            raise InvalidIssuerError("Invalid issuer")
-        if claims.get("azp") and claims["azp"] != self.client_id:
-            logger.debug(
-                "Keycloak token authorized party '%s' does not match configured client '%s'",
-                claims["azp"],
-                self.client_id,
-            )
-        return claims
-
-    def _get_public_key(self, kid: str):
-        jwks = self._get_jwks()
-        key = next((item for item in jwks.get("keys", []) if item.get("kid") == kid), None)
-        if key is None:
-            self._jwks = None
-            jwks = self._get_jwks()
-            key = next(
-                (item for item in jwks.get("keys", []) if item.get("kid") == kid),
-                None,
-            )
-        if key is None:
-            raise ValueError("No matching Keycloak signing key found")
-        if key.get("kty") != "RSA":
-            raise ValueError("Unsupported Keycloak signing key type")
-
-        n = int.from_bytes(self._base64url_decode(key["n"]), byteorder="big")
-        e = int.from_bytes(self._base64url_decode(key["e"]), byteorder="big")
-        return rsa.RSAPublicNumbers(e, n).public_key()
-
-    def _get_jwks(self) -> dict[str, Any]:
-        now = monotonic()
-        if self._jwks and now - self._jwks_loaded_at < self._jwks_ttl_seconds:
-            return self._jwks
-
-        response = requests.get(self.jwks_url, timeout=10)
-        response.raise_for_status()
-        self._jwks = response.json()
-        self._jwks_loaded_at = now
-        return self._jwks
 
     @staticmethod
     def _base64url_decode(value: str) -> bytes:

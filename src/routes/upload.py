@@ -12,7 +12,6 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi_jwt_auth import AuthJWT
 
 from src.config import Config
 from src.context_upload import process_file_and_store
@@ -28,11 +27,15 @@ router = APIRouter()
 config = Config()
 
 
-def optional_auth(request: Request) -> Optional[AuthJWT]:
+def optional_auth(request: Request) -> str | None:
     """Return AuthJWT only if auth is enabled and header is present."""
-    if os.getenv("DISABLE_AUTH", "").lower() == "true":
-        return None
-    return AuthJWT(request)
+    auth_header = request.headers.get("authorization")
+    if not auth_header:
+        # If no header and auth is required, AuthJWT will handle the error
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid header bearer token")
+    return auth_header[7:]
 
 
 def _process_document_background(
@@ -144,7 +147,7 @@ async def upload_document_for_agent(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),  # noqa: B008
-    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
 
@@ -282,7 +285,7 @@ async def get_upload_status(task_id: str):
 @router.get("/documents/agent")
 async def get_documents_for_agent(
     agent_id: str,
-    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
 ):
     """Retrieve all documents associated with a specific agent.
 
@@ -365,7 +368,7 @@ async def get_documents_for_agent(
 async def delete_document(
     document_id: str,
     agent_id: str,
-    authorize: Annotated[Optional[AuthJWT], Depends(optional_auth)] = None,
+    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
 ):
     """Delete a document and all its associated context chunks.
 

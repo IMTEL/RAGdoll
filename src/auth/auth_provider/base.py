@@ -10,5 +10,5 @@ class AuthProvider:
 
     @staticmethod
     @abstractmethod
-    def get_provider(self, name) -> str:
+    def get_provider() -> str:
         """Returns the name of a spesific provider."""

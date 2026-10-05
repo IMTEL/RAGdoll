@@ -5,14 +5,12 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi_jwt_auth.exceptions import AuthJWTException
-
+from jwt.exceptions import PyJWTError
 from src.config import Config
 from src.constants import LOGGING_CONFIG
 from src.routes import (
     agents,
     api_keys,
-    auth,
     chat,
     debug,
     progress,
@@ -77,10 +75,6 @@ app.include_router(translation.router)
 # Transliteration router
 app.include_router(transliteration.router)
 
-# Authentication router
-app.include_router(auth.router)
-
-
 @app.get("/")
 def hello_world():
     """Simple root endpoint to verify service is running.
@@ -101,12 +95,12 @@ def ping():
     return {"Pong"}
 
 
-@app.exception_handler(AuthJWTException)
+
+@app.exception_handler(PyJWTError)
 def authjwt_exception_handler(request, exc):
     # Map “signature expired” to 401 so the UI knows to refresh/relogin
     status = 401 if "expired" in str(exc.message).lower() else exc.status_code
     return JSONResponse(status_code=status, content={"detail": exc.message})
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
