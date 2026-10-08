@@ -143,6 +143,9 @@ class Config:
         self.MONGODB_PROFILES_COLLECTION = os.getenv(
             "MONGODB_PROFILES_COLLECTION", "job_seeker_profiles"
         )
+        self.MONGODB_TEMPLATE_COLLECTION = os.getenv(
+            "MONGODB_TEMPLATE_COLLECTION", "templates"
+        )
         self.MONGODB_UPLOAD_TASKS_COLLECTION = os.getenv(
             "MONGODB_UPLOAD_TASKS_COLLECTION", "upload_tasks"
         )

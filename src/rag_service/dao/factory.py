@@ -21,6 +21,8 @@ from src.rag_service.dao.profile.base import ProfileDAO
 from src.rag_service.dao.profile.mongodb_profile_dao import MongoDBProfileDAO
 from src.rag_service.dao.progress.base import ProgressDAO
 from src.rag_service.dao.progress.mongodb_progress_dao import MongoDBProgressDAO
+from src.rag_service.dao.template.base import TemplateDAO
+from src.rag_service.dao.template.mongodb_template_dao import MongoDBTemplateDAO
 from src.rag_service.dao.user.base import UserDao
 from src.rag_service.dao.user.mongodb_user_dao import MongoDBUserDao
 from tests.mocks.mock_user_dao import MockUserDao
@@ -178,6 +180,33 @@ def get_profile_dao() -> ProfileDAO:
             return MockProfileDAO()
         case "mongodb":
             return MongoDBProfileDAO()
+        case _:
+            raise ValueError(
+                f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
+                "Supported types: 'mongodb', 'mock'"
+            )
+
+
+def get_template_dao() -> TemplateDAO:
+    """Get the configured template DAO implementation.
+
+    Returns:
+        TemplateDAO: The DAO instance based on RAG_DATABASE_SYSTEM config
+
+    Raises:
+        ValueError: If an invalid database type is configured
+
+    Supported types:
+        - 'mongodb': Production MongoDB implementation
+        - 'mock': Singleton mock for testing
+    """
+    match config.RAG_DATABASE_SYSTEM.lower():
+        case "mock":
+            from tests.mocks.mock_template_dao import MockTemplateDAO
+
+            return MockTemplateDAO()
+        case "mongodb":
+            return MongoDBTemplateDAO()
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
