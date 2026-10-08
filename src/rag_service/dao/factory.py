@@ -17,6 +17,8 @@ from src.rag_service.dao.document.base import DocumentDAO
 from src.rag_service.dao.document.mongodb_document_dao import (
     MongoDBDocumentDAO,
 )
+from src.rag_service.dao.profile.base import ProfileDAO
+from src.rag_service.dao.profile.mongodb_profile_dao import MongoDBProfileDAO
 from src.rag_service.dao.progress.base import ProgressDAO
 from src.rag_service.dao.progress.mongodb_progress_dao import MongoDBProgressDAO
 from src.rag_service.dao.user.base import UserDao
@@ -149,6 +151,33 @@ def get_progress_dao() -> ProgressDAO:
             return MockProgressDAO()
         case "mongodb":
             return MongoDBProgressDAO()
+        case _:
+            raise ValueError(
+                f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
+                "Supported types: 'mongodb', 'mock'"
+            )
+
+
+def get_profile_dao() -> ProfileDAO:
+    """Get the configured job seeker profile DAO implementation.
+
+    Returns:
+        ProfileDAO: The DAO instance based on RAG_DATABASE_SYSTEM config
+
+    Raises:
+        ValueError: If an invalid database type is configured
+
+    Supported types:
+        - 'mongodb': Production MongoDB implementation
+        - 'mock': Mock implementation for testing
+    """
+    match config.RAG_DATABASE_SYSTEM.lower():
+        case "mock":
+            from tests.mocks.mock_profile_dao import MockProfileDAO
+
+            return MockProfileDAO()
+        case "mongodb":
+            return MongoDBProfileDAO()
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
