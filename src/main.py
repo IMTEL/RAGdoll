@@ -15,6 +15,7 @@ from src.routes import (
     auth,
     chat,
     debug,
+    profiles,
     progress,
     providers,
     translation,
@@ -79,6 +80,9 @@ app.include_router(transliteration.router)
 
 # Authentication router
 app.include_router(auth.router)
+
+# Job seeker profiles router (TDT4290)
+app.include_router(profiles.router)
 
 
 @app.get("/")
