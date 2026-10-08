@@ -117,6 +117,9 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
         self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
+        self.MONGODB_PROFILES_COLLECTION = os.getenv(
+            "MONGODB_PROFILES_COLLECTION", "job_seeker_profiles"
+        )
 
         ##Authentication
         self.SESSION_TOKEN_TTL = os.getenv("SESSION_TOKEN_TTL", "15")  # Minutes
@@ -183,6 +186,7 @@ class Config:
         names = [
             self.MONGODB_CONTEXT_COLLECTION,
             self.MONGODB_AGENT_COLLECTION,
+            self.MONGODB_PROFILES_COLLECTION,
             # TODO: add document collection
         ]
 
