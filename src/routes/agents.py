@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 
 from src.config import Config
@@ -28,7 +27,7 @@ def _auth_disabled() -> bool:
     return os.getenv("DISABLE_AUTH", "").lower() == "true" or config.RUNNING_TESTS
 
 
-def optional_auth(request: Request) -> AuthJWT | None:
+def optional_auth(request: Request) -> str | None:
     """Return AuthJWT only if auth is enabled and header is present."""
     if _auth_disabled():
         return None
@@ -36,12 +35,13 @@ def optional_auth(request: Request) -> AuthJWT | None:
     auth_header = request.headers.get("authorization")
     if not auth_header:
         # If no header and auth is required, AuthJWT will handle the error
-        pass
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=400, detail="Invalid header bearer token")
+    return auth_header[7:]
 
-    return AuthJWT(request)
 
-
-def _get_user_or_demo(authorize: AuthJWT | None) -> User:
+def _get_user_or_demo(authorize: str | None) -> User:
     """Get authenticated user or demo user if auth is disabled."""
     if _auth_disabled() or authorize is None:
         demo_user = user_dao.get_user_by_provider("demo", "demo")
@@ -59,14 +59,14 @@ def _get_user_or_demo(authorize: AuthJWT | None) -> User:
     return auth_service.get_authenticated_user(authorize)
 
 
-def _auth_or_skip(authorize: AuthJWT | None, agent_id: str):
+def _auth_or_skip(authorize: str | None, agent_id: str):
     """Check agent ownership or skip if auth is disabled."""
     if _auth_disabled() or authorize is None:
         return
     auth_service.auth(authorize, agent_id)
 
 
-def _ensure_agent_owner(authorize: AuthJWT | None, agent_id: str) -> User | None:
+def _ensure_agent_owner(authorize: str | None, agent_id: str) -> User | None:
     if _auth_disabled() or authorize is None:
         return None
 
@@ -104,7 +104,7 @@ def _scrub_agent_api_keys(agent: Agent) -> Agent:
     return agent_copy
 
 
-def _ensure_agent_access(authorize: AuthJWT | None, agent_id: str) -> User | None:
+def _ensure_agent_access(authorize: str | None, agent_id: str) -> User | None:
     if _auth_disabled() or authorize is None:
         return None
 
@@ -178,7 +178,7 @@ def _map_embedding_api_error(error: EmbeddingAPIError) -> int:
 # Update agent
 @router.post("/update-agent/", response_model=Agent)
 def create_agent(
-    agent: Agent, authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None
+    agent: Agent, authorize: Annotated[str | None, Depends(optional_auth)] = None
 ):
     """Create a new agent configuration.
 
@@ -228,7 +228,7 @@ def create_agent(
 
 # Get all agents
 @router.get("/agents/", response_model=list[Agent])
-def get_agents(authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None):
+def get_agents(authorize: Annotated[str | None, Depends(optional_auth)] = None):
     """Retrieve all agent configurations.
 
     Returns:
@@ -253,7 +253,7 @@ def get_agents(authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = No
 @router.get("/delete-agent")
 def delete_agent(
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     """Deletes a specific agent by ID.
 
@@ -283,7 +283,7 @@ def delete_agent(
 @router.get("/fetch-agent", response_model=Agent)
 def get_agent(
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     """Retrieve a specific agent by ID.
 
@@ -314,7 +314,7 @@ def get_agent(
 def search_users(
     q: str,
     limit: int = 10,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     current_user = _get_user_or_demo(authorize)
     users = user_dao.search_users(q, min(max(limit, 1), 25))
@@ -331,7 +331,7 @@ def search_users(
 )
 def get_collaborators(
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     current_user = _get_user_or_demo(authorize)
     if not _can_access_agent(current_user, agent_id):
@@ -360,7 +360,7 @@ def get_collaborators(
 def add_collaborator(
     agent_id: str,
     payload: CollaboratorInviteRequest,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     owner = _ensure_agent_owner(authorize, agent_id)
     invited_user = user_dao.get_user_by_id(payload.user_id)
@@ -383,7 +383,7 @@ def add_collaborator(
 def remove_collaborator(
     agent_id: str,
     user_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     owner = _ensure_agent_owner(authorize, agent_id)
     if owner and user_id == owner.id:
@@ -401,7 +401,7 @@ def remove_collaborator(
 @router.post("/agents/{agent_id}/leave")
 def leave_agent(
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     current_user = _get_user_or_demo(authorize)
     if agent_id in current_user.owned_agents:
@@ -505,7 +505,7 @@ def new_access_key(
     agent_id: str,
     expiry_date: str | None = None,
     view_once: bool = True,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     _ensure_agent_access(authorize, agent_id)
     try:
@@ -529,7 +529,7 @@ def new_access_key(
 def revoke_access_key(
     access_key_id: str,
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     _ensure_agent_access(authorize, agent_id)
     try:
@@ -541,7 +541,7 @@ def revoke_access_key(
 @router.get("/get-accesskeys", response_model=list[AccessKey])
 def get_access_keys(
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     _ensure_agent_access(authorize, agent_id)
     agent = agent_dao.get_agent_by_id(agent_id)
@@ -560,7 +560,7 @@ def get_access_keys(
 @router.get("/chat-access-key", response_model=AccessKey)
 def chat_access_key(
     agent_id: str,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
+    authorize: Annotated[str | None, Depends(optional_auth)] = None,
 ):
     user = _ensure_agent_access(authorize, agent_id)
     agent = agent_dao.get_agent_by_id(agent_id)
@@ -591,12 +591,7 @@ def chat_access_key(
 @router.post("/get_models", response_model=list[Model])
 def fetch_models(
     payload: ProviderKeyRequest,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
 ):
-    """Return all usable models for the requested provider using the supplied API key."""
-    if os.getenv("DISABLE_AUTH", "").lower() != "true" and authorize is not None:
-        authorize.jwt_required()  # Only require JWT if auth is enabled
-
     try:
         return list_llm_models(payload.provider, payload.api_key)
     except LLMAPIError as error:
@@ -608,12 +603,7 @@ def fetch_models(
 @router.post("/get_embedding_models", response_model=list[str])
 def fetch_embedding_models(
     payload: ProviderKeyRequest,
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
 ):
-    """Return all usable embedding models for the requested provider using the supplied API key."""
-    if os.getenv("DISABLE_AUTH", "").lower() != "true" and authorize is not None:
-        authorize.jwt_required()  # Only require JWT if auth is enabled
-
     try:
         return list_embedding_models(payload.provider, payload.api_key)
     except EmbeddingAPIError as error:
