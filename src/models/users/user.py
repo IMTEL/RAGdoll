@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from src.models.users.api_key import UserAPIKey
@@ -19,6 +21,7 @@ class User(BaseModel):
         picture: picture for use on the config site
         owned_agents: the agent_ids of the agents owned by the user
         collaborating_agents: the agent_ids of agents shared with the user
+        settings: per-application settings, keyed by the application's namespace
     """
 
     id: str | None = Field(default=None, description="Unique identifier for the user")
@@ -30,6 +33,7 @@ class User(BaseModel):
     owned_agents: list[str] = Field(default_factory=list)
     collaborating_agents: list[str] = Field(default_factory=list)
     api_keys: list[UserAPIKey] = Field(default_factory=list)
+    settings: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     def add_api_key(self, api_key: UserAPIKey) -> None:
         self.api_keys.append(api_key)

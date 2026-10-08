@@ -120,6 +120,9 @@ class Config:
         self.MONGODB_PROFILES_COLLECTION = os.getenv(
             "MONGODB_PROFILES_COLLECTION", "job_seeker_profiles"
         )
+        self.MONGODB_TEMPLATE_COLLECTION = os.getenv(
+            "MONGODB_TEMPLATE_COLLECTION", "templates"
+        )
 
         ##Authentication
         self.SESSION_TOKEN_TTL = os.getenv("SESSION_TOKEN_TTL", "15")  # Minutes

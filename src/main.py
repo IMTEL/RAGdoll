@@ -18,9 +18,11 @@ from src.routes import (
     profiles,
     progress,
     providers,
+    templates,
     translation,
     transliteration,
     upload,
+    user_settings,
 )
 
 
@@ -65,6 +67,12 @@ app.include_router(agents.router)
 
 # API Keys router
 app.include_router(api_keys.router)
+
+# Templates router
+app.include_router(templates.router)
+
+# User settings router
+app.include_router(user_settings.router)
 
 # Provider router
 app.include_router(providers.router)
