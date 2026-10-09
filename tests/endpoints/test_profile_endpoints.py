@@ -78,6 +78,9 @@ class TestProfileEndpoints:
             {"label": "x" * 101},
             {"label": "A", "notes": "x" * 2001},
             {"label": "A", "languages": ["norsk"] * 21},
+            {"label": "A", "experience_level": "lots"},
+            {"label": "A", "practice_areas": ["x" * 101]},
+            {"label": "A", "practice_areas": ["nervøsitet"] * 21},
         ],
     )
     def test_create_validation(self, body):
@@ -144,3 +147,24 @@ class TestProfileEndpoints:
 
         overrides["user"] = ALICE
         assert client.get(url).json()["label"] == "Profil A"
+
+    def test_experience_level_and_practice_areas(self):
+        """Test that the new fields are stored, replaced and cleared."""
+        created = _create(
+            experience_level="little",
+            practice_areas=[" Mestre nervøsitet ", "Fortelle om seg selv"],
+        )
+        assert created["experience_level"] == "little"
+        assert created["practice_areas"] == [
+            "Mestre nervøsitet",
+            "Fortelle om seg selv",
+        ]
+
+        url = f"/profiles/{created['id']}"
+        updated = client.put(
+            url, json={"label": "Profil A", "experience_level": "extensive"}
+        ).json()
+
+        assert updated["experience_level"] == "extensive"
+        assert updated["practice_areas"] == []
+        assert client.get(url).json()["experience_level"] == "extensive"
