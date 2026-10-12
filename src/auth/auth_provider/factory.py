@@ -21,9 +21,7 @@ def auth_provider_factory(provider: str, user_db: UserDao) -> AuthProvider:
             return KeycloakAuthProvider(
                 issuer=config.KEYCLOAK_ISSUER,
                 allowed_issuers=config.KEYCLOAK_ALLOWED_ISSUERS,
-                jwks_url=config.KEYCLOAK_JWKS_URL,
                 client_id=config.KEYCLOAK_CLIENT_ID,
-                verify_audience=config.KEYCLOAK_VERIFY_AUDIENCE,
                 user_db=user_db,
             )
         case _:
