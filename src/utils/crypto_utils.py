@@ -1,10 +1,11 @@
-import bcrypt
+from argon2 import PasswordHasher
 from cryptography.fernet import Fernet, InvalidToken
 
 from src.config import Config
 
 
 ENCRYPTOR = Fernet(Config().FERNET_KEY.encode("utf-8"))
+HASHER = PasswordHasher()
 
 
 def encrypt_str(api_key: str) -> str:
@@ -28,14 +29,13 @@ def decrypt_value(encrypted_value: str) -> str:
         raise ValueError("Invalid encryption token or wrong Fernet key") from e
 
 
-def hash_access_key(access_key: str) -> bytes:
+def hash_access_key(access_key: str) -> str:
     """Hash an agent access key for secure storage."""
     if not access_key:
         raise ValueError("access_key must not be empty")
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(access_key.encode("utf-8"), salt)
+    return HASHER.hash(access_key.encode("utf-8"))
 
 
-def verify_access_key(access_key: str, hashed: bytes) -> bool:
+def verify_access_key(access_key: str, hashed: str) -> bool:
     """Verify an agent access key against its hash."""
-    return bcrypt.checkpw(access_key.encode("utf-8"), hashed)
+    return HASHER.verify(access_key.encode("utf-8"), hashed)

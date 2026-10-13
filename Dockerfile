@@ -4,13 +4,14 @@
 # - Used directly for production deployment (Kubernetes, cloud platforms, CI/CD)
 # - Creates a standalone, portable container with all dependencies
 # - Optimized layer caching: dependencies installed before code copy
-
 # Use an official Python base image
-FROM python:3.11-slim
+FROM python:3.12-slim
+
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    UV_NO_DEV=1 \
     # Ensure the local bin is in PATH for uv
     PATH="/root/.local/bin:$PATH"
 
@@ -29,6 +30,7 @@ RUN apt-get update && \
     libglib2.0-0 \
     poppler-utils \
     tesseract-ocr \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
@@ -38,11 +40,11 @@ WORKDIR /app
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Copy ONLY dependency files first (this layer is cached unless dependencies change)
-COPY pyproject.toml uv.lock ./
+COPY uv.lock pyproject.toml ./
 
-# Install dependencies globally to system Python (cached layer - only rebuilds when pyproject.toml or uv.lock changes)
+# Install dependencies globally to system Python (cached layer - only rebuilds when pyproject.toml and uv.lock changes)
 # No venv needed - the container itself provides isolation
-RUN uv pip install --system -r pyproject.toml
+RUN uv sync --locked
 
 # Copy the rest of the application (this layer rebuilds on code changes, but deps are cached)
 COPY . .
@@ -50,5 +52,5 @@ COPY . .
 # Expose the FastAPI port
 EXPOSE 8000
 
-# Run FastAPI with Uvicorn (no 'uv run' needed - packages are in system Python)
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI with Uvicorn
+CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

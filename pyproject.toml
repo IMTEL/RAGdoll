@@ -3,34 +3,26 @@ name = "RAGdoll"
 version = "0.1.0"
 description = "A FastAPI-based microservice that serves as the backend for a VR chatbot system designed for educational/training purposes. It implements a Retrieval-Augmented Generation (RAG) architecture to provide context-aware responses to users in VR environments."
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = "<3.13, >=3.12"
 license = { file = "LICENSE" }
 dependencies = [
-    "fastapi==0.141.1",
+    "fastapi==0.143.0",
     "flask==3.1.3",
-    "google-ai-generativelanguage==0.6.15",
-    "google-api-core==2.33.0",
-    "google-api-python-client==2.200.0",
-    "google-auth==2.59.0",
-    "google-auth-httplib2==0.4.2",
-    "google-generativeai==0.8.6",
-    "googleapis-common-protos==1.75.0",
     "nltk>=3.9.2",
-    "numpy==2.4.6",
-    "openai==3.20.0",
+    "numpy==2.5.4",
+    "openai==3.29.0",
     "openai-whisper==20250625",
-    "pydantic==2.13.5",
-    "pymongo==4.18.2",
-    "python-dotenv==1.2.3",
+    "pydantic==2.14.1",
+    "pymongo==4.18.3",
+    "python-dotenv==1.2.4",
     "python-multipart>=0.0.20",
     "requests>=2.32.3",
-    "scipy==1.17.1",
+    "scipy==1.18.1",
     "soundfile>=0.13.1",
-    "torch==2.14.0",
+    "torch==2.14.1",
     "typer>=0.19.2",
     "unstructured[all-docs]>=0.18.15",
     "uvicorn==0.54.0",
-    "bcrypt==5.0.0",
     "cryptography>=46.0.2",
     "pyjwt[crypto]>=1.7.1",
     "faiss-cpu>=1.8.0",
@@ -38,6 +30,8 @@ dependencies = [
     "faster-whisper>=1.1.1",
     "piper-tts>=1.4.2",
     "pypinyin>=0.53.0",
+    "google-genai>=2.29.0",
+    "argon2-cffi>=25.1.0",
 ]
 
 [dependency-groups]
@@ -50,6 +44,15 @@ dev = [
     "pytest-env>=1.2.0",
     "ruff>=0.13.1",
 ]
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]

@@ -81,7 +81,7 @@ services:
       - "8000:8000"
     volumes:
       # Mount source code for hot-reload during development
-      - .:/app
+      - ./src:/app/src
       - ./temp_files:/app/temp_files
       # Volume for local FAISS vector indices
       - faiss_indices:/data/faiss_indices

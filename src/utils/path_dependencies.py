@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 from typing import Annotated, Literal
 
@@ -44,12 +45,8 @@ def get_optional_user(
         User | str: A user if found which is valid or the string that was tried to fetch
     """
     user = authorize
-    try:
-        return auth_service.get_authenticated_user(authorize)
-    except Exception:  # noqa: BLE001, S110
-        # We don't know if it is a access token so we are gonna pass it further down the chain
-        # Don't need to log it as it would log for every access token
-        pass
+    with contextlib.suppress(Exception):
+        user = auth_service.get_authenticated_user(authorize)
     return user
 
 

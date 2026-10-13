@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-import google.generativeai as genai
 import openai
+from google import genai
 from numpy import dot
 from numpy.linalg import norm
 
@@ -43,9 +43,9 @@ class OpenAIEmbedding(EmbeddingsModel):
         text = text.replace("\n", " ")
         try:
             response = self.client.embeddings.create(
-                input=text, 
+                input=text,
                 model=self.model_name,
-                dimensions=384  # text-embedding-3-small optimized dimension
+                dimensions=384,  # text-embedding-3-small optimized dimension
             )
             return response.data[0].embedding
         except openai.AuthenticationError as e:
