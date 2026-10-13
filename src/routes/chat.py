@@ -8,12 +8,20 @@ This module handles the main chat functionality including:
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from src.models.agent import Agent
 
 from src.config import Config
-from src.globals import access_service, agent_dao
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
@@ -47,31 +55,6 @@ class STTWarmupRequest(BaseModel):
 class AskWithSpeechRequest(BaseModel):
     command: Command
     tts_language: str | None = None
-
-
-def _get_authorized_agent(command: Command):
-    agent = agent_dao.get_agent_by_id(command.agent_id)
-    if agent is None:
-        return None, JSONResponse(
-            content={"message": f"Agent with id '{command.agent_id}' not found."},
-            status_code=400,
-        )
-
-    if not access_service.authenticate(agent.id, command.access_key):
-        raise HTTPException(status_code=401, detail="Unauthorized, check logs")
-
-    if (
-        command.active_role_id
-        and agent.get_role_by_name(command.active_role_id) is None
-    ):
-        return None, JSONResponse(
-            content={
-                "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."
-            },
-            status_code=400,
-        )
-
-    return agent, None
 
 
 def _attach_recent_progress(command: Command) -> None:
@@ -115,7 +98,7 @@ def _build_response_with_speech(response: dict, language: str | None = None) -> 
         400: {"description": "If the encoding is something else then utf-8"},
     },
 )
-async def ask(command: Command, authorization: Annotated[str, Depends(get_auth)]):
+async def ask(command: Command, request: Request):
     # TODO: We need a unviersal return object for LLMs. I have no idea about the current properties, which is why I am setting this dict until further notice
     """Process a user question using the specified agent and roles.
 
@@ -145,8 +128,17 @@ async def ask(command: Command, authorization: Annotated[str, Depends(get_auth)]
             503: LLM generation service error
             500: Other processing errors
     """
-    agent = has_agent_call_access(command.agent_id, authorization)
-    if command.active_role_id not in agent.roles:
+    agent: Agent
+    # Until further notice we accept both the authorization header and the command access_key
+    # Someone else can remove it down the line
+    if command.access_key == None:
+        agent = has_agent_call_access(command.agent_id, get_auth(request))
+    else:
+        agent = has_agent_call_access(command.agent_id, command.access_key)
+    if (
+        command.active_role_id
+        and agent.get_role_by_name(command.active_role_id) is None
+    ):
         raise HTTPException(status_code=404, detail="Role not found in agent")
     try:
         _attach_recent_progress(command)
@@ -247,11 +239,9 @@ async def text_to_speech(request: TTSRequest):
 
 
 @router.post("/askWithSpeech")
-async def ask_with_speech(
-    request: AskWithSpeechRequest, authorization: Annotated[str, Depends(get_auth)]
-):
+async def ask_with_speech(request: AskWithSpeechRequest, request_object: Request):
     """Process a text chat request and return both text and local speech audio."""
-    response = await ask(request.command, authorization)
+    response = await ask(request.command, request_object)
     try:
         return JSONResponse(
             content=_build_response_with_speech(response, request.tts_language),
@@ -270,7 +260,7 @@ async def ask_with_speech(
 
 @router.post("/askTranscribe")
 async def ask_transcribe(
-    authorization: Annotated[str, Depends(get_auth)],
+    request_object: Request,
     audio: Annotated[UploadFile, File()],
     data: Annotated[str, Body()] = Form(...),
     stt_language: Annotated[str, Body()] = Form(None),
@@ -302,7 +292,7 @@ async def ask_transcribe(
     command = command_from_json_transcribe_version(data, question=transcribed)
     if command is None:
         raise HTTPException(status_code=400, detail="Invalid command format")
-    response = await ask(command, authorization)
+    response = await ask(command, request_object)
     return {
         "transcription": transcribed,
         "transcription_language": transcription_result["language"],
@@ -315,14 +305,14 @@ async def ask_transcribe(
 
 @router.post("/askTranscribeWithSpeech")
 async def ask_transcribe_with_speech(
-    authorization: Annotated[str, Depends(get_auth)],
+    request_object: Request,
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
     tts_language: str = Form(None),
     stt_language: str = Form(None),
 ):
     """Transcribe audio, ask the agent, and return text plus local speech audio."""
-    response = await ask_transcribe(authorization, audio, data, stt_language)
+    response = await ask_transcribe(request_object, audio, data, stt_language)
     try:
         return (
             {
