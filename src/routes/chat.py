@@ -6,7 +6,9 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -21,6 +23,7 @@ from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
 from src.tts import get_tts_service
+from src.utils.path_dependencies import get_auth, has_agent_call_access
 from src.whisper_model import warmup_whisper_model
 
 
@@ -57,7 +60,10 @@ def _get_authorized_agent(command: Command):
     if not access_service.authenticate(agent.id, command.access_key):
         raise HTTPException(status_code=401, detail="Unauthorized, check logs")
 
-    if command.active_role_id and agent.get_role_by_name(command.active_role_id) is None:
+    if (
+        command.active_role_id
+        and agent.get_role_by_name(command.active_role_id) is None
+    ):
         return None, JSONResponse(
             content={
                 "message": f"Role '{command.active_role_id}' not found in agent '{agent.name}'."
@@ -69,7 +75,11 @@ def _get_authorized_agent(command: Command):
 
 
 def _attach_recent_progress(command: Command) -> None:
-    if not command.include_progress or not command.session_id or command.progress_limit <= 0:
+    if (
+        not command.include_progress
+        or not command.session_id
+        or command.progress_limit <= 0
+    ):
         return
 
     recent_progress = get_recent_progress_for_session(
@@ -97,69 +107,77 @@ def _build_response_with_speech(response: dict, language: str | None = None) -> 
     }
 
 
-@router.post("/ask", response_model=Command)
-async def ask(command: Command):
+@router.post(
+    "/ask",
+    responses={
+        404: {"description": "If a role could not be found within the agent"},
+        500: {"description": "If the server failed to process the request"},
+        400: {"description": "If the encoding is something else then utf-8"},
+    },
+)
+async def ask(command: Command, authorization: Annotated[str, Depends(get_auth)]):
+    # TODO: We need a unviersal return object for LLMs. I have no idea about the current properties, which is why I am setting this dict until further notice
     """Process a user question using the specified agent and roles.
 
-    This endpoint:
-    1. Receives a Command with agent_id and active_role_id
-    2. Retrieves the agent configuration from the DAO
-    3. Validates access permissions
-    4. Performs RAG retrieval based on role-specific corpus access
-    5. Generates a response using the agent's configured LLM
+        This endpoint:
+        1. Receives a Command with agent_id and active_role_id
+        2. Retrieves the agent configuration from the DAO
+        3. Validates access permissions
+        4. Performs RAG retrieval based on role-specific corpus access
+        5. Generates a response using the agent's configured LLM
 
-    Request body should be a JSON Command object with:
-    - agent_id: MongoDB ObjectId of the agent
-    - active_role_id: Name of the active agent role
-    - access_key: Optional API key for authorization
-    - chat_log: Conversation history
-    - Other context fields (scene_name, user_information, etc.)
+        Request body should be a JSON Command object with:
+        - agent_id: MongoDB ObjectId of the agent
+        - active_role_id: Name of the active agent role
+        - access_key: Optional API key for authorization
+        - chat_log: Conversation history
+        - Other context fields (scene_name, user_information, etc.)
 
     Returns:
-        JSONResponse with the generated answer and metadata
-
-    Raises:
-        400: Invalid command format, agent not found, or role not found
-        401: LLM authentication failed (invalid API key or permissions)
-        402: Insufficient LLM tokens/credits
-        404: LLM model not found or not accessible
-        429: LLM rate limit or quota exceeded
-        503: LLM generation service error
-        500: Other processing errors
+            JSONResponse with the generated answer and metadata
+    command
+        Raises:
+            400: Invalid command format, agent not found, or role not found
+            401: LLM authentication failed (invalid API key or permissions)
+            402: Insufficient LLM tokens/credits
+            404: LLM model not found or not accessible
+            429: LLM rate limit or quota exceeded
+            503: LLM generation service error
+            500: Other processing errors
     """
+    agent = has_agent_call_access(command.agent_id, authorization)
+    if command.active_role_id not in agent.roles:
+        raise HTTPException(status_code=404, detail="Role not found in agent")
     try:
-        agent, error_response = _get_authorized_agent(command)
-        if error_response is not None:
-            return error_response
         _attach_recent_progress(command)
 
         # Generate response using agent configuration and role-based RAG
         response = assemble_prompt_with_agent(command, agent)
-        return JSONResponse(content={"response": response}, status_code=200)
+        return response
 
     except LLMAPIError as e:
         # API-related errors (auth, quota, model not found, insufficient tokens)
-        return JSONResponse(
-            content={"message": str(e)},
+        raise HTTPException(
+            detail=str(e),
             status_code=e.status_code,
-        )
+        ) from e
     except LLMGenerationError as e:
         # Generation/service errors
-        return JSONResponse(
-            content={"message": str(e)},
+        raise HTTPException(
+            detail={str(e)},
             status_code=e.status_code,
-        )
-    except UnicodeDecodeError:
-        return JSONResponse(
-            content={"message": "Invalid encoding. Expected UTF-8 encoded JSON."},
+        ) from e
+    except UnicodeDecodeError as e:
+        raise HTTPException(
+            detail="Invalid encoding. Expected UTF-8 encoded JSON.",
             status_code=400,
-        )
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
-        return JSONResponse(
-            content={"message": f"Error processing request: {e!s}"}, status_code=500
-        )
+        raise HTTPException(
+            detail=f"Error processing request: {e!s}", status_code=500
+        ) from e
 
 
 @router.post("/transcribe")
@@ -229,25 +247,16 @@ async def text_to_speech(request: TTSRequest):
 
 
 @router.post("/askWithSpeech")
-async def ask_with_speech(request: AskWithSpeechRequest):
+async def ask_with_speech(
+    request: AskWithSpeechRequest, authorization: Annotated[str, Depends(get_auth)]
+):
     """Process a text chat request and return both text and local speech audio."""
-    command = request.command
-
+    response = await ask(request.command, authorization)
     try:
-        agent, error_response = _get_authorized_agent(command)
-        if error_response is not None:
-            return error_response
-        _attach_recent_progress(command)
-
-        response = assemble_prompt_with_agent(command, agent)
         return JSONResponse(
             content=_build_response_with_speech(response, request.tts_language),
             status_code=200,
         )
-    except LLMAPIError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
-    except LLMGenerationError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
     except FileNotFoundError as e:
         return JSONResponse(content={"message": str(e)}, status_code=503)
     except HTTPException:
@@ -261,9 +270,10 @@ async def ask_with_speech(request: AskWithSpeechRequest):
 
 @router.post("/askTranscribe")
 async def ask_transcribe(
-    audio: UploadFile = File(...),  # noqa: B008
-    data: str = Form(...),
-    stt_language: str = Form(None),
+    authorization: Annotated[str, Depends(get_auth)],
+    audio: Annotated[UploadFile, File()],
+    data: Annotated[str, Body()] = Form(...),
+    stt_language: Annotated[str, Body()] = Form(None),
 ):
     """Transcribe audio and process with agent in a single request.
 
@@ -281,93 +291,51 @@ async def ask_transcribe(
     """
     transcription_result = transcribe_audio(audio, stt_language)
     if not transcription_result["success"]:
-        return JSONResponse(
-            content={"message": transcription_result["error"]},
+        raise HTTPException(
+            detail=transcription_result["error"],
             status_code=400,
         )
     transcribed = transcription_result["transcription"]
 
     # Parse command and add transcribed text as user message
+    # TODO: This is one of the many reasons we have pydmantic. Let it do the casting
     command = command_from_json_transcribe_version(data, question=transcribed)
     if command is None:
-        return JSONResponse(
-            content={"message": "Invalid command format."}, status_code=400
-        )
-
-    agent, error_response = _get_authorized_agent(command)
-    if error_response is not None:
-        return error_response
-    _attach_recent_progress(command)
-
-    try:
-        response = assemble_prompt_with_agent(command, agent)
-        return JSONResponse(
-            content={
-                "transcription": transcribed,
-                "transcription_language": transcription_result["language"],
-                "transcription_language_probability": transcription_result[
-                    "language_probability"
-                ],
-                "response": response,
-            },
-            status_code=200,
-        )
-    except LLMAPIError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
-    except LLMGenerationError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
+        raise HTTPException(status_code=400, detail="Invalid command format")
+    response = await ask(command, authorization)
+    return {
+        "transcription": transcribed,
+        "transcription_language": transcription_result["language"],
+        "transcription_language_probability": transcription_result[
+            "language_probability"
+        ],
+        "response": response,
+    }
 
 
 @router.post("/askTranscribeWithSpeech")
 async def ask_transcribe_with_speech(
+    authorization: Annotated[str, Depends(get_auth)],
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
     tts_language: str = Form(None),
     stt_language: str = Form(None),
 ):
     """Transcribe audio, ask the agent, and return text plus local speech audio."""
-    transcription_result = transcribe_audio(audio, stt_language)
-    if not transcription_result["success"]:
-        return JSONResponse(
-            content={"message": transcription_result["error"]},
-            status_code=400,
-        )
-    transcribed = transcription_result["transcription"]
-
-    command = command_from_json_transcribe_version(data, question=transcribed)
-    if command is None:
-        return JSONResponse(
-            content={"message": "Invalid command format."}, status_code=400
-        )
-
+    response = await ask_transcribe(authorization, audio, data, stt_language)
     try:
-        agent, error_response = _get_authorized_agent(command)
-        if error_response is not None:
-            return error_response
-        _attach_recent_progress(command)
-
-        response = assemble_prompt_with_agent(command, agent)
-        return JSONResponse(
-            content={
-                "transcription": transcribed,
-                "transcription_language": transcription_result["language"],
-                "transcription_language_probability": transcription_result[
-                    "language_probability"
-                ],
+        return (
+            {
+                **response,
                 **_build_response_with_speech(response, tts_language),
             },
-            status_code=200,
         )
-    except LLMAPIError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
-    except LLMGenerationError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=e.status_code)
     except FileNotFoundError as e:
-        return JSONResponse(content={"message": str(e)}, status_code=503)
+        raise HTTPException(detail={"message": str(e)}, status_code=503) from e
     except HTTPException:
         raise
     except Exception as e:
-        return JSONResponse(
-            content={"message": f"Error processing speech request: {e!s}"},
+        raise HTTPException(
+            detail={f"Error processing speech request: {e!s}"},
             status_code=500,
-        )
+        ) from e
