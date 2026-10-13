@@ -103,6 +103,50 @@ def fetch_llm_models_with_api(
     raise HTTPException(status_code=404, detail="Key not found")
 
 
+@router.get(
+    "/models/emb/{api_key_id}",
+    dependencies=[Depends(require_user)],
+    responses={
+        400: {"description": "if the llm value can not be found"},
+        404: {"description": "If the key can not be found within the account"},
+        502: {"description": "If there are issue within the servers"},
+    },
+)
+def fetch_embedding_models_with_api(
+    api_key_id: str, user: Annotated[User, Depends(require_user)]
+) -> list[str]:
+    """Fetches the models accessible with a apiKey.
+
+    Args:
+        api_key_id (str): The id of thee api key
+        user (Annotated[User, Depends): The user fetched from the authorization header
+
+    Raises:
+        HTTPException: Forward of the LLM API error
+        HTTPException: 400, the value that is incorrect
+        HTTPException: 404, if the key can not be found within the user
+
+    Returns:
+        list[Model]: the models that can be fetched from the provider with the api key
+    """
+    for api in user.api_keys:
+        if api.id == api_key_id:
+            try:
+                return list_embedding_models(
+                    api.provider, decrypt_value(api.key_encrypted)
+                )
+            except EmbeddingAPIError as error:
+                status_code = _map_embedding_api_error(error)
+                raise HTTPException(
+                    status_code=status_code, detail=str(error)
+                ) from error
+            except EmbeddingError as error:
+                raise HTTPException(status_code=502, detail=str(error)) from error
+            except ValueError as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
+    raise HTTPException(status_code=404, detail="Key not found")
+
+
 @router.post(
     "/get_embedding_models",
     response_model=list[str],

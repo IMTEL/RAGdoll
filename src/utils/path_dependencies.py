@@ -1,7 +1,8 @@
 import contextlib
 from typing import Annotated, Literal
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.globals import access_service, agent_dao, auth_service
 from src.models.agent import Agent
@@ -10,9 +11,12 @@ from src.models.users.user import User
 
 _agent_not_found = HTTPException(status_code=404, detail="Agent not found.")
 _not_authorized = HTTPException(status_code=403, detail="Unauthorized")
+_security = HTTPBearer()
 
 
-def get_auth(request: Request) -> str:
+def get_auth(
+    auth_header: Annotated[HTTPAuthorizationCredentials, Depends(_security)],
+) -> str:
     """Gets the authentication headers. Returns either JWT token if it is one or a access token. Both are string.
 
     Args:
@@ -23,13 +27,10 @@ def get_auth(request: Request) -> str:
     Returns:
         str : the string that is after the bearer prefix
     """
-    auth_header = request.headers.get("authorization")
-    if not auth_header:
+    if not auth_header.credentials:
         # If no header and auth is required, AuthJWT will handle the error
         raise _not_authorized
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=400, detail="Invalid header bearer token")
-    return auth_header[7:]
+    return auth_header.credentials
 
 
 def get_optional_user(

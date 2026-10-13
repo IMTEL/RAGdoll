@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-import os
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +8,6 @@ from src.constants import (
     SUPPORTED_LLM_PROVIDERS,
 )
 from src.globals import user_dao
-from src.utils.path_dependencies import require_user
 from src.models.users.api_key import (
     UserAPIKey,
     UserAPIKeyDetailResponse,
@@ -18,9 +15,12 @@ from src.models.users.api_key import (
 )
 from src.models.users.user import User
 from src.utils.crypto_utils import encrypt_str
+from src.utils.path_dependencies import require_user
 
 
-router = APIRouter(prefix="/api-keys", dependencies=[Depends(require_user)])
+router = APIRouter(
+    prefix="/api-keys", tags=["APIKeys"], dependencies=[Depends(require_user)]
+)
 
 
 LLM_PROVIDER_IDS = {item["id"] for item in SUPPORTED_LLM_PROVIDERS}
@@ -100,9 +100,7 @@ def create_api_key(
 
 
 @router.get("/{key_id}", response_model=UserAPIKeyDetailResponse)
-def get_api_key_detail(
-    key_id: str, user: Annotated[User, Depends(require_user)]
-):
+def get_api_key_detail(key_id: str, user: Annotated[User, Depends(require_user)]):
     for key in user.api_keys:
         if key.id == key_id:
             return key.to_detail()
@@ -111,9 +109,7 @@ def get_api_key_detail(
 
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_api_key(
-    key_id: str, user: Annotated[User, Depends(require_user)]
-):
+def delete_api_key(key_id: str, user: Annotated[User, Depends(require_user)]):
     # Find and remove the API key
     for i, key in enumerate(user.api_keys):
         if key.id == key_id:

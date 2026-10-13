@@ -2,7 +2,7 @@ import datetime
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.globals import access_service, agent_dao, user_dao
@@ -13,6 +13,7 @@ from src.models.users.user import User
 # Bad practice, but makes every dependency accessible without 6 different imports
 from src.utils.path_dependencies import (
     agent_with_id,
+    get_auth,
     get_optional_user,
     has_agent_call_access,
     require_user,
@@ -72,7 +73,7 @@ class ExternalAgentInfo(BaseModel):
     roles: list[Role]
 
 
-@router.post("/agents")
+@router.post("")
 def create_agent(agent: Agent, user: Annotated[User, Depends(require_user)]) -> Agent:
     """Creates a new agent.
 
@@ -95,11 +96,11 @@ def create_agent(agent: Agent, user: Annotated[User, Depends(require_user)]) -> 
 
 
 @router.patch(
-    "/agents/{agent_id}",
+    "/{agent_id}",
     dependencies=[Depends(require_user_has_agent_access)],
 )
 @router.post(
-    "/agents/{agent_id}",
+    "/{agent_id}",
     dependencies=[Depends(require_user_has_agent_access)],
 )
 def update_agent(
@@ -140,7 +141,7 @@ def update_agent(
 
 
 # Get all agents
-@router.get("/agents", response_model=list[Agent])
+@router.get("", response_model=list[Agent])
 def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
     """Retrieve all agent configurations.
 
@@ -172,9 +173,7 @@ def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
 
 
 # Get a specific agent by ID
-@router.delete(
-    "/agents/{agent_id}", dependencies=[Depends(require_user_has_agent_ownership)]
-)
+@router.delete("/{agent_id}", dependencies=[Depends(require_user_has_agent_ownership)])
 def delete_agent(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
@@ -199,7 +198,7 @@ def delete_agent(
 
 # Get a specific agent by ID
 @router.get(
-    "/agents/{agent_id}",
+    "/{agent_id}",
     response_model=Agent,
     dependencies=[Depends(has_agent_call_access)],
 )
@@ -239,7 +238,7 @@ def search_users(
 
 
 @router.get(
-    "/agents/{agent_id}/collaborators",
+    "/{agent_id}/collaborators",
     response_model=CollaboratorsResponse,
     dependencies=[Depends(require_user_has_agent_access)],
 )
@@ -265,7 +264,7 @@ def get_collaborators(
 
 
 @router.post(
-    "/agents/{agent_id}/collaborators",
+    "/{agent_id}/collaborators",
     response_model=CollaboratorsResponse,
     dependencies=[Depends(require_user_has_agent_ownership)],
 )
@@ -303,7 +302,7 @@ def add_collaborator(
 
 
 @router.delete(
-    "/agents/{agent_id}/collaborators/{user_id}",
+    "/{agent_id}/collaborators/{user_id}",
     response_model=CollaboratorsResponse,
     dependencies=[Depends(require_user_has_agent_ownership)],
 )
@@ -322,9 +321,7 @@ def remove_collaborator(
     return get_collaborators(agent_id, owner)
 
 
-@router.post(
-    "/agents/{agent_id}/leave", dependencies=[Depends(require_user_has_agent_access)]
-)
+@router.post("/{agent_id}/leave", dependencies=[Depends(require_user_has_agent_access)])
 def leave_agent(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
@@ -358,10 +355,10 @@ def leave_agent(
 @router.get(
     "/agent-info", response_model=Agent, dependencies=[Depends(has_agent_call_access)]
 )
-@router.get("/agents/{agent_id}", response_model=Agent)
+@router.get("/{agent_id}", response_model=Agent)
 def agent_info(
     agent_id: str,
-    access_key: Annotated[str | None, Header()],
+    access_key: Annotated[str, Depends(get_auth)],
 ):
     """Retrieve a specific agent by ID.
 
@@ -391,7 +388,7 @@ def agent_info(
 
 @router.get("/agent-info-by-accesskey", response_model=ExternalAgentInfo)
 def agent_info_by_access_key(
-    access_key: Annotated[str | None, Header()],
+    access_key: Annotated[str, Depends(get_auth)],
 ):
     """Resolve safe agent metadata from an external access key.
 
@@ -445,6 +442,11 @@ def agent_info_by_access_key(
 
 
 @router.get("/new-accesskey", response_model=AccessKey)
+@router.post(
+    "/{agent_id}/accesskeys/",
+    response_model=AccessKey,
+    dependencies=[Depends(require_user_has_agent_ownership)],
+)
 def new_access_key(
     name: str,
     agent_id: str,
@@ -471,7 +473,7 @@ def new_access_key(
 
 
 @router.delete(
-    "/agents/{agent_id}/accesskeys/{access_key_id}",
+    "/{agent_id}/accesskeys/{access_key_id}",
     response_model=list[AccessKey],
     dependencies=[Depends(require_user_has_agent_access)],
 )
@@ -489,7 +491,7 @@ def revoke_access_key(
 
 
 @router.get(
-    "/agents/{agent_id}/accesskeys",
+    "/{agent_id}/accesskeys",
     response_model=list[AccessKey],
     dependencies=[Depends(require_user_has_agent_access)],
 )
@@ -513,14 +515,13 @@ def get_access_keys(
 @router.get("/chat-accesskey", response_model=AccessKey)
 @router.get("/chat-access-key", response_model=AccessKey)
 @router.post(
-    "/agents/{agent_id}/accesskeys",
-    response_model=AccessKey,
+    "/{agent_id}/accesskeys",
     dependencies=[Depends(require_user_has_agent_access)],
 )
 def chat_access_key(
     agent: Annotated[Agent, Depends(agent_with_id)],
     user: Annotated[User, Depends(require_user)],
-):
+) -> AccessKey:
     require_user_has_agent_access(
         agent.id, user
     )  # Still in place because of the get routes

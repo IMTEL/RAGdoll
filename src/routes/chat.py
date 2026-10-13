@@ -6,11 +6,10 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
-from typing import Annotated
+from typing import TYPE_CHECKING
 
 from fastapi import (
     APIRouter,
-    Body,
     File,
     Form,
     HTTPException,
@@ -19,7 +18,6 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from src.models.agent import Agent
 
 from src.config import Config
 from src.models.chat.command import (
@@ -33,6 +31,10 @@ from src.transcribe import transcribe_audio
 from src.tts import get_tts_service
 from src.utils.path_dependencies import get_auth, has_agent_call_access
 from src.whisper_model import warmup_whisper_model
+
+
+if TYPE_CHECKING:
+    from src.models.agent import Agent
 
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
