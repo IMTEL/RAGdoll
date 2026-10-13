@@ -13,6 +13,7 @@ from fastapi import (
     UploadFile,
 )
 
+from src.utils.path_dependencies import get_auth
 from src.config import Config
 from src.context_upload import process_file_and_store
 from src.globals import agent_dao, auth_service
@@ -25,17 +26,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 config = Config()
-
-
-def optional_auth(request: Request) -> str | None:
-    """Return AuthJWT only if auth is enabled and header is present."""
-    auth_header = request.headers.get("authorization")
-    if not auth_header:
-        # If no header and auth is required, AuthJWT will handle the error
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=400, detail="Invalid header bearer token")
-    return auth_header[7:]
 
 
 def _process_document_background(
@@ -59,11 +49,13 @@ def _process_document_background(
         """Callback to update progress in progress_log."""
         for entry in progress_log:
             if entry.get("task_id") == task_id:
-                entry.update({
-                    "progress_percent": progress_percent,
-                    "message": message,
-                    "status": "processing",
-                })
+                entry.update(
+                    {
+                        "progress_percent": progress_percent,
+                        "message": message,
+                        "status": "processing",
+                    }
+                )
                 break
 
     try:
@@ -147,7 +139,7 @@ async def upload_document_for_agent(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),  # noqa: B008
-    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
+    authorize: Annotated[Optional[str], Depends(get_auth)] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
 
@@ -285,7 +277,7 @@ async def get_upload_status(task_id: str):
 @router.get("/documents/agent")
 async def get_documents_for_agent(
     agent_id: str,
-    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
+    authorize: Annotated[Optional[str], Depends(get_auth)] = None,
 ):
     """Retrieve all documents associated with a specific agent.
 
@@ -368,7 +360,7 @@ async def get_documents_for_agent(
 async def delete_document(
     document_id: str,
     agent_id: str,
-    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
+    authorize: Annotated[Optional[str], Depends(get_auth)] = None,
 ):
     """Delete a document and all its associated context chunks.
 
