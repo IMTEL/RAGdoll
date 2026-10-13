@@ -31,7 +31,7 @@ config = Config()
 app = FastAPI(
     title="Chat-Service Microservice API",
     description="Generate prompts with context and passing them to LLM.",
-    root_path=config.ROOT_PATH,
+    root_path=config.PROXY_PATH,
     version="1.0.0",
 )
 
