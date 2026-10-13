@@ -261,9 +261,9 @@ async def ask_with_speech(request: AskWithSpeechRequest, request_object: Request
 @router.post("/askTranscribe")
 async def ask_transcribe(
     request_object: Request,
-    audio: Annotated[UploadFile, File()],
-    data: Annotated[str, Body()] = Form(...),
-    stt_language: Annotated[str, Body()] = Form(None),
+    audio: UploadFile = File(...),  # noqa: B008
+    data: str = Form(...),
+    stt_language: str = Form(None),
 ):
     """Transcribe audio and process with agent in a single request.
 
