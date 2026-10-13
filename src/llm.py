@@ -121,6 +121,15 @@ class IdunLLM(LLM):
             raise LLMGenerationError("idun", self.model, str(e)) from e
 
 
+def _is_openai_reasoning_model(model: str) -> bool:
+    """True for OpenAI's reasoning models (o1, o3, o4-mini, gpt-5...).
+
+    They only accept their default temperature and answer 400 to any other value.
+    """
+    name = model.lower().removeprefix("openai/")
+    return name.startswith(("o1", "o3", "o4", "gpt-5"))
+
+
 class OpenAILLM(LLM):
     def __init__(self, model: str | None = None, api_key: str | None = None):
         """Initializes the LLM facade using the provided configuration."""
@@ -151,7 +160,10 @@ class OpenAILLM(LLM):
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=temperature,
+                # Reasoning models reject any temperature but their own default.
+                temperature=None
+                if _is_openai_reasoning_model(self.model)
+                else temperature,
                 max_completion_tokens=max_tokens,
             )
             return response.choices[0].message.content.strip()
