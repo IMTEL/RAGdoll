@@ -46,7 +46,7 @@ class Config:
             for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
             if origin.strip()
         ]
-
+        self.PROXY_PATH = os.getenv("PROXY_PATH", "/").strip("/")
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
@@ -138,12 +138,10 @@ class Config:
             "GOOGLE_CLIENT_SECRET", "set your secret here"
         )
 
-        self.FERNET_KEY = os.getenv("FERNET_KEY", "")
+        self.FERNET_KEY = os.getenv("FERNET_KEY", "").strip()
 
         if not self.FERNET_KEY:
             raise RuntimeError("FERNET_KEY is missing from environment variables")
-
-        self.FERNET_KEY = self.FERNET_KEY.strip()
 
         self._validate_collection_names()
 
