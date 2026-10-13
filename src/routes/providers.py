@@ -48,7 +48,11 @@ def get_supported_providers():
 
 
 @router.post(
-    "/get_models", response_model=list[Model], dependencies=[Depends(require_user)]
+    "/get_models",
+    response_model=list[Model],
+    dependencies=[Depends(require_user)],
+    deprecated=True,
+    responses={400: {"description": "Provider does not exist"}},
 )
 def fetch_models(
     payload: ProviderKeyRequest,
@@ -61,14 +65,33 @@ def fetch_models(
         raise HTTPException(status_code=400, detail=str(error)) from error
 
 
-@router.post(
-    "/get_models/{apiKeyId}",
-    response_model=list[Model],
+@router.get(
+    "/models/llm/{api_key_id}",
     dependencies=[Depends(require_user)],
+    responses={
+        400: {"description": "if the llm value can not be found"},
+        404: {"description": "If the key can not be found within the account"},
+    },
 )
-def fetch_models_with_api(apiKeyId: str, user: Annotated[User, Depends(require_user)]):
+def fetch_llm_models_with_api(
+    api_key_id: str, user: Annotated[User, Depends(require_user)]
+) -> list[Model]:
+    """Fetches the models accessible with a apiKey.
+
+    Args:
+        api_key_id (str): The id of thee api key
+        user (Annotated[User, Depends): The user fetched from the authorization header
+
+    Raises:
+        HTTPException: Forward of the LLM API error
+        HTTPException: 400, the value that is incorrect
+        HTTPException: 404, if the key can not be found within the user
+
+    Returns:
+        list[Model]: the models that can be fetched from the provider with the api key
+    """
     for api in user.api_keys:
-        if api.id == apiKeyId:
+        if api.id == api_key_id:
             try:
                 return list_llm_models(api.provider, decrypt_value(api.key_encrypted))
             except LLMAPIError as error:

@@ -1,10 +1,9 @@
 import contextlib
-import datetime
 from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Request
 
-from src.globals import agent_dao, auth_service
+from src.globals import access_service, agent_dao, auth_service
 from src.models.agent import Agent
 from src.models.users.user import User
 
@@ -112,26 +111,8 @@ def require_user_has_agent_access(
     return True
 
 
-def _contains_valid_access_key(agent: Agent, access_key: str) -> bool:
-    """Helper function to check if a access key is contained within a agent.
-
-    Args:
-        agent (Agent): The agent
-        access_key (str): The access_key
-
-    Returns:
-        bool: returns true or false depending if the access key is valid for the agent
-    """
-    for key in agent.access_key:
-        if key.key == access_key:
-            return key.expiry_date == None or (
-                key.expiry_date > datetime.datetime.now(tz=datetime.UTC)
-            )
-    return False
-
-
 def agent_with_id(agent_id: str) -> Agent:
-    """Can be used as a dependency with the arguemnt "agent_id".
+    """Can be used as a dependency with the argument "agent_id".
 
     Args:
         agent_id (str): A agent ID
@@ -149,26 +130,29 @@ def agent_with_id(agent_id: str) -> Agent:
 
 
 def has_agent_call_access(
-    agent_id: str, authorize: Annotated[User | str, Depends(get_optional_user)]
-) -> Literal[True]:
+    agent_id: str, bearer_token: Annotated[str, Depends(get_auth)]
+) -> Agent:
     """Checks if a access token or a user token has access token to the agent.
 
     Args:
         agent_id (str): the agent id
-        authorize (Annotated[str, Depends): the token or user
+        bearer_token (Annotated[str, Depends): the token or user
 
     Raises:
         HTTPException: 403 if the user or access token is not authorized.
 
     Returns:
-        Literal[True]: _description_
+        Agent: The agent they have access to
     """
+    authorize = get_optional_user(bearer_token)
     if authorize == None:
         raise _not_authorized
+
     if isinstance(authorize, User):
-        require_user_has_agent_access(agent_id, authorize)
+        auth_service.auth(agent_id, bearer_token)
     else:
-        agent = agent_with_id(agent_id)
-        if not _contains_valid_access_key(agent, authorize):
-            raise _not_authorized
-    return True
+        if access_service.authenticate(agent_id, authorize):
+            raise HTTPException(
+                status_code=400, detail="You are not authorized for this agent"
+            )
+    return agent_with_id(agent_id)

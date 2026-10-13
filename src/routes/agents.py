@@ -72,20 +72,6 @@ class ExternalAgentInfo(BaseModel):
     roles: list[Role]
 
 
-def _access_key_valid_for_agent(agent: Agent, access_key: str | None) -> bool:
-    normalized_key = access_key.strip() if access_key else None
-    if not normalized_key:
-        return False
-
-    now = datetime.datetime.now(tz=datetime.UTC)
-    for stored_key in agent.access_key:
-        if stored_key.key != normalized_key:
-            continue
-        return stored_key.expiry_date is None or now < stored_key.expiry_date
-    return False
-
-
-# Replace Update-agent is gonna be replaced with a patch request down the line
 @router.post("/agents")
 def create_agent(agent: Agent, user: Annotated[User, Depends(require_user)]) -> Agent:
     """Creates a new agent.
@@ -124,40 +110,33 @@ def update_agent(
     """Update existing agent.
 
     Args:
-        agent_id (str): _description_
-        agent (Agent): _description_
-        user (Annotated[User, Depends): _description_
+        updated_agent (Agent): The updated agent
+        existing_agent (Agent): The existing agent within the repository
+        user (Annotated[User, Depends): The current user
 
     Raises:
-        HTTPException: _description_
+        HTTPException: 404 if the AgentID is invalid
         HTTPException: _description_
 
     Returns:
         _type_: _description_
     """
     updated_agent.id = existing_agent.id
-    try:
-        if not updated_agent.llm_provider:
-            updated_agent.llm_provider = existing_agent.llm_provider
-        if not updated_agent.llm_model or existing_agent.llm_model == "none":
-            updated_agent.llm_provider = existing_agent.llm_provider
-            updated_agent.llm_model = existing_agent.llm_model
-        if not updated_agent.llm_api_key:
-            updated_agent.llm_api_key = existing_agent.llm_api_key
-        if not updated_agent.embedding_api_key:
-            updated_agent.embedding_api_key = existing_agent.embedding_api_key
-        updated_agent.access_key = existing_agent.access_key
+    if not updated_agent.llm_provider:
+        updated_agent.llm_provider = existing_agent.llm_provider
+    if not updated_agent.llm_model or existing_agent.llm_model == "none":
+        updated_agent.llm_provider = existing_agent.llm_provider
+        updated_agent.llm_model = existing_agent.llm_model
+    if not updated_agent.llm_api_key:
+        updated_agent.llm_api_key = existing_agent.llm_api_key
+    if not updated_agent.embedding_api_key:
+        updated_agent.embedding_api_key = existing_agent.embedding_api_key
+    updated_agent.access_key = existing_agent.access_key
 
-        updated_agent = agent_dao.add_agent(updated_agent)
-        if updated_agent.id not in user.owned_agents:
-            return _scrub_agent_api_keys(updated_agent)
-        return updated_agent
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=404,
-            detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates",
-        ) from e
+    updated_agent = agent_dao.add_agent(updated_agent)
+    if updated_agent.id not in user.owned_agents:
+        return _scrub_agent_api_keys(updated_agent)
+    return updated_agent
 
 
 # Get all agents
@@ -183,7 +162,7 @@ def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
     elif isinstance(access, str):
         all_agents = agent_dao.get_agents()
         for agent in all_agents:
-            if _access_key_valid_for_agent(agent, access):
+            if access_service.authenticate(agent.id, access):
                 return [
                     ExternalAgentInfo(
                         agent_id=agent.id or "", name=agent.name, roles=agent.roles
@@ -426,7 +405,11 @@ def agent_info_by_access_key(
     expired_keys = 0
     has_header = bool(access_key and access_key.strip())
     now = datetime.datetime.now(tz=datetime.UTC)
-
+    if not (access_key and access_key.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="You need a access token in the authorization header to fetch agents",
+        )
     for agent in agents:
         total_keys += len(agent.access_key)
         for stored_key in agent.access_key:
@@ -434,7 +417,7 @@ def agent_info_by_access_key(
                 active_keys += 1
             else:
                 expired_keys += 1
-        if _access_key_valid_for_agent(agent, access_key):
+        if access_service.authenticate(agent, access_key):
             return ExternalAgentInfo(
                 agent_id=agent.id or "",
                 name=agent.name,
