@@ -1,24 +1,29 @@
+import datetime
 import logging
-from datetime import datetime, timedelta
-from typing import Annotated, List
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from src.globals import access_service, agent_dao, user_dao
-from src.llm import list_llm_models
 from src.models.accesskey import AccessKey
 from src.models.agent import Agent, Role
-from src.models.errors.embedding_error import EmbeddingAPIError, EmbeddingError
-from src.models.errors.llm_error import LLMAPIError
-from src.models.model import Model
 from src.models.users.user import User
-from src.rag_service.embeddings import list_embedding_models
-#Bad practice, but makes every dependency accessible without 6 different imports
-from src.utils.path_dependencies import *
 
-router = APIRouter(tags=["Agents"])
+# Bad practice, but makes every dependency accessible without 6 different imports
+from src.utils.path_dependencies import (
+    agent_with_id,
+    get_optional_user,
+    has_agent_call_access,
+    require_user,
+    require_user_has_agent_access,
+    require_user_has_agent_ownership,
+)
+
+
+router = APIRouter(prefix="/agents", tags=["Agents"])
 logger = logging.getLogger(__name__)
+
 
 def _public_user(user: User, role: str | None = None) -> dict:
     return {
@@ -36,13 +41,13 @@ def _scrub_agent_api_keys(agent: Agent) -> Agent:
     agent_copy.embedding_api_key = ""
     return agent_copy
 
+
 class UserSearchResult(BaseModel):
     id: str
     name: str | None = None
     email: str | None = None
     picture: str | None = None
     role: str | None = None
-
 
 
 class CollaboratorInviteRequest(BaseModel):
@@ -72,7 +77,7 @@ def _access_key_valid_for_agent(agent: Agent, access_key: str | None) -> bool:
     if not normalized_key:
         return False
 
-    now = datetime.now()
+    now = datetime.datetime.now(tz=datetime.UTC)
     for stored_key in agent.access_key:
         if stored_key.key != normalized_key:
             continue
@@ -80,88 +85,71 @@ def _access_key_valid_for_agent(agent: Agent, access_key: str | None) -> bool:
     return False
 
 
-def _map_embedding_api_error(error: EmbeddingAPIError) -> int:
-    message = str(error.original_error).lower() if error.original_error else ""
-    if any(keyword in message for keyword in ("quota", "rate limit", "429")):
-        return 429
-    if any(
-        keyword in message
-        for keyword in (
-            "unauthorized",
-            "forbidden",
-            "authentication",
-            "api key",
-            "permission",
-        )
-    ):
-        return 401
-    return 400
-
-#Replace Update-agent is gonna be replaced with a patch request down the line
-@router.post("/agents", response_model=Agent)
-def create_agent(
-    agent: Agent, user: Annotated[User, Depends(require_user)]
-):
-    """Create a new agent configuration.
+# Replace Update-agent is gonna be replaced with a patch request down the line
+@router.post("/agents")
+def create_agent(agent: Agent, user: Annotated[User, Depends(require_user)]) -> Agent:
+    """Creates a new agent.
 
     Args:
-        agent (Agent): The agent configuration to create
-        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
+        agent (Agent): The agent that will be created. ID will be generated when creating
+        user (Annotated[User, Depends): The user fetched by the authorization token
+
+    Raises:
+        HTTPException: If
 
     Returns:
-        Agent: The created agent
+        Agent: _description_
     """
     agent.id = None
-    try:        
-        # Check if agent exists
-        # Authenticate and get user
-        agent = agent_dao.add_agent(agent)
-        # Add new agent id to owned agents
-        user.owned_agents.append(agent.id)
-        user_dao.set_user(user)
-        return agent
+    agent = agent_dao.add_agent(agent)
+    # Add new agent id to owned agents
+    user.owned_agents.append(agent.id)
+    user_dao.set_user(user)
+    return agent
 
-    except ValueError as e:
-        raise HTTPException(
-            status_code=404,
-            detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates",
-        ) from e
 
-@router.patch("/agents/{agent_id}", dependencies=[Depends(require_user_has_agent_access)], response_model=Agent)
-@router.post("/agents/{agent_id}", dependencies=[Depends(require_user_has_agent_access)], response_model=Agent)
+@router.patch(
+    "/agents/{agent_id}",
+    dependencies=[Depends(require_user_has_agent_access)],
+)
+@router.post(
+    "/agents/{agent_id}",
+    dependencies=[Depends(require_user_has_agent_access)],
+)
 def update_agent(
-    agent_id : str,
-    agent: Agent, 
-    user: Annotated[User, Depends(require_user)]
-):
-    """Update existing agent_id
+    updated_agent: Agent,
+    existing_agent: Annotated[Agent, Depends(agent_with_id)],
+    user: Annotated[User, Depends(require_user)],
+) -> Agent:
+    """Update existing agent.
 
     Args:
-        agent (Agent): The agent configuration to create
-        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
+        agent_id (str): _description_
+        agent (Agent): _description_
+        user (Annotated[User, Depends): _description_
+
+    Raises:
+        HTTPException: _description_
+        HTTPException: _description_
 
     Returns:
-        Agent: The created agent
+        _type_: _description_
     """
+    updated_agent.id = existing_agent.id
     try:
-        # Check if agent exists
-        existing_agent = agent_dao.get_agent_by_id(agent_id)
-        if existing_agent is None:
-            raise HTTPException(status_code=403)
+        if not updated_agent.llm_provider:
+            updated_agent.llm_provider = existing_agent.llm_provider
+        if not updated_agent.llm_model or existing_agent.llm_model == "none":
+            updated_agent.llm_provider = existing_agent.llm_provider
+            updated_agent.llm_model = existing_agent.llm_model
+        if not updated_agent.llm_api_key:
+            updated_agent.llm_api_key = existing_agent.llm_api_key
+        if not updated_agent.embedding_api_key:
+            updated_agent.embedding_api_key = existing_agent.embedding_api_key
+        updated_agent.access_key = existing_agent.access_key
 
-        if not agent.llm_provider:
-            agent.llm_provider = existing_agent.llm_provider
-        if not agent.llm_model or agent.llm_model == "none":
-            agent.llm_provider = existing_agent.llm_provider
-            agent.llm_model = existing_agent.llm_model
-        if not agent.llm_api_key:
-            agent.llm_api_key = existing_agent.llm_api_key
-        if not agent.embedding_api_key:
-            agent.embedding_api_key = existing_agent.embedding_api_key
-        agent.access_key = existing_agent.access_key
-
-        updated_agent = agent_dao.add_agent(agent)
-        if agent.id not in user.owned_agents:
+        updated_agent = agent_dao.add_agent(updated_agent)
+        if updated_agent.id not in user.owned_agents:
             return _scrub_agent_api_keys(updated_agent)
         return updated_agent
 
@@ -171,6 +159,7 @@ def update_agent(
             detail="Invalid agentID, needs to be empty for new agents or an existing ID for updates",
         ) from e
 
+
 # Get all agents
 @router.get("/agents", response_model=list[Agent])
 def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
@@ -179,7 +168,7 @@ def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
     Returns:
         list[Agent]: All stored agents
     """
-    agents : List = []
+    agents: list = []
     if isinstance(access, User):
         agents += [
             agent
@@ -195,12 +184,18 @@ def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
         all_agents = agent_dao.get_agents()
         for agent in all_agents:
             if _access_key_valid_for_agent(agent, access):
-                return [ExternalAgentInfo(agent_id=agent.id or "",name=agent.name,roles=agent.roles)]
+                return [
+                    ExternalAgentInfo(
+                        agent_id=agent.id or "", name=agent.name, roles=agent.roles
+                    )
+                ]
     return agents
 
 
 # Get a specific agent by ID
-@router.delete("/agents/{agent_id}", dependencies=[Depends(require_user_has_agent_ownership)])
+@router.delete(
+    "/agents/{agent_id}", dependencies=[Depends(require_user_has_agent_ownership)]
+)
 def delete_agent(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
@@ -209,11 +204,7 @@ def delete_agent(
 
     Args:
         agent_id (str): The unique identifier of the agent
-        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
-
-    Returns:
-        HTTP respone code
-
+        user (Annotated[User, Depends(require_user)]): The user from the authorization token
     Raises:
         HTTPException: If agent not found
     """
@@ -228,34 +219,34 @@ def delete_agent(
 
 
 # Get a specific agent by ID
-@router.get("/agents/{agent_id}", response_model=Agent, dependencies=[Depends(has_agent_call_access)])
+@router.get(
+    "/agents/{agent_id}",
+    response_model=Agent,
+    dependencies=[Depends(has_agent_call_access)],
+)
 def get_agent(
-    agent : Annotated[Agent, Depends(agent_with_id)],
+    agent: Annotated[Agent, Depends(agent_with_id)],
     user: Annotated[User, Depends(get_optional_user)],
 ):
     """Retrieve a specific agent by ID.
 
     Args:
         agent_id (str): The unique identifier of the agent
-        authorize (Annotated[AuthJWT, Depends()]): Jwt token object
+        authorize (Annotated[User, Depends()]): The user fetched from the token
 
     Returns:
         Agent: The requested agent
-
-    Raises:
-        HTTPException: If agent not found
     """
-    
-    if agent is None:
-        raise HTTPException(
-            status_code=404, detail=f"Agent with id {agent_id} not found"
-        )
     if agent.id not in user.owned_agents:
         return _scrub_agent_api_keys(agent)
     return agent
 
 
-@router.get("/users/search", response_model=list[UserSearchResult], dependencies=[Depends(require_user)])
+@router.get(
+    "/users/search",
+    response_model=list[UserSearchResult],
+    dependencies=[Depends(require_user)],
+)
 def search_users(
     q: str,
     limit: int = 10,
@@ -271,7 +262,7 @@ def search_users(
 @router.get(
     "/agents/{agent_id}/collaborators",
     response_model=CollaboratorsResponse,
-    dependencies=[Depends(require_user_has_agent_access)]
+    dependencies=[Depends(require_user_has_agent_access)],
 )
 def get_collaborators(
     agent_id: str,
@@ -297,13 +288,28 @@ def get_collaborators(
 @router.post(
     "/agents/{agent_id}/collaborators",
     response_model=CollaboratorsResponse,
-    dependencies=[Depends(require_user_has_agent_ownership)]
+    dependencies=[Depends(require_user_has_agent_ownership)],
 )
 def add_collaborator(
     agent_id: str,
     payload: CollaboratorInviteRequest,
     owner: Annotated[User, Depends(require_user)],
 ):
+    """Adds a collaborator to the agent.
+
+    Args:
+        agent_id (str): the agent_id
+        payload (CollaboratorInviteRequest): the
+        owner (Annotated[User, Depends): _description_
+
+    Raises:
+        HTTPException: 404 if the user is not found
+        HTTPException: 400 if the user is the owner
+        HTTPException: 400 if the user already owns the agent
+
+    Returns:
+        _type_: _description_
+    """
     invited_user = user_dao.get_user_by_id(payload.user_id)
     if invited_user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -316,10 +322,11 @@ def add_collaborator(
         user_dao.set_user(invited_user)
     return get_collaborators(agent_id, owner)
 
+
 @router.delete(
     "/agents/{agent_id}/collaborators/{user_id}",
     response_model=CollaboratorsResponse,
-    dependencies=[Depends(require_user_has_agent_ownership)]
+    dependencies=[Depends(require_user_has_agent_ownership)],
 )
 def remove_collaborator(
     agent_id: str,
@@ -336,11 +343,26 @@ def remove_collaborator(
     return get_collaborators(agent_id, owner)
 
 
-@router.post("/agents/{agent_id}/leave", dependencies=[Depends(require_user_has_agent_access)])
+@router.post(
+    "/agents/{agent_id}/leave", dependencies=[Depends(require_user_has_agent_access)]
+)
 def leave_agent(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
 ):
+    """Leaves the user from the agent.
+
+    Args:
+        agent_id (str): the string of the agent id
+        user (Annotated[User, Depends): The user fetched from the Authorization headers
+
+    Raises:
+        HTTPException: 400 if the user is the owner
+        HTTPException: 404 if the user is not a collaborator of the agent
+
+    Returns:
+        _type_: _description_
+    """
     if agent_id in user.owned_agents:
         raise HTTPException(
             status_code=400,
@@ -354,9 +376,10 @@ def leave_agent(
 
 
 # Get a specific agent by ID using AccessKey for authentication
-@router.get("/agent-info", response_model=Agent, dependencies=[Depends(has_agent_call_access)])
+@router.get(
+    "/agent-info", response_model=Agent, dependencies=[Depends(has_agent_call_access)]
+)
 @router.get("/agents/{agent_id}", response_model=Agent)
-
 def agent_info(
     agent_id: str,
     access_key: Annotated[str | None, Header()],
@@ -402,7 +425,7 @@ def agent_info_by_access_key(
     active_keys = 0
     expired_keys = 0
     has_header = bool(access_key and access_key.strip())
-    now = datetime.now()
+    now = datetime.datetime.now(tz=datetime.UTC)
 
     for agent in agents:
         total_keys += len(agent.access_key)
@@ -437,6 +460,7 @@ def agent_info_by_access_key(
 
 # TODO : implement a better system of returning status codes on exceptions
 
+
 @router.get("/new-accesskey", response_model=AccessKey)
 def new_access_key(
     name: str,
@@ -450,9 +474,9 @@ def new_access_key(
         if expiry_date is None:
             return access_service.generate_accesskey(name, None, agent_id, view_once)
         else:
-            expiry_date_formatted = datetime.fromisoformat(expiry_date).replace(
-                tzinfo=None
-            )
+            expiry_date_formatted = datetime.datetime.fromisoformat(
+                expiry_date
+            ).replace(tzinfo=None)
             return access_service.generate_accesskey(
                 name, expiry_date_formatted, agent_id, view_once
             )
@@ -463,14 +487,17 @@ def new_access_key(
         raise HTTPException(status_code=500, detail=f"{e}") from e
 
 
-@router.get("/revoke-accesskey")
-@router.delete("/agents/{agent_id}/accesskeys/{access_key_id}", response_model=list[AccessKey], dependencies=[Depends(require_user_has_agent_access)])
+@router.delete(
+    "/agents/{agent_id}/accesskeys/{access_key_id}",
+    response_model=list[AccessKey],
+    dependencies=[Depends(require_user_has_agent_access)],
+)
 def revoke_access_key(
     access_key_id: str,
     agent: Annotated[Agent, Depends(agent_with_id)],
     user: Annotated[User, Depends(require_user)],
 ):
-    #Still here because old path
+    # Still here because old path
     require_user_has_agent_access(agent.id, user)
     try:
         return access_service.revoke_key(agent.id, access_key_id)
@@ -478,8 +505,11 @@ def revoke_access_key(
         raise HTTPException(status_code=500, detail=f"{e}") from e
 
 
-@router.get("/get-accesskeys", response_model=list[AccessKey])
-@router.get("/agents/{agent_id}/accesskeys", response_model=list[AccessKey], dependencies=[Depends(require_user_has_agent_access)])
+@router.get(
+    "/agents/{agent_id}/accesskeys",
+    response_model=list[AccessKey],
+    dependencies=[Depends(require_user_has_agent_access)],
+)
 def get_access_keys(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
@@ -499,16 +529,22 @@ def get_access_keys(
 
 @router.get("/chat-accesskey", response_model=AccessKey)
 @router.get("/chat-access-key", response_model=AccessKey)
-@router.post("/agents/{agent_id}/accesskeys", response_model=AccessKey, dependencies=[Depends(require_user_has_agent_access)])
+@router.post(
+    "/agents/{agent_id}/accesskeys",
+    response_model=AccessKey,
+    dependencies=[Depends(require_user_has_agent_access)],
+)
 def chat_access_key(
     agent: Annotated[Agent, Depends(agent_with_id)],
     user: Annotated[User, Depends(require_user)],
 ):
-    require_user_has_agent_access(agent.id, user); #Still in place because of the get routes
+    require_user_has_agent_access(
+        agent.id, user
+    )  # Still in place because of the get routes
 
     user_key_suffix = user.id if user and user.id else "demo"
     key_name = f"Chat Access Key - {user_key_suffix}"
-    now = datetime.now()
+    now = datetime.datetime.now(tz=datetime.UTC)
 
     for access_key in agent.access_key:
         if (
@@ -520,33 +556,6 @@ def chat_access_key(
 
     return access_service.generate_accesskey(
         key_name,
-        now + timedelta(days=2),
+        now + datetime.timedelta(days=2),
         agent.id,
     )
-
-
-@router.post("/get_models", response_model=list[Model], dependencies=[Depends(require_user)])
-def fetch_models(
-    payload: ProviderKeyRequest,
-):
-    try:
-        return list_llm_models(payload.provider, payload.api_key)
-    except LLMAPIError as error:
-        raise HTTPException(status_code=error.status_code, detail=str(error)) from error
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-
-@router.post("/get_embedding_models", response_model=list[str], dependencies=[Depends(require_user)])
-def fetch_embedding_models(
-    payload: ProviderKeyRequest,
-):
-    try:
-        return list_embedding_models(payload.provider, payload.api_key)
-    except EmbeddingAPIError as error:
-        status_code = _map_embedding_api_error(error)
-        raise HTTPException(status_code=status_code, detail=str(error)) from error
-    except EmbeddingError as error:
-        raise HTTPException(status_code=502, detail=str(error)) from error
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
