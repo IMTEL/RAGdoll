@@ -45,9 +45,6 @@ class KeycloakAuthProvider(AuthProvider):
         self.jwks_client = PyJWKClient(f"{issuer}/protocol/openid-connect/certs")
         self.client_id = client_id
         self.user_db = user_db
-        self._jwks: dict[str, Any] | None = None
-        self._jwks_loaded_at = 0.0
-        self._jwks_ttl_seconds = 300
 
     def get_authenticated_user(self, token: str) -> User | None:
         user_data = self.authenticate_user(token)
