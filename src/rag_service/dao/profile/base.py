@@ -9,9 +9,11 @@ from src.models.profiles import JobSeekerProfile
 EDITABLE_FIELDS = (
     "label",
     "age_range",
+    "experience_level",
     "education",
     "work_experience",
     "languages",
+    "practice_areas",
     "notes",
 )
 

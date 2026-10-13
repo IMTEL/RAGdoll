@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from src.models.profiles import AgeRange, JobSeekerProfile
+from src.models.profiles import AgeRange, ExperienceLevel, JobSeekerProfile
 from src.models.users.user import User
 from src.rag_service.dao.factory import get_profile_dao
 from src.rag_service.dao.profile.base import ProfileDAO
@@ -23,6 +23,9 @@ router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 Language = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)
+]
+PracticeArea = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
 ]
 
 
@@ -37,9 +40,11 @@ class ProfileRequest(BaseModel):
 
     label: str = Field(..., min_length=1, max_length=100)
     age_range: AgeRange | None = None
+    experience_level: ExperienceLevel | None = None
     education: str = Field(default="", max_length=500)
     work_experience: str = Field(default="", max_length=1000)
     languages: list[Language] = Field(default_factory=list, max_length=20)
+    practice_areas: list[PracticeArea] = Field(default_factory=list, max_length=20)
     notes: str = Field(default="", max_length=2000)
 
 

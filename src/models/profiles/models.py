@@ -8,6 +8,10 @@ from pydantic import BaseModel, Field
 
 AgeRange = Literal["18-24", "25-29", "30-39", "40-49", "50-59", "60+"]
 
+# How much work experience the job seeker has: none, a little (under a year),
+# some (1-5 years) or a lot (over 5 years).
+ExperienceLevel = Literal["none", "little", "some", "extensive"]
+
 
 class JobSeekerProfile(BaseModel):
     """Anonymous job seeker profile owned by a counsellor.
@@ -22,9 +26,11 @@ class JobSeekerProfile(BaseModel):
         owner_id: ID of the user (counsellor) who owns the profile
         label: Short name for the profile, e.g. "Profil A"
         age_range: Age range of the job seeker
+        experience_level: How much work experience the job seeker has
         education: Highest or most relevant education
         work_experience: Summary of previous work experience
         languages: Languages the job seeker speaks
+        practice_areas: What the job seeker wants to practise, e.g. handling nerves
         notes: Free-text notes for the counsellor
         created_at: Timestamp when the profile was created
         updated_at: Timestamp when the profile was last modified
@@ -34,11 +40,17 @@ class JobSeekerProfile(BaseModel):
     owner_id: str = Field(..., description="User that owns this profile")
     label: str = Field(..., min_length=1, max_length=100, description="Profile name")
     age_range: AgeRange | None = Field(default=None, description="Age range")
+    experience_level: ExperienceLevel | None = Field(
+        default=None, description="Amount of work experience"
+    )
     education: str = Field(default="", max_length=500, description="Education")
     work_experience: str = Field(
         default="", max_length=1000, description="Work experience"
     )
     languages: list[str] = Field(default_factory=list, description="Languages")
+    practice_areas: list[str] = Field(
+        default_factory=list, description="What the job seeker wants to practise"
+    )
     notes: str = Field(default="", max_length=2000, description="Free-text notes")
     created_at: datetime = Field(
         default_factory=datetime.now, description="Creation timestamp"
