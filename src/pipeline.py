@@ -333,7 +333,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         model=agent.llm_model,
         api_key=agent.llm_api_key,
     )
-    response = language_model.generate(prompt)
+    # Only the temperature: the agent's llm_max_tokens could cut off reasoning models' replies.
+    response = language_model.generate(prompt, temperature=agent.llm_temperature)
 
     parsed_response, function_calls = _parse_llm_response(
         response, allowed_function_names
