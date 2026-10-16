@@ -1,10 +1,10 @@
-import requests
 import base64
 import logging
 from dataclasses import dataclass
 from typing import Any
 
 import jwt
+import requests
 from jwt import PyJWKClient
 
 from src.auth.auth_provider.base import AuthProvider
@@ -13,6 +13,7 @@ from src.rag_service.dao.user.base import UserDao
 
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class KeycloakUserData:
@@ -27,9 +28,7 @@ class KeycloakAuthProvider(AuthProvider):
         self,
         issuer: str,
         allowed_issuers: list[str] | None,
-        jwks_url: str,
         client_id: str,
-        verify_audience: bool,
         user_db: UserDao,
     ):
         self.allowed_issuers = {
@@ -44,13 +43,8 @@ class KeycloakAuthProvider(AuthProvider):
         # This should be fetched trough the oidc_config instead, however docker connection issues is causing some issues with
         # Localhost development testing
         self.jwks_client = PyJWKClient(f"{issuer}/protocol/openid-connect/certs")
-        self.jwks_url = jwks_url
         self.client_id = client_id
-        self.verify_audience = verify_audience
         self.user_db = user_db
-        self._jwks: dict[str, Any] | None = None
-        self._jwks_loaded_at = 0.0
-        self._jwks_ttl_seconds = 300
 
     def get_authenticated_user(self, token: str) -> User | None:
         user_data = self.authenticate_user(token)
@@ -91,10 +85,9 @@ class KeycloakAuthProvider(AuthProvider):
             token,
             key=signing_key,
             audience=self.client_id,
-            algorithms=self.signing_algos
+            algorithms=self.signing_algos,
         )
         return data
-
 
     @staticmethod
     def _base64url_decode(value: str) -> bytes:

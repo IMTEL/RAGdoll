@@ -1,17 +1,13 @@
-# ruff: noqa: I001
-import os
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from src.constants import (
     SUPPORTED_EMBEDDING_PROVIDERS,
     SUPPORTED_LLM_PROVIDERS,
 )
-from src.globals import auth_service, user_dao
-
+from src.globals import user_dao
 from src.models.users.api_key import (
     UserAPIKey,
     UserAPIKeyDetailResponse,
@@ -19,38 +15,12 @@ from src.models.users.api_key import (
 )
 from src.models.users.user import User
 from src.utils.crypto_utils import encrypt_str
-
-router = APIRouter()
-
-
-def optional_auth(request: Request) -> str | None:
-    """Return AuthJWT only if auth is enabled and header is present."""
-    auth_header = request.headers.get("authorization")
-    if not auth_header:
-        # If no header and auth is required, AuthJWT will handle the error
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=400, detail="Invalid header bearer token")
-    return auth_header[7:]
+from src.utils.path_dependencies import require_user
 
 
-def _get_user_or_demo(authorize: Optional[str]) -> User:
-    """Get authenticated user or demo user if auth is disabled."""
-    if os.getenv("DISABLE_AUTH", "").lower() == "true" or authorize is None:
-        demo_user = user_dao.get_user_by_provider("demo", "demo")
-        if not demo_user:
-            demo_user = User(
-                email="demo@example.com",
-                name="Demo User",
-                api_keys=[],
-                owned_agents=[],
-                auth_provider="demo",
-                provider_user_id="demo",
-            )
-            demo_user = user_dao.set_user(demo_user)
-        return demo_user
-
-    return auth_service.get_authenticated_user(authorize)
+router = APIRouter(
+    prefix="/api-keys", tags=["APIKeys"], dependencies=[Depends(require_user)]
+)
 
 
 LLM_PROVIDER_IDS = {item["id"] for item in SUPPORTED_LLM_PROVIDERS}
@@ -72,23 +42,22 @@ class CreateAPIKeyRequest(BaseModel):
     raw_key: str
 
 
-@router.get("/api-keys", response_model=list[UserAPIKeyResponse])
+@router.get("", response_model=list[UserAPIKeyResponse])
 def list_api_keys(
-    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
+    user: Annotated[User, Depends(require_user)],
 ):
-    user = _get_user_or_demo(authorize)
     sorted_keys = sorted(user.api_keys, key=lambda item: item.created_at, reverse=True)
     return [key.to_response() for key in sorted_keys]
 
 
 @router.post(
-    "/api-keys",
+    "",
     response_model=UserAPIKeyResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_api_key(
     payload: CreateAPIKeyRequest,
-    authorize: Annotated[Optional[str], Depends(optional_auth)] = None,
+    user: Annotated[User, Depends(require_user)],
 ):
     label = payload.label.strip()
     if not label:
@@ -116,8 +85,6 @@ def create_api_key(
             detail="Provider must support both LLM and embedding usage",
         )
 
-    user = _get_user_or_demo(authorize)
-
     api_key = UserAPIKey(
         label=label,
         provider=provider,
@@ -132,11 +99,8 @@ def create_api_key(
     return api_key.to_response()
 
 
-@router.get("/api-keys/{key_id}", response_model=UserAPIKeyDetailResponse)
-def get_api_key_detail(
-    key_id: str, authorize: Annotated[Optional[str], Depends(optional_auth)] = None
-):
-    user = _get_user_or_demo(authorize)
+@router.get("/{key_id}", response_model=UserAPIKeyDetailResponse)
+def get_api_key_detail(key_id: str, user: Annotated[User, Depends(require_user)]):
     for key in user.api_keys:
         if key.id == key_id:
             return key.to_detail()
@@ -144,17 +108,12 @@ def get_api_key_detail(
     raise HTTPException(status_code=404, detail="API key not found")
 
 
-@router.delete("/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_api_key(
-    key_id: str, authorize: Annotated[Optional[str], Depends(optional_auth)] = None
-):
-    user = _get_user_or_demo(authorize)
-    
+@router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_api_key(key_id: str, user: Annotated[User, Depends(require_user)]):
     # Find and remove the API key
     for i, key in enumerate(user.api_keys):
         if key.id == key_id:
             user.api_keys.pop(i)
             user_dao.set_user(user)
             return
-
     raise HTTPException(status_code=404, detail="API key not found")

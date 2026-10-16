@@ -1,6 +1,6 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
-import uuid
 
 from fastapi import APIRouter, Header, HTTPException
 
@@ -12,7 +12,7 @@ from src.utils.global_logs import progress_log
 
 
 # Define a router for progress-related endpoints
-router = APIRouter()
+router = APIRouter(prefix="/api/progress", tags=["Progress"])
 DEFAULT_SESSION_ID = "default"
 PROGRESS_TTL = timedelta(hours=24)
 
@@ -80,13 +80,10 @@ def get_recent_progress_for_session(
         and entry.get("session_id", DEFAULT_SESSION_ID) == normalized_session_id
     ]
     entries.sort(key=_entry_timestamp, reverse=True)
-    return [
-        ProgressData.model_validate(entry)
-        for entry in entries[:limit]
-    ]
+    return [ProgressData.model_validate(entry) for entry in entries[:limit]]
 
 
-@router.post("/api/progress/initializeTasks")
+@router.post("/initializeTasks")
 def receive_hierarchy(task_hierarchy: ListProgressData):
     """Initializes a list of tasks with their subtasks and steps."""
     try:
@@ -116,7 +113,7 @@ def receive_hierarchy(task_hierarchy: ListProgressData):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.get("/api/progress/session")
+@router.get("/session")
 def create_progress_session(
     agent_id: str,
     access_key: Annotated[str | None, Header()] = None,
@@ -130,7 +127,7 @@ def create_progress_session(
     }
 
 
-@router.post("/api/progress/updateTask")
+@router.post("/updateTask")
 def receive_progress(progress: ProgressData):
     """Handles task progress updates (started/complete) and stores them."""
     _prune_expired_progress()
@@ -197,7 +194,7 @@ def receive_progress(progress: ProgressData):
         raise HTTPException(400, "Status must be 'started', 'pending', or 'complete'.")
 
 
-@router.get("/api/progress")
+@router.get("")
 def get_progress_log(
     agent_id: str,
     session_id: str | None = None,

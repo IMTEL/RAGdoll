@@ -71,7 +71,7 @@ services:
 
   # FastAPI Backend Service
   backend:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     image: ragdoll-backend:latest
@@ -81,7 +81,7 @@ services:
       - "8000:8000"
     volumes:
       # Mount source code for hot-reload during development
-      - .:/app
+      - ./src:/app/src
       - ./temp_files:/app/temp_files
       # Volume for local FAISS vector indices
       - faiss_indices:/data/faiss_indices
@@ -97,11 +97,8 @@ services:
       - KEYCLOAK_REALM=ragdoll
       - KEYCLOAK_CLIENT_ID=ragdoll-config
       - KEYCLOAK_CLIENT_SECRET=ragdoll-config-secret
-      - KEYCLOAK_VERIFY_AUDIENCE=false
       - KEYCLOAK_ISSUER=http://keycloak:8080/realms/ragdoll
       - KEYCLOAK_ALLOWED_ISSUERS=http://keycloak:8080/realms/ragdoll,http://localhost/realms/ragdoll
-      - KEYCLOAK_JWKS_URL=http://keycloak:8080/realms/ragdoll/protocol/openid-connect/certs
-      - AUTH_BOOTSTRAP_ENABLED=${AUTH_BOOTSTRAP_ENABLED:-true}
       - WHISPER_MODEL=${WHISPER_MODEL:-base}
       - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
       - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
@@ -156,7 +153,11 @@ services:
     environment:
       - LT_LOAD_ONLY=${LT_LOAD_ONLY:-en,es,zh}
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=5)\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:5000/languages'', timeout=5)"',
+        ]
       interval: 15s
       timeout: 10s
       retries: 20

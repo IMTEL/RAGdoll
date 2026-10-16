@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import Callable
 
 from fastapi import HTTPException

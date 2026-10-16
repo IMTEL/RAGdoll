@@ -46,12 +46,10 @@ class Config:
             for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
             if origin.strip()
         ]
-
+        self.PROXY_PATH = os.getenv("PROXY_PATH", "/").strip("/")
         self.MODEL = os.getenv("MODEL", "idun")
         self.GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
         self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
-        self.API_KEY = os.getenv("OPENAI_API_KEY", "your_default_api_key")
-        self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_gemini_api_key")
         self.IDUN_API_BASE_URL = os.getenv(
             "IDUN_API_BASE_URL", "https://llm.hpc.ntnu.no/v1"
         ).rstrip("/")
@@ -118,14 +116,6 @@ class Config:
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
         self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
 
-        ##Authentication
-        self.SESSION_TOKEN_TTL = os.getenv("SESSION_TOKEN_TTL", "15")  # Minutes
-        self.REFRESH_TOKEN_TTL = os.getenv("REFRESH_TOKEN_TTL", "14")  # Days
-        self.JWT_TOKEN_SECRET = os.getenv(
-            "JWT_TOKEN_SECRET",
-            "set-your--random-secret-atleast-32-bytes",
-        )
-        self.JWT_SECRET: str = os.getenv("JWT_SECRET", "")
         self.AUTH_SERVICE = os.getenv("AUTH_SERVICE", "service")
 
         self.KEYCLOAK_BASE_URL = os.getenv(
@@ -133,9 +123,6 @@ class Config:
         ).rstrip("/")
         self.KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "ragdoll")
         self.KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "ragdoll-config")
-        self.KEYCLOAK_VERIFY_AUDIENCE = (
-            os.getenv("KEYCLOAK_VERIFY_AUDIENCE", "false").lower() == "true"
-        )
         self.KEYCLOAK_ISSUER = os.getenv(
             "KEYCLOAK_ISSUER",
             f"{self.KEYCLOAK_BASE_URL}/realms/{self.KEYCLOAK_REALM}",
@@ -145,22 +132,16 @@ class Config:
             for issuer in os.getenv("KEYCLOAK_ALLOWED_ISSUERS", "").split(",")
             if issuer.strip()
         ]
-        self.KEYCLOAK_JWKS_URL = os.getenv(
-            "KEYCLOAK_JWKS_URL",
-            f"{self.KEYCLOAK_ISSUER}/protocol/openid-connect/certs",
-        )
 
         self.GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "set your id here")
         self.GOOGLE_CLIENT_SECRET = os.getenv(
             "GOOGLE_CLIENT_SECRET", "set your secret here"
         )
 
-        self.FERNET_KEY = os.getenv("FERNET_KEY", "")
+        self.FERNET_KEY = os.getenv("FERNET_KEY", "").strip()
 
         if not self.FERNET_KEY:
             raise RuntimeError("FERNET_KEY is missing from environment variables")
-
-        self.FERNET_KEY = self.FERNET_KEY.strip()
 
         self._validate_collection_names()
 

@@ -1,8 +1,8 @@
+from abc import abstractmethod
 from typing import Protocol
-from venv import logger
 
-import google.generativeai as genai
 import requests
+from google import genai
 from openai import (
     APIError,
     AuthenticationError,
@@ -18,6 +18,7 @@ from src.models.model import Model
 
 
 class LLM(Protocol):
+    @abstractmethod
     def generate(
         self,
         prompt: str,
@@ -135,6 +136,7 @@ class OpenAILLM(LLM):
                 401,
             )
         self.client = OpenAI(api_key=api_key)
+        self.client.models
 
     def generate(
         self,
@@ -145,8 +147,8 @@ class OpenAILLM(LLM):
         """Uses the new API client interface to generate a response."""
         try:
             messages = [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt},
+                {"role": "system", "text": "You are a helpful assistant."},
+                {"role": "user", "text": prompt},
             ]
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -154,7 +156,8 @@ class OpenAILLM(LLM):
                 temperature=temperature,
                 max_completion_tokens=max_tokens,
             )
-            return response.choices[0].message.content.strip()
+            if response.choices[0].message.content != None:
+                return response.choices[0].message.content.strip()
         except AuthenticationError as e:
             raise LLMAPIError(
                 "openai", self.model, "authentication", str(e), 401
@@ -440,11 +443,3 @@ def create_llm(
             return MockLLM()
         case _:
             raise ValueError(f"LLM {llm_provider} not supported")
-
-
-# if __name__ == "__main__":
-#     llm = create_llm("idun")
-#     while True:
-#         prompt = input("Enter your prompt: ")
-#         response = llm.generate(prompt)
-#         print(response)
