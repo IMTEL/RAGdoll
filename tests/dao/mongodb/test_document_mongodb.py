@@ -1,5 +1,9 @@
 """Tests for MongoDBDocumentDAO implementation."""
 
+import time
+
+import mongomock
+import pymongo
 import pytest
 
 from src.models.rag import Document
@@ -142,7 +146,8 @@ class TestMongoDBDocumentDAO:
         doc = Document(name="doc.txt", agent_id="agent-123")
         created = self.repo.create(doc)
 
-        # Update name
+        # Update name (mongomock stores millisecond precision, so let time pass)
+        time.sleep(0.01)
         created.name = "updated_doc.txt"
         updated = self.repo.update(created)
 
@@ -203,6 +208,10 @@ class TestMongoDBDocumentDAO:
         # Unique compound index on agent_id and name
         assert "agent_id_1_name_1" in index_names
 
+    @pytest.mark.skipif(
+        mongomock.MongoClient is pymongo.MongoClient,
+        reason="mongomock does not implement Cursor.explain()",
+    )
     def test_agent_id_index_used(self):
         """Test that querying by agent_id uses the index."""
         # Create some documents

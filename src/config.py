@@ -103,7 +103,11 @@ class Config:
         self.MONGODB_URI = os.getenv(
             self._prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
-        self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
+        if self.RUNNING_TESTS:
+            # Never let tests touch the database named by the production variable.
+            self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
+        else:
+            self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
 
         # It is expected now that agents and contexts are in the same database
         # and in separate collections

@@ -25,7 +25,8 @@ jobs:
 
     - name: Lint with Ruff
       run: |
-        uv run ruff check src tests
+        uv lock --check
+        uv run ruff check --no-fix src tests
         uv run ruff format --check src tests
       continue-on-error: false
 

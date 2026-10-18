@@ -1,3 +1,44 @@
+# Replace the real Mongo driver with an in-memory one before any ``src`` module
+# is imported: DAOs are built at import time (src/globals.py) and bind
+# ``MongoClient`` by name, so this must run first.
+import mimetypes
+import sys
+import types
+
+import mongomock
+import pymongo
+
+
+pymongo.MongoClient = mongomock.MongoClient
+
+if sys.platform == "win32":
+    # Windows: loading the libmagic DLL crashes the interpreter (access violation)
+    # when ``unstructured`` imports ``magic``; CI on Linux uses the real library.
+    # Provide a minimal stand-in that guesses the MIME type from the extension.
+    def _guess_mime(path: str | None = None, data: bytes = b"") -> str:
+        if data.startswith(b"%PDF"):
+            return "application/pdf"
+        guessed = mimetypes.guess_type(path or "")[0]
+        return guessed or "application/octet-stream"
+
+    class _FakeMagic:
+        def __init__(self, mime: bool = False, **_kwargs):
+            self.mime = mime
+
+        def from_file(self, path):
+            return _guess_mime(str(path))
+
+        def from_buffer(self, data):
+            return _guess_mime(None, bytes(data[:16]))
+
+    _fake_magic = types.ModuleType("magic")
+    _fake_magic.Magic = _FakeMagic
+    _fake_magic.from_file = lambda path, mime=False: _guess_mime(str(path))
+    _fake_magic.from_buffer = lambda data, mime=False: _guess_mime(
+        None, bytes(data[:16])
+    )
+    sys.modules["magic"] = _fake_magic
+
 import pytest
 
 from src.config import Config

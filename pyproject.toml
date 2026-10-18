@@ -37,6 +37,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deptry>=0.23.1",
+    "mongomock>=4.3.0",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
     "pytest>=8.3.4",
