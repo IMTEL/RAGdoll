@@ -4,12 +4,16 @@ import re
 import time
 import uuid
 
+from pymongo.errors import PyMongoError
+
 from src.config import Config
 from src.llm import create_llm
 from src.log_redaction import redact
 from src.models import Agent
 from src.models.chat.command import Command
+from src.models.errors import EmbeddingAPIError, EmbeddingError, RetrievalFailedError
 from src.rag_service.dao import get_context_dao
+from src.rag_service.dao.context.faiss_vector_store import FAISSIndexError
 from src.rag_service.embeddings import create_embeddings_model
 
 
@@ -17,6 +21,14 @@ logger = logging.getLogger(__name__)
 config = Config()
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
+
+# Added to the prompt when retrieval failed and the agent's on_retrieval_error
+# is "answer_without_context".
+NO_REFERENCE_MATERIAL_INSTRUCTION = (
+    "IMPORTANT: Your reference material could not be loaded for this answer, so "
+    "you have no reference material to rely on. If the user asks about facts, "
+    "say that you are not sure instead of inventing an answer."
+)
 
 
 def _normalize_function_name(name: str) -> str:
@@ -271,44 +283,23 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     )
 
     # Perform RAG retrieval from accessible documents
-    retrieved_contexts = []
-    db = get_context_dao()
-
-    # Use agent's configured embedding model
-    embedding_model_config = agent.embedding_model
-    logger.debug("Using embedding model: %s", embedding_model_config)
-
-    embedding_api_key = getattr(agent, "embedding_api_key", None)
-    if ":" not in embedding_model_config:
-        embedding_model_config = (
-            f"gemini:{embedding_model_config or 'text-embedding-004'}"
-        )
-    embedding_model = create_embeddings_model(
-        embedding_model_config,
-        embedding_api_key=embedding_api_key,
+    retrieved_contexts, retrieval_error = _retrieve_contexts(
+        agent, retrieval_query, accessible_documents
     )
-
-    try:
-        # Generate embedding for the standalone retrieval query
-        embeddings: list[float] = embedding_model.get_embedding(retrieval_query)
-
-        # Retrieve relevant contexts for the agent with optional category filtering
-        # Use the standalone query for both semantic and keyword search
-        retrieved_contexts = db.get_context_for_agent(
-            agent_id=agent.id
-            if agent.id
-            else "",  # TODO: Raise error if agent.id is None
-            query_embedding=embeddings,
-            query_text=retrieval_query,  # Standalone query for semantic search
-            keyword_query_text=retrieval_query,  # Standalone query for BM25
-            documents=accessible_documents,
-            top_k=agent.top_k,  # Use agent's configured top_k
-            similarity_threshold=agent.similarity_threshold,  # Use agent's configured threshold
-            hybrid_search_alpha=agent.hybrid_search_alpha,  # Use agent's configured alpha
+    if retrieval_error is not None:
+        logger.warning(
+            "Retrieval failed for agent %s (%s), policy=%s",
+            agent.id,
+            retrieval_error,
+            agent.on_retrieval_error,
         )
-    except Exception as e:
-        logger.warning("Error retrieving context: %s", type(e).__name__)
-        retrieved_contexts = []
+        if agent.on_retrieval_error == "fail":
+            raise RetrievalFailedError(retrieval_error)
+        retrieval_status = "error"
+    elif retrieved_contexts:
+        retrieval_status = "ok"
+    else:
+        retrieval_status = "empty"
 
     logger.debug(
         "Retrieved %d contexts for agent %s", len(retrieved_contexts), agent.name
@@ -338,6 +329,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         #     prompt += f"\n[Context {idx} from {ctx.document_name}]:\n{ctx.text}\n"
         for ctx in retrieved_contexts:
             prompt += f"\n-{ctx.text}\n"
+    if retrieval_status == "error":
+        prompt += "\n\n" + NO_REFERENCE_MATERIAL_INSTRUCTION + "\n"
 
     game_context = game_context_prompt_section(command)
     if game_context:
@@ -396,10 +389,58 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             "num_context_retrieved": len(retrieved_contexts),
             "num_progress_items": len(command.progress),
         },
+        "retrieval": {"status": retrieval_status, "error": retrieval_error},
         "function_call": legacy_function_call,
         "function_calls": function_calls,
         "response": parsed_response,
     }
+
+
+def _retrieve_contexts(
+    agent: Agent, retrieval_query: str, accessible_documents: list[str]
+) -> tuple[list, str | None]:
+    """Embeds the query and looks up the agent's matching contexts.
+
+    Returns:
+        (contexts, error). ``error`` is None on success, otherwise a short
+        description naming the failing step and exception type (no secrets).
+    """
+    embedding_model_config = agent.embedding_model
+    logger.debug("Using embedding model: %s", embedding_model_config)
+    if ":" not in embedding_model_config:
+        embedding_model_config = (
+            f"gemini:{embedding_model_config or 'text-embedding-004'}"
+        )
+
+    try:
+        embedding_model = create_embeddings_model(
+            embedding_model_config,
+            embedding_api_key=getattr(agent, "embedding_api_key", None),
+        )
+        embeddings: list[float] = embedding_model.get_embedding(
+            retrieval_query, task="query"
+        )
+    except (EmbeddingAPIError, EmbeddingError, ValueError) as e:
+        return [], f"embedding failed: {type(e).__name__}"
+
+    try:
+        db = get_context_dao()
+        # Use the standalone query for both semantic and keyword search
+        contexts = db.get_context_for_agent(
+            agent_id=agent.id
+            if agent.id
+            else "",  # TODO: Raise error if agent.id is None
+            query_embedding=embeddings,
+            query_text=retrieval_query,
+            keyword_query_text=retrieval_query,
+            documents=accessible_documents,
+            top_k=agent.top_k,
+            similarity_threshold=agent.similarity_threshold,
+            hybrid_search_alpha=agent.hybrid_search_alpha,
+        )
+    except (PyMongoError, FAISSIndexError, ValueError) as e:
+        return [], f"context lookup failed: {type(e).__name__}"
+    return contexts, None
 
 
 def chat_history_prompt_section(

@@ -3,6 +3,7 @@ from typing import Protocol
 
 import requests
 from google import genai
+from google.genai import types as genai_types
 from openai import (
     APIError,
     AuthenticationError,
@@ -207,8 +208,7 @@ class GeminiLLM(LLM):
                 "GeminiLLM requires an explicit api_key. No fallback to config.",
                 401,
             )
-        genai.configure(api_key=api_key)
-        self.client = genai.GenerativeModel(self.model)
+        self.client = genai.Client(api_key=api_key)
 
     def generate(
         self,
@@ -218,14 +218,14 @@ class GeminiLLM(LLM):
     ) -> str:
         """Uses the Google Generative AI client to generate a response."""
         try:
-            response = self.client.generate_content(
-                prompt,
-                generation_config={
-                    "max_output_tokens": max_tokens,
-                    "temperature": temperature,
-                },
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                ),
             )
-            return response.text.strip()
         except Exception as e:
             error_msg = str(e).lower()
 
@@ -270,6 +270,12 @@ class GeminiLLM(LLM):
 
             # Default to generation error
             raise LLMGenerationError("gemini", self.model, str(e)) from e
+
+        if response.text is None:
+            raise LLMGenerationError(
+                "gemini", self.model, "Gemini returned no text in its response"
+            )
+        return response.text.strip()
 
 
 class MockLLM(LLM):
@@ -379,8 +385,8 @@ def list_openai_models(api_key: str) -> list[Model]:
 
 def list_gemini_models(api_key: str) -> list[Model]:
     try:
-        genai.configure(api_key=api_key)
-        models = list(genai.list_models())
+        client = genai.Client(api_key=api_key)
+        models = list(client.models.list())
     except Exception as exc:
         message = str(exc).lower()
         if (

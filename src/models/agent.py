@@ -1,6 +1,7 @@
 """Agent domain models for AI agent configurations."""
 
 import logging
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -127,6 +128,15 @@ class Agent(BaseModel):
     context_aware_retrieval: bool = Field(
         default=True,
         description="If true, use context-aware retrieval; otherwise, use only the latest message as the retrieval query.",
+    )
+
+    on_retrieval_error: Literal["fail", "answer_without_context"] = Field(
+        default="fail",
+        description=(
+            "What to do when knowledge retrieval fails: 'fail' ends the request "
+            "with HTTP 503; 'answer_without_context' answers but tells the "
+            "character it has no reference material."
+        ),
     )
 
     def get_role_by_name(self, role_name: str) -> Role | None:

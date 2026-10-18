@@ -320,8 +320,10 @@ class MongoDBContextDAO(ContextDAO):
             )
             logger.debug(f"Added embedding to FAISS for chunk {chunk_id}")
         except Exception as e:
-            logger.error(f"Failed to add embedding to FAISS: {e}")
-            # Don't fail the entire operation if FAISS write fails
+            # The upload must fail: a chunk without a vector is invisible to
+            # vector search. The Mongo row stays, so rebuild_index can recover.
+            logger.error(f"Failed to add embedding to FAISS for agent {agent_id}: {e}")
+            raise
 
         return context
 

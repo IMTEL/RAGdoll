@@ -51,3 +51,17 @@ def pytest_configure(config):
     # Check if RUNNING_TESTS is set to True
     if not backend_config.RUNNING_TESTS:
         pytest.exit("RUNNING_TESTS is not set to True. Exiting tests.")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_faiss_index_dir(tmp_path_factory, monkeypatch):
+    # Never read or write the real /data/faiss_indices from tests, and start
+    # every test with an empty FAISS store cache.
+    from src.rag_service.dao.context import faiss_vector_store
+
+    monkeypatch.setattr(
+        faiss_vector_store,
+        "FAISS_INDEX_DIR",
+        tmp_path_factory.mktemp("faiss_indices"),
+    )
+    monkeypatch.setattr(faiss_vector_store.FAISSVectorStoreManager, "_stores", {})

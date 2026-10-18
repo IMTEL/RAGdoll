@@ -5,7 +5,10 @@ from collections import defaultdict
 from pymongo.errors import PyMongoError
 
 from src.rag_service.context import Context
-from src.rag_service.dao.context.faiss_vector_store import FAISSVectorStoreManager
+from src.rag_service.dao.context.faiss_vector_store import (
+    FAISSIndexError,
+    FAISSVectorStoreManager,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -213,6 +216,10 @@ def keyword_search(
 
         logger.debug(f"Keyword search found {len(keyword_scores)} results")
 
+    except PyMongoError:
+        # Mongo unreachable or failing: a retrieval failure the caller must
+        # see, not an empty result.
+        raise
     except Exception as e:
         logger.warning(f"Error in local keyword search: {e}")
         # Return empty results on error - hybrid search will use vector results only
@@ -356,29 +363,30 @@ def vector_search(
             available_documents,
             top_k=top_k,
             similarity_threshold=0.0,  # Will be filtered later
+            embedding_dim=len(embedded_query),
         )
 
-        # Populate document_map with metadata from MongoDB
-        for chunk_id in vector_scores.keys():
-            try:
-                doc = context_collection.find_one({"chunk_id": chunk_id})
-                if doc:
-                    document_map[chunk_id] = doc
-                else:
-                    # Fall back to FAISS metadata if not in MongoDB
-                    metadata = manager.get_metadata(agent_id, chunk_id)
-                    if metadata:
-                        document_map[chunk_id] = {
-                            **metadata,
-                            "chunk_id": chunk_id,
-                        }
-            except Exception as e:
-                logger.debug(f"Could not find document for chunk {chunk_id}: {e}")
+        # Populate document_map from MongoDB, the source of truth. The lookup is
+        # scoped to the agent; vectors without a Mongo row are dropped.
+        for chunk_id in list(vector_scores.keys()):
+            # A PyMongoError here propagates; only a missing row is skipped.
+            doc = context_collection.find_one(
+                {"chunk_id": chunk_id, "agent_id": agent_id}
+            )
+            if doc:
+                document_map[chunk_id] = doc
+            else:
+                logger.debug(f"Skipping chunk {chunk_id}: no MongoDB row")
+                del vector_scores[chunk_id]
 
         logger.debug(
             f"Vector search found {len(vector_scores)} results for agent {agent_id}"
         )
 
+    except (FAISSIndexError, PyMongoError):
+        # Dimension mismatch, unreadable index or Mongo failure: a retrieval
+        # failure the caller must see, not an empty result.
+        raise
     except Exception as e:
         logger.error(f"Error retrieving vector search results: {e}")
         # Return empty results on error

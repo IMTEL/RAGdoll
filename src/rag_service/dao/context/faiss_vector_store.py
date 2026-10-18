@@ -7,11 +7,16 @@ Key Features:
 - Local vector indexing with FAISS (no external dependencies)
 - Cosine similarity search
 - Per-agent vector indices (isolated namespaces)
-- Persistence to disk
-- Memory-efficient with dimension-aware index selection
+- Persistence to disk (atomic writes; files are never deleted on load errors)
+- The index dimension comes from the file, or from the first vector added
+- Rebuild from the MongoDB context rows (see scripts/rebuild_faiss_index.py)
 """
 
 import logging
+import os
+import pickle
+import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -21,8 +26,45 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# What reading a broken or half-written index/metadata file can raise
+# (faiss raises RuntimeError).
+_READ_ERRORS = (
+    RuntimeError,
+    OSError,
+    ValueError,
+    TypeError,
+    EOFError,
+    pickle.PickleError,
+)
+
 # Directory for storing FAISS indices
 FAISS_INDEX_DIR = Path("/data/faiss_indices")
+
+
+class FAISSIndexError(RuntimeError):
+    """Base class for FAISS index problems that must not be silently ignored."""
+
+
+class IndexDimensionMismatchError(FAISSIndexError, ValueError):
+    """Raised when a vector's dimension differs from the agent's index.
+
+    The index file is never deleted on a mismatch. If the agent's embedding
+    model really changed, rebuild the index with scripts/rebuild_faiss_index.py.
+    """
+
+    def __init__(self, agent_id: str, index_dim: int, requested_dim: int):
+        self.agent_id = agent_id
+        self.index_dim = index_dim
+        self.requested_dim = requested_dim
+        super().__init__(
+            f"FAISS index for agent {agent_id} has dimension {index_dim}, "
+            f"but dimension {requested_dim} was requested. The index was left "
+            f"untouched; check the agent's embedding model or rebuild the index."
+        )
+
+
+class CorruptIndexError(FAISSIndexError):
+    """Raised when an index file cannot be loaded; the files are set aside."""
 
 
 def ensure_index_dir() -> Path:
@@ -57,6 +99,36 @@ def get_metadata_path(agent_id: str) -> Path:
     return FAISS_INDEX_DIR / f"agent_{agent_id}_metadata.npy"
 
 
+def _save_metadata(path: Path, metadata: dict) -> None:
+    # Through a file handle so numpy does not append another ".npy".
+    with open(path, "wb") as f:
+        np.save(f, metadata)
+
+
+def _file_signature(path: Path) -> tuple[int, int, int] | None:
+    """Identity of a file on disk (None when missing), to spot outside changes."""
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return None
+    return (st.st_mtime_ns, st.st_size, st.st_ino)
+
+
+def _atomic_write(target: Path, write) -> None:
+    """Call ``write(tmp_path)`` and atomically move the result onto ``target``."""
+    fd, tmp_name = tempfile.mkstemp(
+        dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
+    )
+    os.close(fd)
+    tmp = Path(tmp_name)
+    try:
+        write(tmp)
+        os.replace(tmp, target)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 class FAISSVectorStore:
     """Local vector store using FAISS for cosine similarity search.
 
@@ -64,66 +136,153 @@ class FAISSVectorStore:
     efficient similarity search without external dependencies.
     """
 
-    def __init__(self, agent_id: str, embedding_dim: int = 384):
+    def __init__(
+        self,
+        agent_id: str,
+        embedding_dim: int | None = None,
+        load_existing: bool = True,
+    ):
         """Initialize FAISS vector store for an agent.
 
         Args:
             agent_id: The agent ID
-            embedding_dim: Dimension of embeddings (default 384 for text-embedding-3-small)
+            embedding_dim: Expected dimension, if known. When an index file
+                exists its dimension wins, and a different expected dimension
+                raises IndexDimensionMismatchError. Without a file the
+                dimension is fixed by the first vector added.
+            load_existing: False starts empty without reading the file (used
+                by rebuilds); the file is only replaced on the next save.
+
+        Raises:
+            IndexDimensionMismatchError: The file has another dimension.
+            CorruptIndexError: The file could not be loaded (it was renamed).
         """
         self.agent_id = agent_id
-        self.embedding_dim = embedding_dim
         self.index: faiss.Index | None = None
         self.chunk_metadata: dict = {}  # chunk_id -> {document_id, document_name, text, ...}
-        self._load_or_create_index()
+        # Identity of the files this copy matches (from the last load or save).
+        # Another process (the rebuild CLI, another worker) may replace them;
+        # refresh() then reloads instead of serving or overwriting stale data.
+        # A store started with load_existing=False ignores the disk until it
+        # saves for the first time.
+        self._sync_with_disk = load_existing
+        self._disk_signature: tuple | None = None
+        if load_existing:
+            self._load_index(embedding_dim)
 
-    def _load_or_create_index(self) -> None:
-        """Load existing index or create a new one.
+    @property
+    def embedding_dim(self) -> int | None:
+        """Dimension of the index, or None while the store is still empty."""
+        return self.index.d if self.index is not None else None
 
-        If an existing index has mismatched dimensions, it will be recreated.
+    def check_dimension(self, requested_dim: int | None) -> None:
+        """Raise if a requested dimension differs from this store's index."""
+        if (
+            requested_dim is not None
+            and self.embedding_dim is not None
+            and requested_dim != self.embedding_dim
+        ):
+            raise IndexDimensionMismatchError(
+                self.agent_id, self.embedding_dim, requested_dim
+            )
+
+    def _current_disk_signature(self) -> tuple:
+        return (
+            _file_signature(get_index_path(self.agent_id)),
+            _file_signature(get_metadata_path(self.agent_id)),
+        )
+
+    def refresh(self) -> None:
+        """Reload from disk if the files changed since this copy was loaded or saved.
+
+        Costs two stat calls. If the files disappeared, the store becomes empty
+        to match the disk.
+        """
+        if not self._sync_with_disk:
+            return
+        if self._current_disk_signature() == self._disk_signature:
+            return
+        logger.info(
+            f"FAISS index files for agent {self.agent_id} changed on disk; reloading"
+        )
+        self.index = None
+        self.chunk_metadata = {}
+        self._load_index(None)
+
+    def _load_index(self, requested_dim: int | None) -> None:
+        """Load the agent's index from disk, if there is one.
+
+        Never deletes or overwrites files: a dimension mismatch raises, and an
+        unreadable index is renamed to ``*.corrupt-<timestamp>`` before raising.
         """
         index_path = get_index_path(self.agent_id)
         metadata_path = get_metadata_path(self.agent_id)
 
-        if index_path.exists():
+        signature = self._current_disk_signature()
+        if not index_path.exists():
+            self._disk_signature = signature
+            logger.info(f"No FAISS index on disk yet for agent {self.agent_id}")
+            return
+
+        try:
             try:
-                self.index = faiss.read_index(str(index_path))
+                index, metadata = self._read_files(index_path, metadata_path)
+            except _READ_ERRORS:
+                # Another process may be between replacing the index and the
+                # metadata file; give it a moment before calling it corrupt.
+                time.sleep(0.2)
+                signature = self._current_disk_signature()
+                index, metadata = self._read_files(index_path, metadata_path)
+        except Exception as e:
+            suffix = f".corrupt-{time.strftime('%Y%m%d-%H%M%S')}"
+            for path in (index_path, metadata_path):
+                if path.exists():
+                    path.replace(path.with_name(path.name + suffix))
+            logger.error(
+                f"Could not load FAISS index for agent {self.agent_id}: {e}. "
+                f"Files renamed with suffix {suffix}; rebuild the index from MongoDB."
+            )
+            raise CorruptIndexError(
+                f"FAISS index for agent {self.agent_id} could not be loaded ({e}); "
+                f"files were renamed with suffix {suffix}. "
+                f"Run scripts/rebuild_faiss_index.py --agent-id {self.agent_id}."
+            ) from e
 
-                # Check if dimensions match
-                if self.index.d != self.embedding_dim:
-                    logger.warning(
-                        f"FAISS index dimension mismatch for agent {self.agent_id}: "
-                        f"index has {self.index.d}D but expected {self.embedding_dim}D. "
-                        f"Recreating index with correct dimensions."
-                    )
-                    # Remove old index and metadata
-                    index_path.unlink(missing_ok=True)
-                    metadata_path.unlink(missing_ok=True)
-                    self._create_new_index()
-                else:
-                    logger.info(
-                        f"Loaded FAISS index for agent {self.agent_id} with {self.index.ntotal} vectors"
-                    )
+        self.index = index
+        self.chunk_metadata = metadata
+        self._disk_signature = signature
+        logger.info(
+            f"Loaded FAISS index for agent {self.agent_id} with {index.ntotal} "
+            f"vectors of dimension {index.d}"
+        )
+        self.check_dimension(requested_dim)
 
-                    # Load metadata
-                    if metadata_path.exists():
-                        metadata = np.load(str(metadata_path), allow_pickle=True).item()
-                        self.chunk_metadata = metadata
-                        logger.info(
-                            f"Loaded metadata for {len(self.chunk_metadata)} chunks"
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to load FAISS index: {e}. Creating new index.")
-                self._create_new_index()
-        else:
-            self._create_new_index()
+    @staticmethod
+    def _read_files(index_path: Path, metadata_path: Path) -> tuple:
+        index = faiss.read_index(str(index_path))
+        metadata = (
+            np.load(str(metadata_path), allow_pickle=True).item()
+            if metadata_path.exists()
+            else {}
+        )
+        if not isinstance(metadata, dict):
+            raise TypeError("metadata file does not hold a dict")
+        # Search maps result positions to metadata order, so they must agree.
+        if len(metadata) != index.ntotal:
+            raise ValueError(
+                f"metadata has {len(metadata)} entries but the index has "
+                f"{index.ntotal} vectors"
+            )
+        return index, metadata
 
-    def _create_new_index(self) -> None:
+    def _create_new_index(self, embedding_dim: int) -> None:
         """Create a new FAISS index with cosine similarity."""
         # Use IndexFlatL2 with cosine distance
         # For cosine similarity, we normalize vectors and use L2 distance
-        self.index = faiss.IndexFlatL2(self.embedding_dim)
-        logger.info(f"Created new FAISS index for agent {self.agent_id}")
+        self.index = faiss.IndexFlatL2(embedding_dim)
+        logger.info(
+            f"Created new {embedding_dim}-dim FAISS index for agent {self.agent_id}"
+        )
 
     def add_vectors(
         self,
@@ -134,6 +293,7 @@ class FAISSVectorStore:
         text: str,
         chunk_index: int | None = None,
         total_chunks: int | None = None,
+        persist: bool = True,
     ) -> None:
         """Add a vector to the index.
 
@@ -145,9 +305,23 @@ class FAISSVectorStore:
             text: The chunk text content
             chunk_index: Index of chunk within document
             total_chunks: Total number of chunks in document
+            persist: Save to disk after adding. False for bulk rebuilds,
+                which save once at the end.
+
+        Raises:
+            IndexDimensionMismatchError: The embedding has another dimension.
+            FAISSIndexError: The chunk id is already in the index.
         """
-        if not self.index:
-            self._create_new_index()
+        self.refresh()
+        if chunk_id in self.chunk_metadata:
+            # Metadata is keyed by chunk id; a second vector under the same id
+            # would desync index and metadata (and every later result).
+            raise FAISSIndexError(
+                f"Chunk {chunk_id} is already in the FAISS index for agent "
+                f"{self.agent_id}"
+            )
+        if self.index is None:
+            self._create_new_index(len(embedding))
 
         # Validate embedding dimensions
         if len(embedding) != self.embedding_dim:
@@ -155,9 +329,8 @@ class FAISSVectorStore:
                 f"Embedding dimension mismatch for chunk {chunk_id}: "
                 f"expected {self.embedding_dim}, got {len(embedding)}"
             )
-            raise ValueError(
-                f"Embedding dimension mismatch: expected {self.embedding_dim}, "
-                f"got {len(embedding)}"
+            raise IndexDimensionMismatchError(
+                self.agent_id, self.embedding_dim, len(embedding)
             )
 
         # Normalize vector for cosine similarity
@@ -179,7 +352,8 @@ class FAISSVectorStore:
         }
 
         # Save index and metadata
-        self._save_index()
+        if persist:
+            self._save_index()
 
         logger.info(
             f"Added chunk {chunk_id} to FAISS index for agent {self.agent_id}. "
@@ -204,10 +378,18 @@ class FAISSVectorStore:
 
         Returns:
             Dictionary mapping chunk_id -> similarity_score (0-1 range)
+
+        Raises:
+            IndexDimensionMismatchError: The query has another dimension.
         """
+        self.refresh()
         if not self.index or self.index.ntotal == 0:
             logger.warning(f"No vectors in index for agent {self.agent_id}")
             return {}
+
+        # Outside the try below: a mismatch must reach the caller instead of
+        # looking like "no results".
+        self.check_dimension(len(query_embedding))
 
         try:
             # Log query details
@@ -227,14 +409,6 @@ class FAISSVectorStore:
                 query_vector = np.array([query_embedding], dtype=np.float32)
             else:
                 logger.error(f"Invalid query_embedding type: {type(query_embedding)}")
-                return {}
-
-            # Validate query embedding dimensions
-            if query_vector.shape[1] != self.embedding_dim:
-                logger.error(
-                    f"Query embedding dimension mismatch for agent {self.agent_id}: "
-                    f"expected {self.embedding_dim}, got {query_vector.shape[1]}"
-                )
                 return {}
 
             # Ensure it's 2D (batch of vectors)
@@ -321,7 +495,12 @@ class FAISSVectorStore:
             return {}
 
     def _save_index(self) -> None:
-        """Persist the index to disk."""
+        """Persist the index and metadata to disk atomically.
+
+        Each file is written to a temp file in the same directory and moved
+        into place with os.replace, so a crash never leaves a truncated file.
+        Failures are raised: an unsaved vector would be silently lost.
+        """
         if not self.index:
             return
 
@@ -329,11 +508,20 @@ class FAISSVectorStore:
         metadata_path = get_metadata_path(self.agent_id)
 
         try:
-            faiss.write_index(self.index, str(index_path))
-            np.save(str(metadata_path), self.chunk_metadata)
+            _atomic_write(
+                index_path, lambda tmp: faiss.write_index(self.index, str(tmp))
+            )
+            _atomic_write(
+                metadata_path, lambda tmp: _save_metadata(tmp, self.chunk_metadata)
+            )
+            self._disk_signature = self._current_disk_signature()
+            self._sync_with_disk = True
             logger.debug(f"Saved FAISS index for agent {self.agent_id}")
         except Exception as e:
-            logger.error(f"Failed to save FAISS index: {e}")
+            logger.error(f"Failed to save FAISS index for agent {self.agent_id}: {e}")
+            raise FAISSIndexError(
+                f"Failed to save FAISS index for agent {self.agent_id}: {e}"
+            ) from e
 
     def get_metadata(self, chunk_id: str) -> dict | None:
         """Get metadata for a chunk.
@@ -367,19 +555,31 @@ class FAISSVectorStoreManager:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def get_store(self, agent_id: str, embedding_dim: int = 384) -> FAISSVectorStore:
+    def get_store(
+        self, agent_id: str, embedding_dim: int | None = None
+    ) -> FAISSVectorStore:
         """Get or create a vector store for an agent.
 
         Args:
             agent_id: The agent ID
-            embedding_dim: Dimension of embeddings
+            embedding_dim: Expected dimension, if known. Taken from the index
+                file when one exists.
 
         Returns:
             FAISSVectorStore instance for the agent
+
+        Raises:
+            IndexDimensionMismatchError: The agent's index has another dimension.
+            CorruptIndexError: The index file could not be loaded.
         """
-        if agent_id not in self._stores:
-            self._stores[agent_id] = FAISSVectorStore(agent_id, embedding_dim)
-        return self._stores[agent_id]
+        store = self._stores.get(agent_id)
+        if store is None:
+            store = FAISSVectorStore(agent_id, embedding_dim)
+            self._stores[agent_id] = store
+        else:
+            store.refresh()
+            store.check_dimension(embedding_dim)
+        return store
 
     def add_vector(
         self,
@@ -391,7 +591,7 @@ class FAISSVectorStoreManager:
         text: str,
         chunk_index: int | None = None,
         total_chunks: int | None = None,
-        embedding_dim: int = 384,
+        embedding_dim: int | None = None,
     ) -> None:
         """Add a vector to an agent's store.
 
@@ -404,13 +604,13 @@ class FAISSVectorStoreManager:
             text: Chunk text
             chunk_index: Chunk index within document
             total_chunks: Total chunks in document
-            embedding_dim: Dimension of embeddings (default 768)
+            embedding_dim: Dimension of embeddings (defaults to len(embedding))
         """
         logger.info(
             f"FAISSVectorStoreManager.add_vector: agent={agent_id}, chunk={chunk_id}, embedding_dim={embedding_dim} (actual={len(embedding)}), doc={document_name}"
         )
 
-        store = self.get_store(agent_id, embedding_dim)
+        store = self.get_store(agent_id, embedding_dim or len(embedding))
         store.add_vectors(
             chunk_id,
             embedding,
@@ -428,7 +628,7 @@ class FAISSVectorStoreManager:
         available_documents: list[str],
         top_k: int = 5,
         similarity_threshold: float = 0.0,
-        embedding_dim: int = 384,
+        embedding_dim: int | None = None,
     ) -> dict[str, float]:
         """Search in an agent's vector store.
 
@@ -438,18 +638,90 @@ class FAISSVectorStoreManager:
             available_documents: Documents to filter by
             top_k: Number of results
             similarity_threshold: Minimum similarity score
-            embedding_dim: Dimension of embeddings
+            embedding_dim: Dimension of embeddings (defaults to the query's)
 
         Returns:
             Dictionary mapping chunk_id -> similarity_score
         """
-        store = self.get_store(agent_id, embedding_dim)
+        store = self.get_store(agent_id, embedding_dim or len(query_embedding))
         return store.search(
             query_embedding,
             available_documents,
             top_k,
             similarity_threshold,
         )
+
+    def rebuild_index(self, agent_id: str, context_collection=None) -> int:
+        """Rebuild an agent's FAISS index from its MongoDB context rows.
+
+        The rows store each chunk's embedding, so MongoDB can always recreate
+        the index. The new index is built in memory through the normal add
+        path and only replaces the files on disk once every row was added.
+        With no rows, existing files are left alone.
+
+        Args:
+            agent_id: The agent ID
+            context_collection: The Mongo ``context`` collection; defaults to
+                the configured context DAO's collection.
+
+        Returns:
+            Number of vectors written.
+
+        Raises:
+            IndexDimensionMismatchError: The rows hold embeddings of more than
+                one dimension (nothing is written).
+        """
+        if context_collection is None:
+            # Imported here: the DAO module imports this one.
+            from src.rag_service.dao.factory import get_context_dao
+
+            context_collection = get_context_dao().collection
+
+        rows = context_collection.find(
+            {"agent_id": agent_id, "embedding": {"$exists": True}}
+        ).sort([("document_id", 1), ("chunk_index", 1)])
+
+        store = FAISSVectorStore(agent_id, load_existing=False)
+        for row in rows:
+            embedding = row.get("embedding")
+            if not embedding:
+                continue
+            document_id = row.get("document_id")
+            # Same fallback as MongoDBContextDAO.insert_context for old rows.
+            chunk_id = row.get("chunk_id") or f"{document_id}_{row.get('chunk_index')}"
+            if chunk_id in store.chunk_metadata:
+                # Metadata is keyed by chunk id; a second vector would shift
+                # every later result. Rows from before unique ids may collide.
+                logger.warning(
+                    f"Skipping duplicate chunk id {chunk_id} for agent {agent_id}"
+                )
+                continue
+            store.add_vectors(
+                chunk_id,
+                embedding,
+                document_id,
+                row.get("document_name"),
+                row.get("text"),
+                row.get("chunk_index"),
+                row.get("total_chunks"),
+                persist=False,
+            )
+
+        count = store.size()
+        if count == 0:
+            logger.warning(
+                f"No context rows with embeddings for agent {agent_id}; "
+                f"FAISS files left unchanged"
+            )
+            return 0
+
+        store._save_index()
+        self._stores[agent_id] = store
+        logger.info(
+            f"Rebuilt FAISS index for agent {agent_id}: {count} vectors of "
+            f"dimension {store.embedding_dim}"
+        )
+        return count
 
     def get_metadata(self, agent_id: str, chunk_id: str) -> dict | None:
         """Get metadata for a chunk.

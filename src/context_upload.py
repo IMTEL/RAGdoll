@@ -6,6 +6,7 @@ from collections.abc import Callable
 from src.config import Config
 from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.context import Context
+from src.rag_service.dao.context.faiss_vector_store import FAISSIndexError
 from src.rag_service.dao.factory import get_context_dao, get_document_dao
 from src.rag_service.embeddings import create_embeddings_model
 from src.scraper_service.scraper import ScraperService
@@ -36,7 +37,7 @@ def compute_embedding(
     embedding_model = create_embeddings_model(
         embedding_model_str, embedding_api_key=embedding_api_key
     )
-    embeddings = embedding_model.get_embedding(text)
+    embeddings = embedding_model.get_embedding(text, task="document")
     return embeddings
 
 
@@ -189,7 +190,9 @@ def process_file_and_store(
                         text=scraped_doc.content,
                         document_name=document_name,
                         document_id=document_id,
-                        chunk_id=scraped_doc.document_id,  # Use the scraped doc's unique ID as chunk_id
+                        # Globally unique: independent of the (temp) file path so
+                        # identically named uploads and re-uploads never collide.
+                        chunk_id=f"{document_id}:{chunk_idx}:{uuid.uuid4().hex[:12]}",
                         chunk_index=chunk_idx,
                         total_chunks=total_chunks,
                     ),
@@ -198,8 +201,8 @@ def process_file_and_store(
                     f"Stored chunk {chunk_idx + 1}/{total_chunks} for document '{document_id}'"
                 )
 
-            except (EmbeddingAPIError, EmbeddingError):
-                # Re-raise embedding errors to be handled at a higher level
+            except (EmbeddingAPIError, EmbeddingError, FAISSIndexError):
+                # Re-raise embedding and vector index errors: the upload failed
                 raise
             except Exception as e:
                 logger.error(

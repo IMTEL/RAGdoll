@@ -25,7 +25,7 @@ from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
-from src.models.errors import LLMAPIError, LLMGenerationError
+from src.models.errors import LLMAPIError, LLMGenerationError, RetrievalFailedError
 from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
@@ -133,7 +133,8 @@ async def ask(command: Command, request: Request):
             402: Insufficient LLM tokens/credits
             404: LLM model not found or not accessible
             429: LLM rate limit or quota exceeded
-            503: LLM generation service error
+            503: LLM generation service error, or knowledge retrieval failed
+                 and the agent's on_retrieval_error is "fail"
             500: Other processing errors
     """
     agent = _authorize_command(command, request)
@@ -168,6 +169,11 @@ def _answer(command: Command, agent: "Agent") -> dict:
         response = assemble_prompt_with_agent(command, agent)
         return response
 
+    except RetrievalFailedError as e:
+        raise HTTPException(
+            detail="Knowledge retrieval failed",
+            status_code=503,
+        ) from e
     except LLMAPIError as e:
         # API-related errors (auth, quota, model not found, insufficient tokens)
         raise HTTPException(
