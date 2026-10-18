@@ -137,6 +137,13 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
         self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
+        self.MONGODB_PROGRESS_COLLECTION = os.getenv(
+            "MONGODB_PROGRESS_COLLECTION", "progress"
+        )
+        self.MONGODB_UPLOAD_TASKS_COLLECTION = os.getenv(
+            "MONGODB_UPLOAD_TASKS_COLLECTION", "upload_tasks"
+        )
+        self.PROGRESS_TTL_HOURS = float(os.getenv("PROGRESS_TTL_HOURS", "24"))
 
         self.AUTH_SERVICE = os.getenv("AUTH_SERVICE", "service")
 

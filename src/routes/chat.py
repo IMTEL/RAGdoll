@@ -29,7 +29,7 @@ from src.models.errors import LLMAPIError, LLMGenerationError, RetrievalFailedEr
 from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
-from src.tts import get_tts_service
+from src.tts import get_tts_service, synthesize_sentences
 from src.utils.path_dependencies import (
     get_bearer_token,
     get_optional_user,
@@ -92,13 +92,15 @@ def _attach_recent_progress(command: Command) -> None:
 
 
 def _generate_speech_payload(text: str, language: str | None = None) -> dict:
-    return get_tts_service().synthesize(text, language).to_dict()
+    """Synthesize sentences in parallel: ``speech`` (concatenated) + segments."""
+    speech, segments = synthesize_sentences(get_tts_service(), text, language)
+    return {"speech": speech, "speech_segments": segments}
 
 
 def _build_response_with_speech(response: dict, language: str | None = None) -> dict:
     return {
         "response": response,
-        "speech": _generate_speech_payload(response.get("response", ""), language),
+        **_generate_speech_payload(response.get("response", ""), language),
     }
 
 
@@ -256,8 +258,10 @@ def tts_warmup(request: TTSWarmupRequest | None = None):
 def text_to_speech(request: TTSRequest):
     """Synthesize text using the configured local text-to-speech engine."""
     try:
-        result = _generate_speech_payload(request.text, request.language)
-        return JSONResponse(content={"speech": result}, status_code=200)
+        return JSONResponse(
+            content=_generate_speech_payload(request.text, request.language),
+            status_code=200,
+        )
     except ValueError as e:
         return JSONResponse(content={"message": str(e)}, status_code=400)
     except FileNotFoundError as e:
@@ -353,7 +357,7 @@ def ask_transcribe_with_speech(
         answer_text = answer.get("response", "") if isinstance(answer, dict) else ""
         return {
             **response,
-            "speech": _generate_speech_payload(answer_text, tts_language),
+            **_generate_speech_payload(answer_text, tts_language),
         }
     except FileNotFoundError as e:
         raise HTTPException(detail=str(e), status_code=503) from e

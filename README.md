@@ -1,232 +1,77 @@
 # RAGdoll
 
-# 🚀 RAGdoll development tool
+FastAPI backend for a VR chatbot with Retrieval-Augmented Generation (RAG). Hosted instance: https://iplvr.it.ntnu.no
 
-available api at https://iplvr.it.ntnu.no
+## Prerequisites
+- [Git](https://git-scm.com/downloads)
+- [uv](https://docs.astral.sh/uv/) (Python 3.12)
+- [Docker](https://www.docker.com/products/docker-desktop) for MongoDB, Keycloak and Mailpit
 
-## 📦 Installation
-### Prerequisites
-- Ensure that git is installed on your machine. [Download Git](https://git-scm.com/downloads)
-- Docker is used for the backend and database setup. [Download Docker](https://www.docker.com/products/docker-desktop)
-
-### **1️⃣ Clone the Repository**
+## Setup
 ```sh
-git clone https://github.com/vr4vet/chat-service.git
-cd chat-service
+git clone https://github.com/IMTEL/RAGdoll.git
+cd RAGdoll
+uv sync --dev
+cp .env.example .env   # then edit the values
 ```
 
-### **2️⃣ Set Up a Virtual Environment (Recommended)**
-It’s best to install dependencies inside a virtual environment:
+`.env.example` is the source of truth for configuration. Notable settings:
 
-**1. Create a Virtual Environment**
+| Variable | Purpose |
+|---|---|
+| `FERNET_KEY` | Encrypts stored provider API keys. Accepts a comma-separated list: the first key encrypts, all keys decrypt (rotation). |
+| `KEYCLOAK_*` | Keycloak realm, client and issuer/JWKS settings for login. |
+| `SMTP_*` | Outgoing mail for Keycloak (password reset). Unset = local Mailpit. |
+| `AUTH_BOOTSTRAP_ENABLED` | Debug bootstrap of auth data (needs a logged-in user). Keep `false` in production. |
+| `PUBLIC_SPEECH_ENDPOINTS` | Default `false`: STT, TTS and translate need `Authorization: Bearer <user JWT or access key>` and `X-Agent-Id`. |
+| `LOG_LEVEL`, `LOG_FILE` | Log level (default `INFO`) and optional rotating log file. |
+| `LOG_CONVERSATIONS` | Default `false`. When `true`, user messages and agent responses are logged. |
+| `LLM_TIMEOUT_SECONDS` | Timeout for LLM and embedding requests. |
+| `STT_MAX_CONCURRENCY`, `TTS_MAX_CONCURRENCY` | Concurrent Whisper / Piper jobs. |
+| `MAX_UPLOAD_MB` | Maximum document upload size (default 50). |
+| `PROGRESS_TTL_HOURS` | Lifetime of upload progress records (default 24). |
+| `MONGODB_PROGRESS_COLLECTION`, `MONGODB_UPLOAD_TASKS_COLLECTION` | Collections for progress and upload tasks. |
 
+## Running locally
 
-Run the following command to create a virtual environment named venv:
-<pre> python -m venv venv </pre>
-
-
-**2. Activate the Virtual Environment**
-
-Before installing or updating packages, activate the virtual environment.
-
-*On windows:*
-<pre>source venv/Scripts/activate</pre>
-
-*On linux and mac:*
-<pre>source venv/bin/activate</pre>
-
-
-
-**3. Install Existing Dependencies**
-
-
-follow [manual for updating requirements](docs/manuals/update_requirements.md)
-
-### **3️⃣ Install Dependencies**
+### With Docker Compose (backend, MongoDB, Keycloak, Mailpit)
 ```sh
-pip install -r requirements.txt
+docker compose -f docker-compose.local.yml up --build
 ```
+- API: http://localhost:8000 (docs at `/docs`)
+- Keycloak: http://localhost:8080
+- Mailpit inbox (password reset emails): http://localhost:8025
 
-### Configuration
-Create a `.env` file in the root directory of the project and add the following environment variables:
-# 🚀 Running the Service Locally
-
-### **1️⃣ Start the FastAPI Server**
-Run the following command:
-
+### Backend only
+Start MongoDB (and Keycloak if you need login) separately, then:
 ```sh
-uvicorn src.main:app --reload
+uv run uvicorn src.main:app --reload
+curl http://127.0.0.1:8000/ping    # {"status":"I AM ALIVE!"}
 ```
-The service will now be available at:
 
-Docs UI: http://127.0.0.1:8000/docs
-API Root: http://127.0.0.1:8000
-
-### **2️⃣ Verify the /ping Endpoint**
-Check if the service is running:
-The `/ping` endpoint is used to check if the backend is running.
-
+## Tests
 ```sh
-curl http://127.0.0.1:8000/ping
+uv run pytest
 ```
-✅ Expected response:
+`pytest-env` sets `RUNNING_TESTS=true`, which makes the app use test-safe configuration. No MongoDB is needed: `tests/conftest.py` replaces pymongo with mongomock.
+
+Lint and format checks:
 ```sh
-{"status":"I AM ALIVE!"}
+uv run ruff check --no-fix src tests
+uv run ruff format --check src tests
 ```
 
+## Upgrading / deploy notes
+- Run `uv run python scripts/migrate_hash_access_keys.py` (options: `--dry-run`, `--drop-plaintext`) to convert stored access keys to hashes. Access keys now use the `rgd_` format and are shown only once, when created.
+- Run `uv run python scripts/rebuild_faiss_index.py --all` once after deploying (or `--agent-id <id>` for one agent). It drops stale vectors from replaced documents and is safe while the backend runs. Older indexes are converted on first write.
+- Provider API keys are never returned by the API.
 
-
-##  Running the Service with Docker
-
-This service can be containerized using **Docker** for easy deployment.
-
-### 1️ Build the Docker Image
-Run the following command to build the Docker image:
-
-```sh
-docker build -t chat-service .
-```
-
-### 2 Run the Docker Container
-Once the image is built, start the container:
-
-```sh
-docker run -p 8000:8000 chat-service
-```
-The service should now be running at http://127.0.0.1:8000.
-
-### 3 Verify the Service
-Test if the service is running by making a request to the /ping endpoint:
-
-# Using cURL:
-```sh
-curl http://127.0.0.1:8000/ping
-```
-Expected Response:
-{"status":"I AM ALIVE!"}
-
-### 4 Stop the Running Container
-To stop the running container:
-```sh
-docker ps  # Get container ID
-docker stop <container_id>
-```
-
-### 5 Debugging (Optional)
-If the service is not running as expected:
-
-Check running containers:
-```sh
-docker ps
-```
-View logs:
-```sh
-docker logs <container_id>
-```
-# 📌 Notes
-Make sure Docker is installed and running before executing these commands.
-The Dockerfile is designed to expose port 8000, so ensure no other service is using this port.
-### Configuration
-
-Create a `.env` file in the root directory by following the .env.example
-
-# Testing
-without docker:
-```bash
-pytest --cov=src --cov-report=term-missing
-```
-Docker:
-```bash
-docker compose build
-docker compose up -d
-docker compose run chat-service pytest
-docker compose down
-```
-##Test endpoint with mock data
-### curl command to test the endpoint:
-
-curl -X POST "http://localhost:8000/api/progress" \
--H "Content-Type: application/json" \
--d '{
-  "task_name": "Daily Exercise Routine",
-  "status": "start",
-  "user_id": "user123",
-  "subtask_progress": [
-    {
-      "subtask_name": "Warm Up",
-      "description": "Prepare muscles for workout",
-      "completed": false,
-      "step_progress": [
-        {
-          "step_name": "Jumping Jacks",
-          "repetition_number": 30,
-          "completed": false
-        },
-        {
-          "step_name": "Arm Circles",
-          "repetition_number": 20,
-          "completed": false
-        }
-      ]
-    },
-    {
-      "subtask_name": "Main Workout",
-      "description": "Intense exercise session",
-      "completed": false,
-      "step_progress": [
-        {
-          "step_name": "Push Ups",
-          "repetition_number": 50,
-          "completed": false
-        }
-      ]
-    }
-  ]
-}
-
-curl -X POST "http://localhost:8000/api/progress" \
--H "Content-Type: application/json" \
--d '{
-  "task_name": "Daily Exercise Routine",
-  "status": "complete",
-  "user_id": "user123",
-  "subtask_progress": [
-    {
-      "subtask_name": "Warm Up",
-      "description": "Prepare muscles for workout",
-      "completed": true,
-      "step_progress": [
-        {
-          "step_name": "Jumping Jacks",
-          "repetition_number": 30,
-          "completed": true
-        },
-        {
-          "step_name": "Arm Circles",
-          "repetition_number": 20,
-          "completed": true
-        }
-      ]
-    },
-    {
-      "subtask_name": "Main Workout",
-      "description": "Intense exercise session",
-      "completed": true,
-      "step_progress": [
-        {
-          "step_name": "Push Ups",
-          "repetition_number": 50,
-          "completed": true
-        }
-      ]
-    }
-  ]
-}'
-
-### Receive the log
-curl -X GET "http://localhost:8000/api/progress"
-
-
+## Further reading
+- [Deploy on a server](docs/manuals/deploy_on_server.md)
+- [Async document upload](docs/manuals/async_document_upload.md)
+- [Local translation setup](docs/manuals/local_translation_setup.md)
+- [Piper TTS voices](docs/manuals/tts_piper_voice_setup.md)
+- [Architecture](docs/architecture/architectural_design.md)
 
 ## Contributors
 

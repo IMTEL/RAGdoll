@@ -4,9 +4,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from src.globals import agent_dao, user_dao
+from src.globals import agent_dao, progress_dao, user_dao
 from src.models.users.user import User
-from src.utils.global_logs import failure_log, progress_log
+from src.utils.global_logs import failure_log
 from src.utils.path_dependencies import require_user
 
 
@@ -32,7 +32,7 @@ def get_logs(user: Annotated[User, Depends(require_user)]):
     """
     agent_ids = set(user.owned_agents) | set(user.collaborating_agents)
     return {
-        "progressLog": [e for e in progress_log if e.get("agent_id") in agent_ids],
+        "progressLog": progress_dao.list_progress_for_agents(agent_ids),
         "failureLog": [e for e in failure_log if e.get("agent_id") in agent_ids],
     }
 

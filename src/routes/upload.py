@@ -18,11 +18,10 @@ from fastapi import (
 
 from src.config import Config
 from src.context_upload import process_file_and_store
-from src.globals import agent_dao, auth_service, user_dao
+from src.globals import agent_dao, auth_service, progress_dao, user_dao
 from src.models.agent import Agent
 from src.models.users.user import User
 from src.rag_service.dao.factory import get_document_dao
-from src.utils.global_logs import progress_log
 from src.utils.path_dependencies import get_auth, require_user_or_access_key
 from src.utils.provider_keys import resolve_provider_keys
 
@@ -85,35 +84,31 @@ def _process_document_background(
 
     This function runs in a background thread, allowing the upload endpoint
     to return immediately while processing continues. Progress is tracked
-    in the global progress_log.
+    in the durable upload_tasks collection.
     """
 
     def update_progress(progress_percent: int, message: str):
-        """Callback to update progress in progress_log."""
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                entry.update(
-                    {
-                        "progress_percent": progress_percent,
-                        "message": message,
-                        "status": "processing",
-                    }
-                )
-                break
+        """Callback to update upload task progress."""
+        progress_dao.update_upload_task(
+            task_id,
+            {
+                "progress_percent": progress_percent,
+                "message": message,
+                "status": "processing",
+            },
+        )
 
     try:
         # Update progress: started
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                entry.update(
-                    {
-                        "status": "processing",
-                        "progress_percent": 10,
-                        "started_at": datetime.now(UTC),
-                        "message": f"Extracting text from {filename}...",
-                    }
-                )
-                break
+        progress_dao.update_upload_task(
+            task_id,
+            {
+                "status": "processing",
+                "progress_percent": 10,
+                "started_at": datetime.now(UTC),
+                "message": f"Extracting text from {filename}...",
+            },
+        )
 
         success, document_id = process_file_and_store(
             str(file_location),
@@ -127,48 +122,45 @@ def _process_document_background(
         )
 
         # Update progress: completed
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                if success:
-                    entry.update(
-                        {
-                            "status": "complete",
-                            "progress_percent": 100,
-                            "completed_at": datetime.now(UTC),
-                            "message": f"Successfully processed {filename}",
-                            "document_id": document_id,
-                        }
-                    )
-                    logger.info(
-                        f"Background processing completed for '{filename}': "
-                        f"document_id={document_id}, agent_id={agent_id}"
-                    )
-                else:
-                    entry.update(
-                        {
-                            "status": "failed",
-                            "progress_percent": 0,
-                            "completed_at": datetime.now(UTC),
-                            "message": f"Failed to process {filename}",
-                        }
-                    )
-                    logger.error(f"Background processing failed for '{filename}'")
-                break
+        if success:
+            progress_dao.update_upload_task(
+                task_id,
+                {
+                    "status": "complete",
+                    "progress_percent": 100,
+                    "completed_at": datetime.now(UTC),
+                    "message": f"Successfully processed {filename}",
+                    "document_id": document_id,
+                },
+            )
+            logger.info(
+                f"Background processing completed for '{filename}': "
+                f"document_id={document_id}, agent_id={agent_id}"
+            )
+        else:
+            progress_dao.update_upload_task(
+                task_id,
+                {
+                    "status": "failed",
+                    "progress_percent": 0,
+                    "completed_at": datetime.now(UTC),
+                    "message": f"Failed to process {filename}",
+                },
+            )
+            logger.error(f"Background processing failed for '{filename}'")
 
     except Exception as e:
         logger.error(f"Error in background processing of '{filename}': {e}")
         # Update progress: error
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                entry.update(
-                    {
-                        "status": "error",
-                        "progress_percent": 0,
-                        "completed_at": datetime.now(UTC),
-                        "message": f"Error processing {filename}: {e!s}",
-                    }
-                )
-                break
+        progress_dao.update_upload_task(
+            task_id,
+            {
+                "status": "error",
+                "progress_percent": 0,
+                "completed_at": datetime.now(UTC),
+                "message": f"Error processing {filename}: {e!s}",
+            },
+        )
     finally:
         # Clean up temp file
         if file_location.exists():
@@ -234,7 +226,7 @@ def upload_document_for_agent(
         )
 
         # Initialize progress entry
-        progress_log.append(
+        progress_dao.create_upload_task(
             {
                 "task_id": task_id,
                 "task_name": f"upload_{file.filename}",
@@ -312,19 +304,19 @@ async def get_upload_status(
         visible_agents = set(caller.owned_agents) | set(caller.collaborating_agents)
     else:
         visible_agents = {caller.id}
-    for entry in progress_log:
-        if entry.get("task_id") == task_id and entry.get("agent_id") in visible_agents:
-            return {
-                "task_id": task_id,
-                "filename": entry.get("filename"),
-                "agent_id": entry.get("agent_id"),
-                "status": entry.get("status"),
-                "progress_percent": entry.get("progress_percent", 0),
-                "message": entry.get("message"),
-                "document_id": entry.get("document_id"),
-                "started_at": entry.get("started_at"),
-                "completed_at": entry.get("completed_at"),
-            }
+    entry = progress_dao.get_upload_task(task_id)
+    if entry is not None and entry.get("agent_id") in visible_agents:
+        return {
+            "task_id": task_id,
+            "filename": entry.get("filename"),
+            "agent_id": entry.get("agent_id"),
+            "status": entry.get("status"),
+            "progress_percent": entry.get("progress_percent", 0),
+            "message": entry.get("message"),
+            "document_id": entry.get("document_id"),
+            "started_at": entry.get("started_at"),
+            "completed_at": entry.get("completed_at"),
+        }
 
     raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
 

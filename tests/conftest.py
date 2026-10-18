@@ -65,3 +65,15 @@ def _isolated_faiss_index_dir(tmp_path_factory, monkeypatch):
         tmp_path_factory.mktemp("faiss_indices"),
     )
     monkeypatch.setattr(faiss_vector_store.FAISSVectorStoreManager, "_stores", {})
+
+
+@pytest.fixture
+def progress_store(monkeypatch):
+    """A fresh in-memory progress DAO, installed in every route module."""
+    from src.rag_service.dao.progress.mongodb_progress_dao import MongoDBProgressDAO
+    from src.routes import debug, progress, upload
+
+    dao = MongoDBProgressDAO()
+    for module in (progress, upload, debug):
+        monkeypatch.setattr(module, "progress_dao", dao)
+    return dao

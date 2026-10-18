@@ -17,7 +17,7 @@ from src.main import app, warn_if_speech_endpoints_public
 from src.routes import chat as chat_routes
 from src.routes import translation as translation_routes
 from src.routes import transliteration as transliteration_routes
-from src.utils.global_logs import failure_log, progress_log
+from src.utils.global_logs import failure_log
 from tests.endpoints.conftest import INVALID_JWT, AuthEnv, sample_agent
 
 
@@ -270,29 +270,26 @@ class TestPublicSpeechEndpointsFlag:
 
 
 @pytest.fixture
-def clean_logs():
-    saved_progress, saved_failure = list(progress_log), list(failure_log)
-    progress_log.clear()
+def clean_logs(progress_store):
+    saved_failure = list(failure_log)
     failure_log.clear()
-    yield
-    progress_log[:] = saved_progress
+    yield progress_store
     failure_log[:] = saved_failure
 
 
 @pytest.mark.usefixtures("clean_logs")
 class TestDebugLogs:
-    def test_returns_only_entries_for_users_agents(self, auth_env):
+    def test_returns_only_entries_for_users_agents(self, auth_env, progress_store):
         _, token = auth_env.add_user(
             "dev", owned_agents=["owned"], collaborating_agents=["shared"]
         )
-        progress_log.extend(
-            [
-                {"agent_id": "owned", "task_name": "a"},
-                {"agent_id": "shared", "task_name": "b"},
-                {"agent_id": "foreign", "task_name": "c"},
-                {"task_name": "no-agent"},
-            ]
-        )
+        for entry in (
+            {"agent_id": "owned", "task_name": "a"},
+            {"agent_id": "shared", "task_name": "b"},
+            {"agent_id": "foreign", "task_name": "c"},
+            {"task_name": "no-agent"},
+        ):
+            progress_store.add_progress(entry)
         failure_log.extend(
             [{"agent_id": "foreign", "error": "x"}, {"agent_id": "owned", "error": "y"}]
         )
@@ -331,7 +328,9 @@ class TestBootstrapRoute:
 @pytest.mark.usefixtures("clean_logs")
 class TestUploadStatus:
     def _add_task(self, agent_id: str) -> str:
-        progress_log.append(
+        from src.routes import upload
+
+        upload.progress_dao.create_upload_task(
             {"task_id": "task-1", "agent_id": agent_id, "status": "processing"}
         )
         return "/upload/status/task-1"
