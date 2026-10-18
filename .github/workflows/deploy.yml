@@ -1,9 +1,9 @@
 name: Deploy to Production
 
 on:
-  # Deploy only after the "Tests and Lint" workflow has succeeded on main.
+  # Deploy only after the "Tests" workflow has succeeded on main.
   workflow_run:
-    workflows: ["Tests and Lint"]
+    workflows: ["Tests"]
     types: [completed]
     branches: [ "main" ]
   workflow_dispatch:  # Allow manual triggering

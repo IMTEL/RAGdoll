@@ -60,9 +60,7 @@ def _stored_keys(database: MockAgentDAO, agent_id: str) -> list[AccessKey]:
 
 
 def _add_stored_key(database: MockAgentDAO, agent_id: str, key: AccessKey) -> None:
-    agent = database.get_agent_by_id(agent_id)
-    agent.access_key.append(key)
-    database.add_agent(agent)
+    database.push_access_key(agent_id, key)
 
 
 class TestGenerate:
@@ -159,9 +157,11 @@ class TestAuthenticate:
         created = access_service.generate_accesskey(
             "test", datetime.now(UTC) + timedelta(hours=1), agent.id
         )
-        stored = database.get_agent_by_id(agent.id)
-        stored.access_key[0].expiry_date = datetime.now(UTC) - timedelta(seconds=5)
-        database.add_agent(stored)
+        key = database.get_agent_by_id(agent.id).access_key[0]
+        key.expiry_date = datetime.now(UTC) - timedelta(seconds=5)
+        # add_agent keeps the stored keys; replace the key itself.
+        database.pull_access_keys(agent.id, [key.id])
+        database.push_access_key(agent.id, key)
 
         assert not access_service.authenticate(agent.id, created.key)
 

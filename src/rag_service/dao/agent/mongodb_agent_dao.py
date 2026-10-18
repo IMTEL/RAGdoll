@@ -7,6 +7,7 @@ from bson import ObjectId
 from pymongo import MongoClient
 
 from src.config import Config
+from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
 from src.utils.crypto_utils import decrypt_value, encrypt_str
@@ -93,6 +94,9 @@ class MongoDBAgentDAO(AgentDAO):
         # Else update existing agent
         else:
             agent_id = agent_dict.pop("id")
+            # Keys change only through the targeted $push/$pull/$set methods,
+            # so a whole-agent update from a stale read cannot drop one.
+            agent_dict.pop("access_key", None)
 
             try:
                 object_id = ObjectId(agent_id)
@@ -161,6 +165,24 @@ class MongoDBAgentDAO(AgentDAO):
             {"_id": ObjectId(agent_id), "access_key.id": key_id},
             {"$set": {"access_key.$.last_use": when}},
         )
+
+    def push_access_key(self, agent_id: str, access_key: AccessKey) -> bool:
+        """Append one access key with ``$push`` (no read-modify-write)."""
+        result = self.collection.update_one(
+            {"_id": ObjectId(agent_id)},
+            {"$push": {"access_key": access_key.model_dump()}},
+        )
+        return result.matched_count > 0
+
+    def pull_access_keys(self, agent_id: str, key_ids: list[str]) -> bool:
+        """Remove access keys by id with ``$pull`` (no read-modify-write)."""
+        if not key_ids:
+            return False
+        result = self.collection.update_one(
+            {"_id": ObjectId(agent_id)},
+            {"$pull": {"access_key": {"id": {"$in": list(key_ids)}}}},
+        )
+        return result.modified_count > 0
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.

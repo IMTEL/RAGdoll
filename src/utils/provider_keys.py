@@ -44,8 +44,8 @@ def resolve_provider_keys(agent: Agent, user_dao: UserDao) -> Agent:
 
     Agents without references are returned unchanged. A reference whose stored
     key is gone (deleted, or the owner left) or cannot be decrypted resolves
-    to an empty key with ``<field>_invalid`` set, exactly like a missing key:
-    the LLM and embedding clients then refuse the call with a 401.
+    to an empty key with ``<field>_invalid`` set; the chat pipeline (src.pipeline)
+    then answers 401 before calling the LLM or embedding provider.
     """
     if not any(getattr(agent, f"{field}_id") for field in PROVIDER_KEY_FIELDS):
         return agent

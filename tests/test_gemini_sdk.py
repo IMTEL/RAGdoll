@@ -136,6 +136,7 @@ class TestEmbeddingTaskType:
 
     def test_pipeline_query_embeds_as_query(self, fake_client, monkeypatch):
         from src import pipeline
+        from src.models.agent import Role
         from src.models.chat.command import Command
         from tests.endpoints.conftest import sample_agent
 
@@ -150,9 +151,15 @@ class TestEmbeddingTaskType:
         agent.id = "a1"
         agent.embedding_model = "gemini:models/text-embedding-004"
         agent.context_aware_retrieval = False
+        # Retrieval (and so the query embedding) only runs for documents.
+        agent.roles = [Role(name="r", description="d", document_access=["d1"])]
 
         pipeline.assemble_prompt_with_agent(
-            Command(agent_id="a1", chat_log=[{"role": "user", "content": "hi"}]),
+            Command(
+                agent_id="a1",
+                active_role_id="r",
+                chat_log=[{"role": "user", "content": "hi"}],
+            ),
             agent,
         )
         assert _task_type(fake_client) == "RETRIEVAL_QUERY"

@@ -8,7 +8,7 @@ from pymongo.errors import PyMongoError
 
 from src import pipeline
 from src.models.agent import Agent, Role
-from src.models.errors import EmbeddingAPIError
+from src.models.errors import EmbeddingAPIError, EmbeddingError
 from src.rag_service.dao.context import hybrid_search as hybrid_search_module
 from src.rag_service.dao.context.faiss_vector_store import (
     FAISSVectorStoreManager,
@@ -30,9 +30,17 @@ def _all_text(messages) -> str:
     return "\n".join(m["content"] for m in messages)
 
 
+ROLE = Role(name="student", description="d", document_access=["doc1"])
+
+
 class _FailingEmbedding:
+    def __init__(self, error=None):
+        self.error = error or EmbeddingAPIError("Gemini", "models/x", "quota exceeded")
+        self.calls = 0
+
     def get_embedding(self, text, **kwargs):
-        raise EmbeddingAPIError("Gemini", "models/x", "quota exceeded")
+        self.calls += 1
+        raise self.error
 
 
 @pytest.fixture
@@ -54,6 +62,7 @@ def real_pipeline(monkeypatch):
 def _add_agent(auth_env: AuthEnv, **fields) -> tuple[str, str]:
     agent = sample_agent()
     agent.context_aware_retrieval = False
+    agent.roles = [ROLE]
     for name, value in fields.items():
         setattr(agent, name, value)
     agent_id = auth_env.agent_dao.add_agent(agent).id
@@ -61,14 +70,20 @@ def _add_agent(auth_env: AuthEnv, **fields) -> tuple[str, str]:
     return agent_id, key
 
 
-def _ask(auth_env: AuthEnv, agent_id: str, key: str, role: str | None = None):
+def _ask(
+    auth_env: AuthEnv,
+    agent_id: str,
+    key: str,
+    role: str | None = "student",
+    content: str = "What is the boiling point?",
+):
     return auth_env.client.post(
         "/api/chat/ask",
         json={
             "agent_id": agent_id,
             "access_key": key,
             "active_role_id": role,
-            "chat_log": [{"role": "user", "content": "What is the boiling point?"}],
+            "chat_log": [{"role": "user", "content": content}],
         },
     )
 
@@ -85,8 +100,9 @@ class TestRetrievalErrorPolicy:
     def test_embedding_failure_under_fail_is_503(
         self, auth_env, real_pipeline, fake_llm, monkeypatch
     ):
+        failing = _FailingEmbedding(EmbeddingError("embedding service down"))
         monkeypatch.setattr(
-            pipeline, "create_embeddings_model", lambda *a, **k: _FailingEmbedding()
+            pipeline, "create_embeddings_model", lambda *a, **k: failing
         )
         monkeypatch.setattr(pipeline, "get_context_dao", lambda: MagicMock())
         agent_id, key = _add_agent(auth_env)
@@ -120,11 +136,123 @@ class TestRetrievalErrorPolicy:
         assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION in prompt
 
 
+class TestRetrievalSkipsAndKeyErrors:
+    """Retrieval is skipped when there is nothing to search.
+
+    Blank queries and roles without documents never call the embedder, and
+    provider key problems surface as the provider's status code.
+    """
+
+    def _embedder(self, monkeypatch, failing=None):
+        embedder = failing or MagicMock()
+        if failing is None:
+            embedder.get_embedding.return_value = [0.1, 0.2]
+        monkeypatch.setattr(
+            pipeline, "create_embeddings_model", lambda *a, **k: embedder
+        )
+        monkeypatch.setattr(pipeline, "get_context_dao", lambda: MagicMock())
+        return embedder
+
+    def test_blank_query_is_empty_without_embedding(
+        self, auth_env, real_pipeline, fake_llm, monkeypatch
+    ):
+        embedder = self._embedder(monkeypatch, _FailingEmbedding())
+        agent_id, key = _add_agent(auth_env)
+
+        r = _ask(auth_env, agent_id, key, content="   ")
+
+        assert r.status_code == 200, r.text
+        assert r.json()["retrieval"] == {"status": "empty", "error": None}
+        assert embedder.calls == 0
+        fake_llm.generate.assert_called_once()
+
+    def test_role_without_documents_is_empty_without_embedding(
+        self, auth_env, real_pipeline, fake_llm, monkeypatch
+    ):
+        embedder = self._embedder(monkeypatch, _FailingEmbedding())
+        agent_id, key = _add_agent(auth_env)
+
+        r = _ask(auth_env, agent_id, key, role=None)
+
+        assert r.status_code == 200, r.text
+        assert r.json()["retrieval"] == {"status": "empty", "error": None}
+        assert embedder.calls == 0
+
+    @pytest.mark.parametrize(
+        ("message", "status"),
+        [
+            ("API key not valid", 401),
+            ("quota exceeded for this project", 429),
+            ("rate limit reached", 429),
+        ],
+    )
+    def test_embedding_key_or_quota_error_uses_provider_status(
+        self, auth_env, real_pipeline, fake_llm, monkeypatch, message, status
+    ):
+        error = EmbeddingAPIError("Gemini", "models/x", Exception(message))
+        self._embedder(monkeypatch, _FailingEmbedding(error))
+        agent_id, key = _add_agent(auth_env)
+
+        r = _ask(auth_env, agent_id, key)
+
+        assert r.status_code == status, r.text
+        assert r.json()["detail"] != "Knowledge retrieval failed"
+        fake_llm.generate.assert_not_called()
+
+    def test_embedding_error_status_from_provider_exception(self):
+        class _Provider402Error(Exception):
+            status_code = 402
+
+        error = EmbeddingAPIError(
+            "OpenAI", "m", _Provider402Error("insufficient credits")
+        )
+        assert error.status_code == 402
+
+    def test_invalid_stored_embedding_key_is_401(
+        self, auth_env, real_pipeline, fake_llm, monkeypatch
+    ):
+        embedder = self._embedder(monkeypatch)
+        agent_id, key = _add_agent(auth_env)
+        monkeypatch.setattr(
+            pipeline,
+            "resolve_provider_keys",
+            lambda agent, _dao: agent.model_copy(
+                update={"embedding_api_key": "", "embedding_api_key_invalid": True}
+            ),
+        )
+
+        r = _ask(auth_env, agent_id, key)
+
+        assert r.status_code == 401, r.text
+        embedder.get_embedding.assert_not_called()
+        fake_llm.generate.assert_not_called()
+
+    def test_invalid_stored_llm_key_is_401(
+        self, auth_env, real_pipeline, fake_llm, monkeypatch
+    ):
+        embedder = self._embedder(monkeypatch)
+        agent_id, key = _add_agent(auth_env)
+        monkeypatch.setattr(
+            pipeline,
+            "resolve_provider_keys",
+            lambda agent, _dao: agent.model_copy(
+                update={"llm_api_key": "", "llm_api_key_invalid": True}
+            ),
+        )
+
+        r = _ask(auth_env, agent_id, key)
+
+        assert r.status_code == 401, r.text
+        embedder.get_embedding.assert_not_called()
+        fake_llm.generate.assert_not_called()
+
+
 class TestRetrievalStatus:
     def _run(self, monkeypatch, dao, agent=None):
         agent = agent or sample_agent()
         agent.id = "a1"
         agent.context_aware_retrieval = False
+        agent.roles = [ROLE]
         llm = MagicMock()
         llm.generate.return_value = "answer"
         monkeypatch.setattr(pipeline, "create_llm", lambda *a, **k: llm)
@@ -137,7 +265,9 @@ class TestRetrievalStatus:
         from src.models.chat.command import Command
 
         command = Command(
-            agent_id="a1", chat_log=[{"role": "user", "content": "hello"}]
+            agent_id="a1",
+            active_role_id="student",
+            chat_log=[{"role": "user", "content": "hello"}],
         )
         return pipeline.assemble_prompt_with_agent(command, agent), llm
 
@@ -197,12 +327,10 @@ def unreachable_mongo_dao(monkeypatch):
 
 
 class TestMongoUnreachableDuringSearch:
-    ROLE = Role(name="student", description="d", document_access=["doc1"])
-
     def test_keyword_search_mongo_error_is_503_under_fail(
         self, auth_env, real_pipeline, fake_llm, unreachable_mongo_dao
     ):
-        agent_id, key = _add_agent(auth_env, roles=[self.ROLE])
+        agent_id, key = _add_agent(auth_env)
         r = _ask(auth_env, agent_id, key, role="student")
         assert r.status_code == 503
         assert r.json()["detail"] == "Knowledge retrieval failed"
@@ -213,7 +341,6 @@ class TestMongoUnreachableDuringSearch:
     ):
         agent_id, key = _add_agent(
             auth_env,
-            roles=[self.ROLE],
             on_retrieval_error="answer_without_context",
         )
         r = _ask(auth_env, agent_id, key, role="student")

@@ -598,14 +598,16 @@ def chat_access_key(
     key_name = f"Chat Access Key - {user_key_suffix}"
     now = datetime.datetime.now(datetime.UTC)
 
-    for access_key in list(agent.access_key):
-        expiry_date = as_utc(access_key.expiry_date)
-        if (
-            access_key.name == key_name
-            and expiry_date is not None
-            and expiry_date <= now
-        ):
-            access_service.revoke_key(agent.id, access_key.id)
+    expired_ids = [
+        access_key.id
+        for access_key in agent.access_key
+        if access_key.name == key_name
+        and as_utc(access_key.expiry_date) is not None
+        and as_utc(access_key.expiry_date) <= now
+    ]
+    if expired_ids:
+        # One $pull: keys minted or edits made since this read are kept.
+        access_service.revoke_keys(agent.id, expired_ids)
 
     return access_service.generate_accesskey(
         key_name, now + CHAT_ACCESS_KEY_LIFETIME, agent.id

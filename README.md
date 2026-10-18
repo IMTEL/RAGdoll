@@ -23,7 +23,7 @@ cp .env.example .env   # then edit the values
 | `KEYCLOAK_*` | Keycloak realm, client and issuer/JWKS settings for login. |
 | `SMTP_*` | Outgoing mail for Keycloak (password reset). Unset = local Mailpit. |
 | `AUTH_BOOTSTRAP_ENABLED` | Debug bootstrap of auth data (needs a logged-in user). Keep `false` in production. |
-| `PUBLIC_SPEECH_ENDPOINTS` | Default `false`: STT, TTS and translate need `Authorization: Bearer <user JWT or access key>` and `X-Agent-Id`. |
+| `PUBLIC_SPEECH_ENDPOINTS` | Default `false`: STT, TTS and translate need `Authorization: Bearer <user JWT or access key>`; with an access key also send `X-Agent-Id` (not needed with a user JWT). |
 | `LOG_LEVEL`, `LOG_FILE` | Log level (default `INFO`) and optional rotating log file. |
 | `LOG_CONVERSATIONS` | Default `false`. When `true`, user messages and agent responses are logged. |
 | `LLM_TIMEOUT_SECONDS` | Timeout for LLM and embedding requests. |
@@ -53,7 +53,12 @@ curl http://127.0.0.1:8000/ping    # {"status":"I AM ALIVE!"}
 ```sh
 uv run pytest
 ```
-`pytest-env` sets `RUNNING_TESTS=true`, which makes the app use test-safe configuration. No MongoDB is needed: `tests/conftest.py` replaces pymongo with mongomock.
+`pytest-env` sets `RUNNING_TESTS=true`, which makes the app use test-safe configuration. No MongoDB is needed: `tests/conftest.py` replaces pymongo with mongomock (this is also what CI runs).
+
+To run against a real MongoDB instead, set `USE_MONGOMOCK=false` (environment or `.env`; default `true`). The tests then use `MOCK_MONGODB_URI` and `MOCK_MONGODB_DATABASE`, which is how to check behaviour mongomock does not model, such as TTL indexes:
+```sh
+USE_MONGOMOCK=false MOCK_MONGODB_URI=mongodb://localhost:27017 uv run pytest
+```
 
 Lint and format checks:
 ```sh
@@ -63,7 +68,7 @@ uv run ruff format --check src tests
 
 ## Upgrading / deploy notes
 - Run `uv run python scripts/migrate_hash_access_keys.py` (options: `--dry-run`, `--drop-plaintext`) to convert stored access keys to hashes. Access keys now use the `rgd_` format and are shown only once, when created.
-- Run `uv run python scripts/rebuild_faiss_index.py --all` once after deploying (or `--agent-id <id>` for one agent). It drops stale vectors from replaced documents and is safe while the backend runs. Older indexes are converted on first write.
+- Run `uv run python scripts/rebuild_faiss_index.py --all` once after deploying (or `--agent-id <id>` for one agent). It drops stale vectors from replaced documents and is safe while the backend runs. Older indexes are converted on first update or removal (or by `rebuild_faiss_index.py`).
 - Provider API keys are never returned by the API.
 
 ## Further reading

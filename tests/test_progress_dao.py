@@ -171,3 +171,21 @@ def test_started_update_then_complete_roundtrip(progress_store, key_auth):
     assert "completet_at" not in done.json()["data"]
     assert done.json()["data"]["completed_at"] is not None
     assert len(progress_store.list_session_progress("a1", "s1")) == 1
+
+
+def test_progress_dao_error_does_not_fail_chat(progress_store, monkeypatch, caplog):
+    from pymongo.errors import PyMongoError
+
+    def broken(*args, **kwargs):
+        raise PyMongoError("mongodb://user:secret@host refused")
+
+    monkeypatch.setattr(progress_store, "list_session_progress", broken)
+    command = Command(
+        agent_id="a1", session_id="s1", include_progress=True, progress_limit=5
+    )
+
+    chat_routes._attach_recent_progress(command)
+
+    assert command.progress == []
+    assert "PyMongoError" in caplog.text
+    assert "secret" not in caplog.text

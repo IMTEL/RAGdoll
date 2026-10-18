@@ -6,6 +6,7 @@ This module defines the interfaces for document context and agent DAOs.
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 
 
@@ -18,6 +19,11 @@ class AgentDAO(ABC):
     @abstractmethod
     def add_agent(self, agent: Agent) -> Agent:
         """Store a new agent configuration and updates if the agent already exists.
+
+        On update the stored ``access_key`` list is left as it is: keys are
+        only changed through push_access_key, pull_access_keys and
+        touch_access_key, so an update from an older read cannot drop a key
+        that was minted in the meantime.
 
         Args:
             agent (Agent): The agent object to persist
@@ -45,20 +51,25 @@ class AgentDAO(ABC):
             Agent | None: The agent if found, None otherwise
         """
 
+    @abstractmethod
     def touch_access_key(self, agent_id: str, key_id: str, when: datetime) -> None:
-        """Record ``when`` as the last use of one of the agent's access keys.
+        """Record ``when`` as the last use of one of the agent's access keys."""
 
-        The default loads and saves the whole agent; backends should override
-        it with a targeted update.
+    @abstractmethod
+    def push_access_key(self, agent_id: str, access_key: AccessKey) -> bool:
+        """Atomically append one access key to the agent.
+
+        Returns:
+            bool: False if the agent does not exist
         """
-        agent = self.get_agent_by_id(agent_id)
-        if agent is None:
-            return
-        for access_key in agent.access_key:
-            if access_key.id == key_id:
-                access_key.last_use = when
-                self.add_agent(agent)
-                return
+
+    @abstractmethod
+    def pull_access_keys(self, agent_id: str, key_ids: list[str]) -> bool:
+        """Atomically remove the agent's access keys with these ids.
+
+        Returns:
+            bool: True if at least one key was removed
+        """
 
     @abstractmethod
     def is_reachable(self) -> bool:

@@ -8,6 +8,7 @@ import pytest
 
 from src import llm as llm_module
 from src import pipeline
+from src.models.agent import Role
 from src.models.chat.command import Command
 from src.models.chat.message import Message
 from tests.endpoints.conftest import sample_agent
@@ -175,6 +176,7 @@ def _run_pipeline(monkeypatch, contexts, chat_log):
     agent.id = "a1"
     agent.context_aware_retrieval = False
     agent.prompt = "PERSONA-SENTINEL"
+    agent.roles = [Role(name="student", description="d", document_access=["d1"])]
     fake_llm = MagicMock()
     fake_llm.generate.return_value = "answer"
     monkeypatch.setattr(pipeline, "create_llm", lambda *a, **k: fake_llm)
@@ -185,7 +187,8 @@ def _run_pipeline(monkeypatch, contexts, chat_log):
     emb.get_embedding.return_value = [0.0]
     monkeypatch.setattr(pipeline, "create_embeddings_model", lambda *a, **k: emb)
     pipeline.assemble_prompt_with_agent(
-        Command(agent_id="a1", chat_log=chat_log), agent
+        Command(agent_id="a1", active_role_id="student", chat_log=chat_log),
+        agent,
     )
     return fake_llm
 

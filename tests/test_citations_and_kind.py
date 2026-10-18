@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from src import context_upload, pipeline
 from src.main import app
-from src.models.agent import Agent
+from src.models.agent import Agent, Role
 from src.models.chat.command import Command
 from src.models.chat.message import Message
 from src.models.rag import Document
@@ -170,6 +170,7 @@ def _run_pipeline(monkeypatch, contexts, llm_output):
     agent = sample_agent()
     agent.id = "a1"
     agent.context_aware_retrieval = False
+    agent.roles = [Role(name="student", description="d", document_access=["d1"])]
     fake_llm = MagicMock()
     fake_llm.generate.return_value = llm_output
     monkeypatch.setattr(pipeline, "create_llm", lambda *a, **k: fake_llm)
@@ -179,7 +180,11 @@ def _run_pipeline(monkeypatch, contexts, llm_output):
     emb = MagicMock()
     emb.get_embedding.return_value = [0.0]
     monkeypatch.setattr(pipeline, "create_embeddings_model", lambda *a, **k: emb)
-    command = Command(agent_id="a1", chat_log=[{"role": "user", "content": "q"}])
+    command = Command(
+        agent_id="a1",
+        active_role_id="student",
+        chat_log=[{"role": "user", "content": "q"}],
+    )
     return pipeline.assemble_prompt_with_agent(command, agent), fake_llm
 
 

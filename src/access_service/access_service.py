@@ -113,8 +113,10 @@ class AccessService(AbstractAccessService):
             created=now,
             last_use=None,
         )
-        agent.access_key.append(stored)
-        self.agent_database.add_agent(agent)
+        # $push, not a rewrite of the agent read above: a concurrent mint
+        # or agent update must not be overwritten by this stale copy.
+        if not self.agent_database.push_access_key(agent.id, stored):
+            raise ValueError(f"Agent {agent_id} not found")
         return AccessKeyCreated(
             **stored.model_dump(include=set(AccessKeyPublic.model_fields)),
             key=plaintext,
@@ -170,6 +172,9 @@ class AccessService(AbstractAccessService):
         key = self.get_access_key_by_id(agent, access_key_id)
         if key is None:
             return False
-        agent.access_key.remove(key)
-        self.agent_database.add_agent(agent)
+        self.agent_database.pull_access_keys(agent.id, [key.id])
         return True
+
+    def revoke_keys(self, agent_id: str, access_key_ids: list[str]) -> bool:
+        """Remove several keys of the agent in one atomic update."""
+        return self.agent_database.pull_access_keys(agent_id, access_key_ids)

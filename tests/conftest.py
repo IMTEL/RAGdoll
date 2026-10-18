@@ -1,15 +1,24 @@
 # Replace the real Mongo driver with an in-memory one before any ``src`` module
 # is imported: DAOs are built at import time (src/globals.py) and bind
 # ``MongoClient`` by name, so this must run first.
+#
+# USE_MONGOMOCK=false (environment or .env) keeps the real pymongo instead;
+# the app then connects to MOCK_MONGODB_URI / MOCK_MONGODB_DATABASE. Use it to
+# check behaviour mongomock does not model (TTL indexes, explain, ...).
 import mimetypes
+import os
 import sys
 import types
 
 import mongomock
 import pymongo
+from dotenv import load_dotenv
 
 
-pymongo.MongoClient = mongomock.MongoClient
+load_dotenv()
+USE_MONGOMOCK = os.getenv("USE_MONGOMOCK", "true").strip().lower() != "false"
+if USE_MONGOMOCK:
+    pymongo.MongoClient = mongomock.MongoClient
 
 if sys.platform == "win32":
     # Windows: loading the libmagic DLL crashes the interpreter (access violation)

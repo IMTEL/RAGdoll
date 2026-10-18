@@ -12,7 +12,12 @@ from src.llm import EMPTY_USER_TURN, create_llm
 from src.log_redaction import redact
 from src.models import Agent
 from src.models.chat.command import Command
-from src.models.errors import EmbeddingAPIError, EmbeddingError, RetrievalFailedError
+from src.models.errors import (
+    EmbeddingAPIError,
+    EmbeddingError,
+    LLMAPIError,
+    RetrievalFailedError,
+)
 from src.models.rag.models import DEFAULT_DOCUMENT_KIND, DOCUMENT_KINDS
 from src.rag_service.dao import get_context_dao
 from src.rag_service.dao.context.faiss_vector_store import FAISSIndexError
@@ -24,6 +29,13 @@ logger = logging.getLogger(__name__)
 config = Config()
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
+
+# Reported (401) when an agent references a stored provider key that was
+# deleted or cannot be decrypted (``*_invalid`` from resolve_provider_keys).
+INVALID_STORED_KEY_DETAIL = (
+    "The stored API key selected for this agent no longer exists or cannot be "
+    "decrypted. Select a key again in the agent settings."
+)
 
 # Added to the prompt when retrieval failed and the agent's on_retrieval_error
 # is "answer_without_context".
@@ -472,6 +484,14 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     """
     # Decrypt provider keys that reference the owner's stored API keys.
     agent = resolve_provider_keys(agent, user_dao)
+    if agent.llm_api_key_invalid:
+        raise LLMAPIError(
+            agent.llm_provider,
+            agent.llm_model,
+            "authentication",
+            INVALID_STORED_KEY_DETAIL,
+            401,
+        )
     # Assemble final prompt
     role_prompt = (
         agent.get_role_by_name(command.active_role_id).description
@@ -632,15 +652,36 @@ def _retrieve_contexts(
 ) -> tuple[list, str | None]:
     """Embeds the query and looks up the agent's matching contexts.
 
+    A blank query or a role without accessible documents has nothing to
+    search: no embedding call is made and the result is empty (no error).
+
     Returns:
         (contexts, error). ``error`` is None on success, otherwise a short
         description naming the failing step and exception type (no secrets).
+
+    Raises:
+        EmbeddingAPIError: The embedding provider refused the key or the
+            quota (``status_code`` 401/402/403/429), or the referenced
+            stored embedding key is invalid (401), and the agent's
+            on_retrieval_error is "fail".
     """
+    if not (retrieval_query or "").strip() or not accessible_documents:
+        return [], None
+
     embedding_model_config = agent.embedding_model
     logger.debug("Using embedding model: %s", embedding_model_config)
     if ":" not in embedding_model_config:
         embedding_model_config = (
             f"gemini:{embedding_model_config or 'text-embedding-004'}"
+        )
+
+    if getattr(agent, "embedding_api_key_invalid", False):
+        # Same as the LLM key: a broken key reference is the owner's to fix.
+        raise EmbeddingAPIError(
+            embedding_model_config.split(":", 1)[0],
+            embedding_model_config.split(":", 1)[1],
+            INVALID_STORED_KEY_DETAIL,
+            status_code=401,
         )
 
     t_embed = time.perf_counter()
@@ -652,7 +693,13 @@ def _retrieve_contexts(
         embeddings: list[float] = embedding_model.get_embedding(
             retrieval_query, task="query"
         )
-    except (EmbeddingAPIError, EmbeddingError, ValueError) as e:
+    except EmbeddingAPIError as e:
+        # Key and quota problems are reported with the provider's status
+        # instead of a generic retrieval failure.
+        if agent.on_retrieval_error == "fail":
+            raise
+        return [], f"embedding failed: {type(e).__name__}"
+    except (EmbeddingError, ValueError) as e:
         return [], f"embedding failed: {type(e).__name__}"
     finally:
         if timings is not None:

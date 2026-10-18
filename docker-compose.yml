@@ -186,12 +186,15 @@ services:
       args:
         NEXT_PUBLIC_BACKEND_API_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
         NEXT_PUBLIC_CHAT_WEBSITE_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/chat
+        NEXT_PUBLIC_RAGDOLL_BASE_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
     container_name: ragdoll-frontend
     environment:
       - NODE_ENV=production
       - BACKEND_API_URL=http://backend-service:8000
-      - NEXTAUTH_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in RAGdoll/.env}
+      # better-auth reads BETTER_AUTH_*; fall back to the old NEXTAUTH_SECRET so
+      # existing server .env files keep working.
+      - BETTER_AUTH_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-${NEXTAUTH_SECRET:?Set BETTER_AUTH_SECRET (or NEXTAUTH_SECRET) in RAGdoll/.env}}
       - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ragdoll-config}
       - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in RAGdoll/.env}
       - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/realms/${KEYCLOAK_REALM:-ragdoll}}

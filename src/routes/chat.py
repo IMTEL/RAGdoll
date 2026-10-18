@@ -6,6 +6,7 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 from fastapi import (
@@ -18,14 +19,20 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from pymongo.errors import PyMongoError
 
 from src.config import Config
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
-from src.models.errors import LLMAPIError, LLMGenerationError, RetrievalFailedError
+from src.models.errors import (
+    EmbeddingAPIError,
+    LLMAPIError,
+    LLMGenerationError,
+    RetrievalFailedError,
+)
 from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
@@ -49,6 +56,7 @@ if TYPE_CHECKING:
 # the event loop and stall every other request until it finished.
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 config = Config()
+logger = logging.getLogger(__name__)
 
 
 class TTSRequest(BaseModel):
@@ -77,9 +85,18 @@ def _attach_recent_progress(command: Command) -> None:
     ):
         return
 
-    recent_progress = get_recent_progress_for_session(
-        command.agent_id, command.session_id, command.progress_limit
-    )
+    try:
+        recent_progress = get_recent_progress_for_session(
+            command.agent_id, command.session_id, command.progress_limit
+        )
+    except (PyMongoError, ValidationError) as e:
+        # Progress is auxiliary context: answer without it rather than fail
+        # the chat. Only the type is logged (driver errors can hold the URI).
+        logger.warning(
+            "Could not load recent progress for the chat (%s); answering without it",
+            type(e).__name__,
+        )
+        return
     if not recent_progress:
         return
 
@@ -135,10 +152,11 @@ def ask(command: Command, request: Request):
     command
         Raises:
             400: Invalid command format, agent not found, or role not found
-            401: LLM authentication failed (invalid API key or permissions)
-            402: Insufficient LLM tokens/credits
+            401: LLM or embedding authentication failed (invalid API key or
+                 permissions, or a stored key reference that is no longer valid)
+            402: Insufficient LLM or embedding tokens/credits
             404: LLM model not found or not accessible
-            429: LLM rate limit or quota exceeded
+            429: LLM or embedding rate limit or quota exceeded
             503: LLM generation service error, or knowledge retrieval failed
                  and the agent's on_retrieval_error is "fail"
             500: Other processing errors
@@ -180,7 +198,7 @@ def _answer(command: Command, agent: "Agent") -> dict:
             detail="Knowledge retrieval failed",
             status_code=503,
         ) from e
-    except LLMAPIError as e:
+    except (LLMAPIError, EmbeddingAPIError) as e:
         # API-related errors (auth, quota, model not found, insufficient tokens)
         raise HTTPException(
             detail=str(e),

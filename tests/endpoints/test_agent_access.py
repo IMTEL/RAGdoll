@@ -66,8 +66,8 @@ class TestAskWithAccessKey:
         assert response.status_code == 403
 
     def test_expired_key_is_rejected(self, auth_env, agent_id):
-        agent = auth_env.agent_dao.get_agent_by_id(agent_id)
-        agent.access_key.append(
+        auth_env.agent_dao.push_access_key(
+            agent_id,
             AccessKey(
                 id="expired",
                 key="expired-key-value",
@@ -75,9 +75,8 @@ class TestAskWithAccessKey:
                 expiry_date=datetime.now(UTC) - timedelta(days=1),
                 created=datetime.now(UTC) - timedelta(days=2),
                 last_use=None,
-            )
+            ),
         )
-        auth_env.agent_dao.add_agent(agent)
 
         response = auth_env.client.post(
             ASK, json=_ask_body(agent_id, "expired-key-value")
@@ -127,8 +126,8 @@ class TestAskWithUserToken:
     def test_invalid_jwt_cannot_pass_as_matching_access_key(self, auth_env, agent_id):
         # Even if a stored key happened to equal the token, a JWT-shaped bearer
         # must be validated as a JWT and never fall back to key matching.
-        agent = auth_env.agent_dao.get_agent_by_id(agent_id)
-        agent.access_key.append(
+        auth_env.agent_dao.push_access_key(
+            agent_id,
             AccessKey(
                 id="jwtlike",
                 key=INVALID_JWT,
@@ -136,9 +135,8 @@ class TestAskWithUserToken:
                 expiry_date=None,
                 created=None,
                 last_use=None,
-            )
+            ),
         )
-        auth_env.agent_dao.add_agent(agent)
         response = auth_env.client.post(
             ASK, json=_ask_body(agent_id), headers=_bearer(INVALID_JWT)
         )
@@ -265,16 +263,15 @@ class TestStaticAgentRoutesAreReachable:
 
     def test_chat_accesskey_prunes_expired_chat_keys(self, auth_env, agent_id):
         user, token = auth_env.add_user("collab", collaborating_agents=[agent_id])
-        agent = auth_env.agent_dao.get_agent_by_id(agent_id)
-        agent.access_key.append(
+        auth_env.agent_dao.push_access_key(
+            agent_id,
             AccessKey(
                 id="oldchat1",
                 name=f"Chat Access Key - {user.id}",
                 key_hash="0" * 64,
                 expiry_date=datetime.now(UTC) - timedelta(hours=1),
-            )
+            ),
         )
-        auth_env.agent_dao.add_agent(agent)
 
         response = auth_env.client.get(
             "/agents/chat-accesskey",
@@ -351,11 +348,10 @@ class TestAccessKeySecrets:
         assert "key" not in key
 
     def test_legacy_plaintext_key_is_not_listed(self, auth_env, agent_id):
-        agent = auth_env.agent_dao.get_agent_by_id(agent_id)
-        agent.access_key.append(
-            AccessKey(id="legacy01", key="legacy-plaintext-value", name="legacy")
+        auth_env.agent_dao.push_access_key(
+            agent_id,
+            AccessKey(id="legacy01", key="legacy-plaintext-value", name="legacy"),
         )
-        auth_env.agent_dao.add_agent(agent)
         headers = self._owner(auth_env, agent_id)
 
         for path in (
