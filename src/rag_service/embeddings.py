@@ -9,6 +9,7 @@ from numpy.linalg import norm
 
 from src.config import Config
 from src.models.errors import EmbeddingAPIError, EmbeddingError
+from src.utils.client_cache import ClientCache, key_hash
 
 
 # What a text is embedded for. Providers with task-specific embeddings
@@ -299,6 +300,13 @@ def list_embedding_models(provider: str, api_key: str) -> list[str]:
     )
 
 
+_embedding_cache: ClientCache[EmbeddingsModel] = ClientCache(maxsize=64)
+
+
+def clear_embedding_cache() -> None:
+    _embedding_cache.clear()
+
+
 def create_embeddings_model(
     embeddings_model: str = "gemini:models/text-embedding-004",
     embedding_api_key: str | None = None,
@@ -327,6 +335,15 @@ def create_embeddings_model(
     Returns:
         EmbeddingsModel: Instance of the appropriate embeddings model
     """
+    cache_key = (embeddings_model, key_hash(embedding_api_key))
+    return _embedding_cache.get_or_create(
+        cache_key, lambda: _build_embeddings_model(embeddings_model, embedding_api_key)
+    )
+
+
+def _build_embeddings_model(
+    embeddings_model: str, embedding_api_key: str | None
+) -> EmbeddingsModel:
     # Parse provider:model_name format
     if ":" in embeddings_model:
         provider, model_name = embeddings_model.split(":", 1)

@@ -67,6 +67,7 @@ def process_file_and_store(
     embedding_api_key: str | None = None,
     progress_callback: Callable[[int, str], None] | None = None,
     document_name: str | None = None,
+    kind: str | None = None,
 ) -> tuple[bool, str]:
     """Processes various file types, extracts and chunks text, computes embeddings, and stores data in the database.
 
@@ -95,6 +96,9 @@ def process_file_and_store(
         document_name (str | None): Name to store the document under. Defaults to
             the basename of file_path; uploads pass the client's filename because
             the file on disk has a unique, unrelated name.
+        kind (str | None): "world_lore" or "educational". None keeps the kind of
+            an existing document, or makes a new one educational. Every stored
+            chunk carries the document's kind so prompts can label it.
 
     Returns:
         tuple[bool, str]: (Success status, Document ID)
@@ -110,6 +114,7 @@ def process_file_and_store(
             file_size_bytes,
             embedding_api_key,
             progress_callback,
+            kind,
         )
 
 
@@ -122,8 +127,10 @@ def _process_file_and_store_locked(
     file_size_bytes: int | None,
     embedding_api_key: str | None,
     progress_callback: Callable[[int, str], None] | None,
+    kind: str | None = None,
 ) -> tuple[bool, str]:
     from src.models.rag import Document
+    from src.models.rag.models import DEFAULT_DOCUMENT_KIND
 
     logger.info(f"Starting file processing for: {file_path} with agent_id: {agent_id}")
 
@@ -173,16 +180,19 @@ def _process_file_and_store_locked(
             document_id = existing_doc.id
             assert document_id is not None  # Type narrowing for mypy
             logger.info(f"Updating existing document '{document_id}'")
+            document_kind = kind or existing_doc.kind
         else:
             # Create new document
             document_id = str(uuid.uuid4())
             logger.info(f"Creating new document '{document_id}'")
+            document_kind = kind or DEFAULT_DOCUMENT_KIND
 
             doc = Document(
                 id=document_id,
                 name=document_name,
                 agent_id=agent_id,
                 size_bytes=file_size_bytes,
+                kind=document_kind,
             )
             document_dao.create(doc)
 
@@ -234,6 +244,7 @@ def _process_file_and_store_locked(
                             chunk_id=chunk_id,
                             chunk_index=chunk_idx,
                             total_chunks=total_chunks,
+                            kind=document_kind,
                         ),
                     )
                     logger.debug(
@@ -269,6 +280,11 @@ def _process_file_and_store_locked(
                 document_id, agent_id=agent_id, keep_chunk_ids=set(new_chunk_ids)
             )
             logger.info(f"Deleted {deleted} old contexts of document '{document_id}'")
+            if existing_doc is not None and existing_doc.kind != document_kind:
+                # Only after the new chunks are in, so a failed upload keeps
+                # the old kind together with the old chunks.
+                existing_doc.kind = document_kind
+                document_dao.update(existing_doc)
 
         logger.info(
             f"Successfully stored '{document_name}' with {total_chunks} chunks into the database."

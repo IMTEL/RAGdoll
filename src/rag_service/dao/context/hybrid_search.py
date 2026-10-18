@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from pymongo.errors import PyMongoError
 
-from src.rag_service.context import Context
+from src.rag_service.context import Context, kind_of
 from src.rag_service.dao.context.faiss_vector_store import (
     FAISSIndexError,
     FAISSVectorStoreManager,
@@ -135,6 +135,8 @@ def hybrid_search(
                     chunk_id=document.get("chunk_id"),
                     chunk_index=document.get("chunk_index"),
                     total_chunks=document.get("total_chunks", 1),
+                    kind=kind_of(document),
+                    score=hybrid_scores[chunk_id],
                 )
             )
 

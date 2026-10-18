@@ -1,6 +1,7 @@
 """RAG (Retrieval-Augmented Generation) domain models."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +27,11 @@ class RAGPostModel(BaseModel):
     embedding: list[float] = Field(default_factory=list)
 
 
+DocumentKind = Literal["world_lore", "educational"]
+DEFAULT_DOCUMENT_KIND: DocumentKind = "educational"
+DOCUMENT_KINDS: tuple[str, ...] = ("world_lore", "educational")
+
+
 class Document(BaseModel):
     """Document metadata for RAG system.
 
@@ -37,6 +43,9 @@ class Document(BaseModel):
         name: Human-readable name of the document
         agent_id: ID of the agent this document belongs to
         size_bytes: Size of the document in bytes
+        kind: "world_lore" (canon inside the fiction) or "educational"
+            (real-world teaching material). Stored documents without a kind
+            are educational.
         created_at: Timestamp when document was created
         updated_at: Timestamp when document was last modified
     """
@@ -45,6 +54,9 @@ class Document(BaseModel):
     name: str = Field(..., description="Document name")
     agent_id: str = Field(..., description="Agent that owns this document")
     size_bytes: int = Field(default=0, description="Document size in bytes")
+    kind: DocumentKind = Field(
+        default=DEFAULT_DOCUMENT_KIND, description="world_lore or educational"
+    )
     created_at: datetime = Field(
         default_factory=datetime.now, description="Creation timestamp"
     )

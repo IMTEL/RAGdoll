@@ -4,13 +4,14 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     UploadFile,
 )
@@ -78,6 +79,7 @@ def _process_document_background(
     file_size_bytes: int,
     filename: str,
     task_id: str,
+    kind: str | None = None,
 ):
     """Background task to process and store document.
 
@@ -121,6 +123,7 @@ def _process_document_background(
             embedding_api_key=embedding_api_key,
             progress_callback=update_progress,
             document_name=filename,
+            kind=kind,
         )
 
         # Update progress: completed
@@ -181,6 +184,7 @@ def upload_document_for_agent(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),  # noqa: B008
+    kind: Annotated[Literal["world_lore", "educational"] | None, Form()] = None,
     authorize: Annotated[str | None, Depends(get_auth)] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
@@ -196,6 +200,9 @@ def upload_document_for_agent(
         agent_id: Unique identifier of the agent
         background_tasks: FastAPI background tasks handler (injected)
         file: The uploaded document file (txt, md, pdf, docx, etc.)
+        kind: Optional form field, "world_lore" (canon inside the fiction) or
+            "educational" (real-world material). Omitted: a new document is
+            educational and a re-upload keeps the document's current kind.
         authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
@@ -253,6 +260,7 @@ def upload_document_for_agent(
             file_size_bytes=file_size_bytes,
             filename=original_name,
             task_id=task_id,
+            kind=kind,
         )
 
         logger.info(
@@ -376,6 +384,7 @@ def get_documents_for_agent(
                         "name": doc.name,
                         "size": size_str,
                         "size_bytes": size_bytes,
+                        "kind": doc.kind,
                         "created_at": doc.created_at.isoformat()
                         if doc.created_at
                         else None,

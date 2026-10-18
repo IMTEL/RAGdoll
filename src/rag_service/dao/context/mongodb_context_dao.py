@@ -44,7 +44,7 @@ import logging
 from pymongo import ASCENDING, MongoClient
 
 from src.config import Config
-from src.rag_service.context import Context
+from src.rag_service.context import Context, kind_of
 from src.rag_service.dao.context.base import ContextDAO
 from src.rag_service.dao.context.faiss_vector_store import FAISSVectorStoreManager
 from src.rag_service.dao.context.hybrid_search import hybrid_search
@@ -258,6 +258,7 @@ class MongoDBContextDAO(ContextDAO):
                         chunk_id=document.get("chunk_id"),
                         chunk_index=document.get("chunk_index"),
                         total_chunks=document.get("total_chunks", 1),
+                        kind=kind_of(document),
                     )
                 )
 
@@ -291,6 +292,7 @@ class MongoDBContextDAO(ContextDAO):
             "embedding": embedding,
             "document_id": document_id,
             "agent_id": agent_id,
+            "kind": context.kind,
         }
 
         # Add optional chunking fields if present

@@ -7,6 +7,7 @@ from pymongo import ASCENDING, MongoClient
 
 from src.config import Config
 from src.models.rag import Document
+from src.rag_service.context import kind_of
 from src.rag_service.dao.context.mongodb_context_dao import MongoDBContextDAO
 from src.rag_service.dao.document.base import DocumentDAO
 
@@ -120,6 +121,7 @@ class MongoDBDocumentDAO(DocumentDAO):
             "name": document.name,
             "agent_id": document.agent_id,
             "size_bytes": document.size_bytes,
+            "kind": document.kind,
             "created_at": document.created_at,
             "updated_at": document.updated_at,
         }
@@ -158,6 +160,7 @@ class MongoDBDocumentDAO(DocumentDAO):
         update_dict = {
             "$set": {
                 "name": document.name,
+                "kind": document.kind,
                 "updated_at": document.updated_at,
             }
         }
@@ -257,6 +260,7 @@ class MongoDBDocumentDAO(DocumentDAO):
             name=doc.get("name", "Unnamed Document"),  # Default if name is missing
             agent_id=doc.get("agent_id", ""),
             size_bytes=doc.get("size_bytes", 0),
+            kind=kind_of(doc),
             created_at=doc.get("created_at", datetime.now()),
             updated_at=doc.get("updated_at", datetime.now()),
         )

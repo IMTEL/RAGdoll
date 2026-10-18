@@ -247,7 +247,7 @@ class TestResolution:
             seen["llm"] = kwargs.get("api_key", args[2] if len(args) > 2 else None)
             return _LLM()
 
-        def fake_retrieve(agent, query, documents):
+        def fake_retrieve(agent, query, documents, timings=None):
             seen["embedding"] = agent.embedding_api_key
             return [], None
 

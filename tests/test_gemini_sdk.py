@@ -72,7 +72,9 @@ class TestGeminiLLM:
         assert model.generate("hi", 50, 0.4) == "hello"
         kwargs = fake_client.client.models.generate_content.call_args.kwargs
         assert kwargs["model"] == "gemini-2.0-flash"
-        assert kwargs["contents"] == "hi"
+        contents = kwargs["contents"]
+        assert [c.role for c in contents] == ["user"]
+        assert contents[0].parts[0].text == "hi"
         config = kwargs["config"]
         assert config.max_output_tokens == 50
         assert config.temperature == 0.4

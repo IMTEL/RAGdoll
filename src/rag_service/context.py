@@ -1,5 +1,11 @@
 from pydantic import BaseModel, Field
 
+from src.models.rag.models import (
+    DEFAULT_DOCUMENT_KIND,
+    DOCUMENT_KINDS,
+    DocumentKind,
+)
+
 
 class Context(BaseModel):
     """Context document for RAG retrieval.
@@ -11,6 +17,8 @@ class Context(BaseModel):
         chunk_id: Unique identifier for this specific chunk (if chunked)
         chunk_index: Position of this chunk in the document (0-indexed)
         total_chunks: Total number of chunks the document was split into
+        kind: Kind of the source document ("world_lore" or "educational")
+        score: Retrieval score of this chunk for the current query, if any
 
     TODO: Implement text scraping/chunking for large documents.
     Currently storing whole documents. Future enhancement should:
@@ -25,3 +33,11 @@ class Context(BaseModel):
     chunk_id: str | None = Field(default=None)
     chunk_index: int | None = Field(default=None)
     total_chunks: int | None = Field(default=1)
+    kind: DocumentKind = Field(default=DEFAULT_DOCUMENT_KIND)
+    score: float | None = Field(default=None)
+
+
+def kind_of(row: dict) -> DocumentKind:
+    """The kind stored on a context row; missing or unknown means educational."""
+    kind = row.get("kind")
+    return kind if kind in DOCUMENT_KINDS else DEFAULT_DOCUMENT_KIND

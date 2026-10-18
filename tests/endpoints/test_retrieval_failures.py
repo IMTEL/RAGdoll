@@ -19,6 +19,17 @@ from src.routes import chat as chat_routes
 from tests.endpoints.conftest import AuthEnv, sample_agent
 
 
+def _rules(messages) -> str:
+    """The first system message, where behaviour rules live."""
+    assert isinstance(messages, list)
+    assert messages[0]["role"] == "system"
+    return messages[0]["content"]
+
+
+def _all_text(messages) -> str:
+    return "\n".join(m["content"] for m in messages)
+
+
 class _FailingEmbedding:
     def get_embedding(self, text, **kwargs):
         raise EmbeddingAPIError("Gemini", "models/x", "quota exceeded")
@@ -105,7 +116,7 @@ class TestRetrievalErrorPolicy:
         assert body["retrieval"]["error"]
         assert "quota" not in body["retrieval"]["error"]
         assert body["metadata"]["num_context_retrieved"] == 0
-        prompt = fake_llm.generate.call_args.args[0]
+        prompt = _rules(fake_llm.generate.call_args.args[0])
         assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION in prompt
 
 
@@ -136,7 +147,7 @@ class TestRetrievalStatus:
         result, llm = self._run(monkeypatch, dao)
         assert result["retrieval"] == {"status": "empty", "error": None}
         assert result["metadata"]["num_context_retrieved"] == 0
-        prompt = llm.generate.call_args.args[0]
+        prompt = _all_text(llm.generate.call_args.args[0])
         assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION not in prompt
 
     def test_matches_are_ok(self, monkeypatch):
@@ -164,7 +175,7 @@ class TestRetrievalStatus:
         result, llm = self._run(monkeypatch, dao, agent)
         assert result["retrieval"]["status"] == "error"
         assert "PyMongoError" in result["retrieval"]["error"]
-        prompt = llm.generate.call_args.args[0]
+        prompt = _rules(llm.generate.call_args.args[0])
         assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION in prompt
 
 
