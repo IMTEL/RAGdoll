@@ -94,9 +94,9 @@ class TestBuildMessages:
         text = "\n".join(m["content"] for m in _build())
         assert "100% true" not in text
         assert "prioritise it over all other sources" not in text
-        first = _build()[0]["content"].lower()
-        assert "base factual claims on the reference material" in first
-        assert "do not invent facts" in first
+        strict = _build(knowledge_scope="documents_only")[0]["content"].lower()
+        assert "base factual claims on the reference material" in strict
+        assert "do not invent facts" in strict
 
     def test_unknown_roles_map_to_user(self):
         messages = _build(
@@ -108,13 +108,24 @@ class TestBuildMessages:
         )
         assert [m["role"] for m in messages[2:]] == ["assistant", "user", "user"]
 
-    def test_retrieval_error_instruction_is_in_first_system_message(self):
-        messages = _build(retrieved_contexts=[], retrieval_status="error")
-        assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION in messages[0]["content"]
-        assert all(
-            pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION not in m["content"]
-            for m in messages[1:]
+    @pytest.mark.parametrize(
+        ("scope", "instruction"),
+        [
+            (
+                "documents_first",
+                pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION_DOCUMENTS_FIRST,
+            ),
+            ("documents_only", pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION),
+        ],
+    )
+    def test_retrieval_error_instruction_is_in_first_system_message(
+        self, scope, instruction
+    ):
+        messages = _build(
+            retrieved_contexts=[], retrieval_status="error", knowledge_scope=scope
         )
+        assert instruction in messages[0]["content"]
+        assert all(instruction not in m["content"] for m in messages[1:])
 
     def test_no_error_instruction_when_retrieval_ok(self):
         text = "\n".join(m["content"] for m in _build())

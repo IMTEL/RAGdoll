@@ -2,14 +2,19 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from cryptography.fernet import Fernet
 
 from src.access_service.access_service import (
+    AccessKeyNotFoundError,
+    AccessKeyNotRevealableError,
+    AccessKeyUndecryptableError,
     AccessService,
     display_prefix,
     parse_access_key,
 )
-from src.models.accesskey import AccessKey, AccessKeyCreated
+from src.models.accesskey import AccessKey, AccessKeyCreated, AccessKeyPublic
 from src.models.agent import Agent, Role
+from src.utils.crypto_utils import decrypt_value
 from src.utils.path_dependencies import is_jwt_shaped
 from tests.mocks.mock_agent_dao import MockAgentDAO
 
@@ -109,6 +114,93 @@ class TestGenerate:
         naive = datetime(3000, 2, 23, 0, 0, 0)
         created = access_service.generate_accesskey("test", naive, agent.id)
         assert created.expiry_date == naive.replace(tzinfo=UTC)
+
+
+class TestViewOnce:
+    def test_default_is_view_once_without_encrypted_copy(self, env):
+        agent, access_service, database = env
+        created = access_service.generate_accesskey("test", None, agent.id)
+
+        assert created.view_once is True
+        assert created.revealable is False
+        [stored] = _stored_keys(database, agent.id)
+        assert stored.view_once is True
+        assert stored.key_encrypted is None
+
+    def test_reusable_key_stores_hash_and_encrypted_copy(self, env):
+        agent, access_service, database = env
+        created = access_service.generate_accesskey(
+            "test", None, agent.id, view_once=False
+        )
+
+        assert created.view_once is False
+        assert created.revealable is True
+        [stored] = _stored_keys(database, agent.id)
+        assert stored.view_once is False
+        assert stored.key is None
+        assert stored.key_hash == _sha256(created.key)
+        assert stored.key_encrypted
+        assert created.key not in stored.model_dump_json()
+        assert decrypt_value(stored.key_encrypted) == created.key
+
+    def test_reusable_key_authenticates_by_hash(self, env):
+        agent, access_service, _ = env
+        created = access_service.generate_accesskey(
+            "test", None, agent.id, view_once=False
+        )
+        assert access_service.authenticate(agent.id, created.key)
+        assert not access_service.authenticate(agent.id, created.key[:-1] + "x")
+
+    def test_public_view_never_has_secrets(self, env):
+        agent, access_service, database = env
+        access_service.generate_accesskey("test", None, agent.id, view_once=False)
+        [stored] = _stored_keys(database, agent.id)
+
+        public = AccessKeyPublic.model_validate(stored.model_dump())
+        dumped = public.model_dump()
+        assert dumped["revealable"] is True
+        assert dumped["view_once"] is False
+        for field in ("key", "key_hash", "key_encrypted"):
+            assert field not in dumped
+        assert stored.key_encrypted not in public.model_dump_json()
+
+
+class TestReveal:
+    def test_reveals_reusable_key(self, env):
+        agent, access_service, _ = env
+        created = access_service.generate_accesskey(
+            "test", None, agent.id, view_once=False
+        )
+        assert access_service.reveal_key(agent.id, created.id) == created.key
+
+    def test_view_once_key_is_not_revealable(self, env):
+        agent, access_service, _ = env
+        created = access_service.generate_accesskey("test", None, agent.id)
+        with pytest.raises(AccessKeyNotRevealableError):
+            access_service.reveal_key(agent.id, created.id)
+
+    def test_unknown_key(self, env):
+        agent, access_service, _ = env
+        with pytest.raises(AccessKeyNotFoundError):
+            access_service.reveal_key(agent.id, "missing0")
+
+    def test_undecryptable_key(self, env, caplog):
+        agent, access_service, database = env
+        foreign = Fernet(Fernet.generate_key()).encrypt(b"rgd_gone0001_x").decode()
+        _add_stored_key(
+            database,
+            agent.id,
+            AccessKey(
+                id="gone0001",
+                name="rotated out",
+                key_hash="0" * 64,
+                key_encrypted=foreign,
+                view_once=False,
+            ),
+        )
+        with pytest.raises(AccessKeyUndecryptableError):
+            access_service.reveal_key(agent.id, "gone0001")
+        assert foreign not in caplog.text
 
 
 class TestAuthenticate:

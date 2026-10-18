@@ -14,6 +14,7 @@ from src.models.accesskey import (
 )
 from src.models.agent import Agent
 from src.rag_service.dao.agent.base import AgentDAO
+from src.utils.crypto_utils import decrypt_value, encrypt_str
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,18 @@ ACCESS_KEY_PREFIX_LENGTH = 12
 LEGACY_PREFIX_LENGTH = 6
 # last_use is a display hint; don't write the agent on every single call.
 LAST_USE_RESOLUTION = timedelta(minutes=1)
+
+
+class AccessKeyNotFoundError(LookupError):
+    """The agent has no access key with the given id."""
+
+
+class AccessKeyNotRevealableError(ValueError):
+    """The key was created to be shown only once, so it cannot be revealed."""
+
+
+class AccessKeyUndecryptableError(AccessKeyNotRevealableError):
+    """The key's encrypted copy no longer decrypts (its FERNET_KEY was rotated out)."""
 
 
 def hash_access_key(access_key: str) -> str:
@@ -95,7 +108,13 @@ class AccessService(AbstractAccessService):
         name: str,
         expiry_date: datetime | None,
         agent_id: str,
+        view_once: bool = True,
     ) -> AccessKeyCreated:
+        """Creates a key and returns its plaintext.
+
+        Only the hash is stored. With ``view_once=False`` the plaintext is also
+        stored encrypted (FERNET_KEY), so ``reveal_key`` can show it again.
+        """
         expiry_date = as_utc(expiry_date)
         now = datetime.now(UTC)
         if expiry_date is not None and expiry_date < now:
@@ -112,6 +131,8 @@ class AccessService(AbstractAccessService):
             expiry_date=expiry_date,
             created=now,
             last_use=None,
+            view_once=view_once,
+            key_encrypted=None if view_once else encrypt_str(plaintext),
         )
         # $push, not a rewrite of the agent read above: a concurrent mint
         # or agent update must not be overwritten by this stale copy.
@@ -166,6 +187,31 @@ class AccessService(AbstractAccessService):
             if ak.id == access_key_id:
                 return ak
         return None
+
+    def reveal_key(self, agent_id: str, access_key_id: str) -> str:
+        """Returns the plaintext of a key created with ``view_once=False``.
+
+        Raises:
+            AccessKeyNotFoundError: the agent has no such key
+            AccessKeyNotRevealableError: the key was created to be shown once
+            AccessKeyUndecryptableError: the encrypted copy no longer decrypts
+        """
+        agent = self.try_get_agent(agent_id)
+        key = self.get_access_key_by_id(agent, access_key_id)
+        if key is None:
+            raise AccessKeyNotFoundError(access_key_id)
+        if key.view_once or not key.key_encrypted:
+            raise AccessKeyNotRevealableError(access_key_id)
+        try:
+            return decrypt_value(key.key_encrypted)
+        except ValueError:
+            # Ids only: the token and its plaintext are secrets.
+            logger.warning(
+                "Access key %s of agent %s could not be decrypted",
+                access_key_id,
+                agent_id,
+            )
+            raise AccessKeyUndecryptableError(access_key_id) from None
 
     def revoke_key(self, agent_id: str, access_key_id: str) -> bool:
         agent = self.try_get_agent(agent_id)

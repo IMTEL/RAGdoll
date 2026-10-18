@@ -1,4 +1,4 @@
-﻿"""Retrieval failures are surfaced instead of silently becoming empty context."""
+"""Retrieval failures are surfaced instead of silently becoming empty context."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -133,7 +133,7 @@ class TestRetrievalErrorPolicy:
         assert "quota" not in body["retrieval"]["error"]
         assert body["metadata"]["num_context_retrieved"] == 0
         prompt = _rules(fake_llm.generate.call_args.args[0])
-        assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION in prompt
+        assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION_DOCUMENTS_FIRST in prompt
 
 
 class TestRetrievalSkipsAndKeyErrors:
@@ -279,6 +279,7 @@ class TestRetrievalStatus:
         assert result["metadata"]["num_context_retrieved"] == 0
         prompt = _all_text(llm.generate.call_args.args[0])
         assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION not in prompt
+        assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION_DOCUMENTS_FIRST not in prompt
 
     def test_matches_are_ok(self, monkeypatch):
         dao = MagicMock()
@@ -306,7 +307,18 @@ class TestRetrievalStatus:
         assert result["retrieval"]["status"] == "error"
         assert "PyMongoError" in result["retrieval"]["error"]
         prompt = _rules(llm.generate.call_args.args[0])
+        assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION_DOCUMENTS_FIRST in prompt
+
+    def test_dao_error_documents_only_uses_strict_instruction(self, monkeypatch):
+        dao = MagicMock()
+        dao.get_context_for_agent.side_effect = PyMongoError("conn refused")
+        agent = sample_agent()
+        agent.on_retrieval_error = "answer_without_context"
+        agent.knowledge_scope = "documents_only"
+        _, llm = self._run(monkeypatch, dao, agent)
+        prompt = _rules(llm.generate.call_args.args[0])
         assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION in prompt
+        assert pipeline.NO_REFERENCE_MATERIAL_INSTRUCTION_DOCUMENTS_FIRST not in prompt
 
 
 def _raise_mongo(*args, **kwargs):

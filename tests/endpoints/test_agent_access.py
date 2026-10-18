@@ -294,6 +294,7 @@ def _assert_no_secrets(text: str, *access_keys: str) -> None:
     for secret in ("sk-secret-llm-key", "secret-embedding-key", *access_keys):
         assert secret not in text
     assert "key_hash" not in text
+    assert "key_encrypted" not in text
 
 
 class TestAccessKeySecrets:
@@ -475,3 +476,123 @@ class TestUserSearch:
         ids = [result["id"] for result in response.json()]
         assert ids == [other.id]
         assert me.id not in ids
+
+
+class TestRevealAccessKey:
+    def _create_reusable(self, auth_env, agent_id) -> tuple[dict, dict]:
+        _, token = auth_env.add_user("owner", owned_agents=[agent_id])
+        headers = _bearer(token)
+        response = auth_env.client.post(
+            f"/agents/{agent_id}/accesskeys/",
+            params={"name": "reusable", "view_once": "false"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        return response.json(), headers
+
+    def _reveal(self, auth_env, agent_id, key_id, headers):
+        return auth_env.client.get(
+            f"/agents/{agent_id}/accesskeys/{key_id}/reveal", headers=headers
+        )
+
+    def test_create_reusable_key_stores_no_plaintext(self, auth_env, agent_id):
+        created, headers = self._create_reusable(auth_env, agent_id)
+        assert created["view_once"] is False
+        assert created["revealable"] is True
+        assert "key_encrypted" not in created
+
+        [stored] = auth_env.agent_dao.get_agent_by_id(agent_id).access_key
+        assert stored.key is None
+        assert stored.key_hash
+        assert stored.key_encrypted
+        assert created["key"] not in stored.model_dump_json()
+
+        for path in (
+            "/agents",
+            f"/agents/{agent_id}",
+            f"/agents/{agent_id}/accesskeys",
+        ):
+            listed = auth_env.client.get(path, headers=headers)
+            assert listed.status_code == 200, path
+            _assert_no_secrets(listed.text, created["key"])
+            assert stored.key_encrypted not in listed.text
+
+        [listed_key] = auth_env.client.get(
+            f"/agents/{agent_id}/accesskeys", headers=headers
+        ).json()
+        assert listed_key["view_once"] is False
+        assert listed_key["revealable"] is True
+        assert auth_env.access_service.authenticate(agent_id, created["key"])
+
+    def test_view_once_is_the_default(self, auth_env, agent_id):
+        _, token = auth_env.add_user("owner", owned_agents=[agent_id])
+        response = auth_env.client.post(
+            f"/agents/{agent_id}/accesskeys/",
+            params={"name": "once"},
+            headers=_bearer(token),
+        )
+        assert response.status_code == 200
+        assert response.json()["view_once"] is True
+        assert response.json()["revealable"] is False
+        [stored] = auth_env.agent_dao.get_agent_by_id(agent_id).access_key
+        assert stored.key_encrypted is None
+
+    def test_owner_can_reveal(self, auth_env, agent_id):
+        created, headers = self._create_reusable(auth_env, agent_id)
+        response = self._reveal(auth_env, agent_id, created["id"], headers)
+        assert response.status_code == 200
+        assert response.json() == {"key": created["key"]}
+
+    def test_collaborator_can_reveal(self, auth_env, agent_id):
+        created, _ = self._create_reusable(auth_env, agent_id)
+        _, token = auth_env.add_user("collab", collaborating_agents=[agent_id])
+        response = self._reveal(auth_env, agent_id, created["id"], _bearer(token))
+        assert response.status_code == 200
+        assert response.json() == {"key": created["key"]}
+
+    def test_access_key_caller_cannot_reveal(self, auth_env, agent_id):
+        created, _ = self._create_reusable(auth_env, agent_id)
+        response = self._reveal(
+            auth_env, agent_id, created["id"], _bearer(created["key"])
+        )
+        assert response.status_code == 403
+        assert created["key"] not in response.text
+
+    def test_stranger_cannot_reveal(self, auth_env, agent_id):
+        created, _ = self._create_reusable(auth_env, agent_id)
+        _, token = auth_env.add_user("stranger")
+        response = self._reveal(auth_env, agent_id, created["id"], _bearer(token))
+        assert response.status_code == 404
+        assert created["key"] not in response.text
+
+    def test_unknown_key_is_not_found(self, auth_env, agent_id):
+        _, headers = self._create_reusable(auth_env, agent_id)
+        response = self._reveal(auth_env, agent_id, "missing0", headers)
+        assert response.status_code == 404
+
+    def test_view_once_key_is_conflict(self, auth_env, agent_id, valid_key):
+        _, token = auth_env.add_user("owner", owned_agents=[agent_id])
+        key_id = auth_env.agent_dao.get_agent_by_id(agent_id).access_key[0].id
+        response = self._reveal(auth_env, agent_id, key_id, _bearer(token))
+        assert response.status_code == 409
+        assert "only once" in response.json()["detail"]
+        assert valid_key not in response.text
+
+    def test_undecryptable_key_is_conflict(self, auth_env, agent_id):
+        from cryptography.fernet import Fernet
+
+        foreign = Fernet(Fernet.generate_key()).encrypt(b"rgd_gone0001_x").decode()
+        auth_env.agent_dao.push_access_key(
+            agent_id,
+            AccessKey(
+                id="gone0001",
+                name="rotated out",
+                key_hash="0" * 64,
+                key_encrypted=foreign,
+                view_once=False,
+            ),
+        )
+        _, token = auth_env.add_user("owner", owned_agents=[agent_id])
+        response = self._reveal(auth_env, agent_id, "gone0001", _bearer(token))
+        assert response.status_code == 409
+        assert "create a new one" in response.json()["detail"]

@@ -108,6 +108,15 @@ class AgentBase(BaseModel):
         ),
     )
 
+    knowledge_scope: Literal["documents_first", "documents_only"] = Field(
+        default="documents_first",
+        description=(
+            "'documents_first' prefers the uploaded documents and answers from "
+            "general knowledge when they do not cover the question; "
+            "'documents_only' answers only from the documents."
+        ),
+    )
+
     # Optional reference to one of the agent owner's stored provider keys
     # (UserAPIKey.id), resolved server-side when the key is needed. Not secret.
     llm_api_key_id: str | None = None

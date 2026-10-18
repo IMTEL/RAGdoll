@@ -8,6 +8,12 @@ in place so the change can be rolled back, until the script is run again with
 ``--drop-plaintext``, which removes ``key`` from every key whose stored hash
 matches it.
 
+Keys that were created with ``view_once: false`` (shown "anytime" before
+hashing) also get ``key_encrypted``, the plaintext encrypted with FERNET_KEY,
+so they can still be revealed via ``GET /agents/{id}/accesskeys/{key_id}/reveal``.
+This happens before the plaintext is dropped, also when both steps run at once.
+A key whose plaintext was already dropped cannot be made revealable again.
+
 Idempotent: keys that are already hashed (or already dropped) are skipped, so
 running it twice changes nothing the second time. Existing keys keep working
 throughout: AccessService accepts both the hash and the legacy plaintext.
@@ -35,6 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.access_service.access_service import display_prefix, hash_access_key
+from src.utils.crypto_utils import encrypt_str
 
 
 logger = logging.getLogger(__name__)
@@ -42,10 +49,10 @@ logger = logging.getLogger(__name__)
 
 def _migrate_keys(
     keys: list[dict], drop_plaintext: bool
-) -> tuple[list[dict], int, int]:
-    """Returns the migrated key list and the number of keys hashed and dropped."""
+) -> tuple[list[dict], dict[str, int]]:
+    """Returns the migrated key list and counts of keys hashed, encrypted, dropped."""
     migrated = copy.deepcopy(keys)
-    hashed = dropped = 0
+    counts = {"hashed": 0, "encrypted": 0, "dropped": 0}
     for entry in migrated:
         plaintext = entry.get("key")
         if not plaintext:
@@ -53,21 +60,31 @@ def _migrate_keys(
         if not entry.get("key_hash"):
             entry["key_hash"] = hash_access_key(plaintext)
             entry["prefix"] = display_prefix(plaintext)
-            hashed += 1
+            counts["hashed"] += 1
+        # Legacy keys default to view-once: only an explicit False is revealable.
+        if entry.get("view_once") is False and not entry.get("key_encrypted"):
+            entry["key_encrypted"] = encrypt_str(plaintext)
+            counts["encrypted"] += 1
         if drop_plaintext and hmac.compare_digest(
             entry["key_hash"], hash_access_key(plaintext)
         ):
             entry["key"] = None
-            dropped += 1
-    return migrated, hashed, dropped
+            counts["dropped"] += 1
+    return migrated, counts
 
 
 def migrate(collection, dry_run: bool = False, drop_plaintext: bool = False) -> dict:
     """Migrates every agent in ``collection`` and returns counts of what changed."""
-    counts = {"agents_updated": 0, "agents_skipped": 0, "hashed": 0, "dropped": 0}
+    counts = {
+        "agents_updated": 0,
+        "agents_skipped": 0,
+        "hashed": 0,
+        "encrypted": 0,
+        "dropped": 0,
+    }
     for doc in collection.find({}, {"access_key": 1}):
         keys = doc.get("access_key") or []
-        migrated, hashed, dropped = _migrate_keys(keys, drop_plaintext)
+        migrated, key_counts = _migrate_keys(keys, drop_plaintext)
         if migrated == keys:
             continue
         if not dry_run:
@@ -82,8 +99,8 @@ def migrate(collection, dry_run: bool = False, drop_plaintext: bool = False) -> 
                 counts["agents_skipped"] += 1
                 continue
         counts["agents_updated"] += 1
-        counts["hashed"] += hashed
-        counts["dropped"] += dropped
+        for name, value in key_counts.items():
+            counts[name] += value
     return counts
 
 
@@ -118,11 +135,12 @@ def main(argv: list[str] | None = None, collection=None) -> int:
         collection, dry_run=args.dry_run, drop_plaintext=args.drop_plaintext
     )
     logger.info(
-        "%sagents updated: %s, keys hashed: %s, plaintext keys dropped: %s, "
-        "agents skipped (changed concurrently): %s",
+        "%sagents updated: %s, keys hashed: %s, reusable keys encrypted: %s, "
+        "plaintext keys dropped: %s, agents skipped (changed concurrently): %s",
         "[dry run] " if args.dry_run else "",
         counts["agents_updated"],
         counts["hashed"],
+        counts["encrypted"],
         counts["dropped"],
         counts["agents_skipped"],
     )

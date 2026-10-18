@@ -6,7 +6,11 @@ from src.models.accesskey import AccessKeyCreated
 
 class MockAccessService(AbstractAccessService):
     def generate_accesskey(
-        self, name: str, expiry_date: datetime | None, agent_id: str
+        self,
+        name: str,
+        expiry_date: datetime | None,
+        agent_id: str,
+        view_once: bool = True,
     ) -> AccessKeyCreated:
         return AccessKeyCreated(
             id="mockkey0",
@@ -15,6 +19,8 @@ class MockAccessService(AbstractAccessService):
             name=name,
             expiry_date=expiry_date,
             created=datetime.now(UTC),
+            view_once=view_once,
+            revealable=not view_once,
         )
 
     def authenticate(self, agent_id: str, access_key: str) -> bool:

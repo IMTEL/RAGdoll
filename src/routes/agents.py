@@ -5,7 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from src.access_service.access_service import parse_access_key
+from src.access_service.access_service import (
+    AccessKeyNotFoundError,
+    AccessKeyNotRevealableError,
+    AccessKeyUndecryptableError,
+    parse_access_key,
+)
 from src.globals import access_service, agent_dao, user_dao
 from src.models.accesskey import AccessKeyCreated, AccessKeyPublic, as_utc
 from src.models.agent import Agent, AgentPublic, Role
@@ -518,10 +523,14 @@ def new_access_key(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
     expiry_date: str | None = None,
+    view_once: bool = True,
 ) -> AccessKeyCreated:
-    """Creates an access key. The response is the only time the key is shown.
+    """Creates an access key and returns it.
 
-    ``expiry_date`` is ISO 8601; without a timezone it is taken as UTC.
+    ``expiry_date`` is ISO 8601; without a timezone it is taken as UTC. With
+    ``view_once`` (the default) this response is the only time the key is
+    shown. With ``view_once=false`` the agent's owner and collaborators can
+    show it again via ``GET /agents/{agent_id}/accesskeys/{key_id}/reveal``.
     """
     require_user_has_agent_ownership(agent_id, user)
     try:
@@ -530,7 +539,9 @@ def new_access_key(
             if expiry_date is None
             else datetime.datetime.fromisoformat(expiry_date)
         )
-        return access_service.generate_accesskey(name, expiry, agent_id)
+        return access_service.generate_accesskey(
+            name, expiry, agent_id, view_once=view_once
+        )
 
     except HTTPException:
         raise
@@ -554,6 +565,43 @@ def revoke_access_key(
         return access_service.revoke_key(agent.id, access_key_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{e}") from e
+
+
+class RevealedAccessKey(BaseModel):
+    key: str
+
+
+@router.get(
+    "/{agent_id}/accesskeys/{access_key_id}/reveal",
+    response_model=RevealedAccessKey,
+    dependencies=[Depends(require_user_has_agent_access)],
+)
+def reveal_access_key(
+    access_key_id: str,
+    agent: Annotated[Agent, Depends(agent_with_id)],
+) -> RevealedAccessKey:
+    """Shows a key created with ``view_once=false`` again.
+
+    Only for logged-in owners and collaborators of the agent: callers using an
+    access key get 403 from ``require_user``.
+    """
+    try:
+        return RevealedAccessKey(key=access_service.reveal_key(agent.id, access_key_id))
+    except AccessKeyNotFoundError:
+        raise HTTPException(status_code=404, detail="Access key not found") from None
+    except AccessKeyUndecryptableError:
+        raise HTTPException(
+            status_code=409,
+            detail="This key can no longer be revealed; create a new one.",
+        ) from None
+    except AccessKeyNotRevealableError:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This key was created to be shown only once and cannot be "
+                "revealed. Create a new key if you lost it."
+            ),
+        ) from None
 
 
 @router.get(
