@@ -1,24 +1,29 @@
 import logging
 import os
+import time
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Literal
 
 from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
-    Request,
     UploadFile,
 )
 
-from src.utils.path_dependencies import get_auth
 from src.config import Config
 from src.context_upload import process_file_and_store
-from src.globals import agent_dao, auth_service
+from src.globals import agent_dao, auth_service, progress_dao, user_dao
+from src.models.agent import Agent
+from src.models.users.user import User
 from src.rag_service.dao.factory import get_document_dao
-from src.utils.global_logs import progress_log
+from src.utils.path_dependencies import get_auth, require_user_or_access_key
+from src.utils.provider_keys import resolve_provider_keys
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +31,43 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 config = Config()
+
+TEMP_FILES_DIR = Path("temp_files")
+STALE_TEMP_FILE_SECONDS = 3600
+_COPY_CHUNK_BYTES = 1024 * 1024
+
+
+def sweep_stale_temp_files(
+    directory: Path | None = None, max_age_seconds: int = STALE_TEMP_FILE_SECONDS
+) -> None:
+    """Delete files in the upload temp directory older than ``max_age_seconds``."""
+    directory = TEMP_FILES_DIR if directory is None else directory
+    if not directory.is_dir():
+        return
+    cutoff = time.time() - max_age_seconds
+    for path in directory.iterdir():
+        try:
+            if path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+                logger.info(f"Removed stale temp file: {path}")
+        except OSError as e:
+            logger.warning(f"Could not remove stale temp file {path}: {e}")
+
+
+class _UploadTooLargeError(Exception):
+    pass
+
+
+def _save_upload(source, destination: Path, max_bytes: int) -> int:
+    """Stream ``source`` to ``destination``; raise _UploadTooLargeError past max_bytes."""
+    written = 0
+    with open(destination, "wb") as buffer:
+        while chunk := source.read(_COPY_CHUNK_BYTES):
+            written += len(chunk)
+            if written > max_bytes:
+                raise _UploadTooLargeError
+            buffer.write(chunk)
+    return written
 
 
 def _process_document_background(
@@ -36,41 +78,37 @@ def _process_document_background(
     file_size_bytes: int,
     filename: str,
     task_id: str,
+    kind: str | None = None,
 ):
     """Background task to process and store document.
 
     This function runs in a background thread, allowing the upload endpoint
     to return immediately while processing continues. Progress is tracked
-    in the global progress_log.
+    in the durable upload_tasks collection.
     """
-    from datetime import UTC, datetime
 
     def update_progress(progress_percent: int, message: str):
-        """Callback to update progress in progress_log."""
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                entry.update(
-                    {
-                        "progress_percent": progress_percent,
-                        "message": message,
-                        "status": "processing",
-                    }
-                )
-                break
+        """Callback to update upload task progress."""
+        progress_dao.update_upload_task(
+            task_id,
+            {
+                "progress_percent": progress_percent,
+                "message": message,
+                "status": "processing",
+            },
+        )
 
     try:
         # Update progress: started
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                entry.update(
-                    {
-                        "status": "processing",
-                        "progress_percent": 10,
-                        "started_at": datetime.now(UTC),
-                        "message": f"Extracting text from {filename}...",
-                    }
-                )
-                break
+        progress_dao.update_upload_task(
+            task_id,
+            {
+                "status": "processing",
+                "progress_percent": 10,
+                "started_at": datetime.now(UTC),
+                "message": f"Extracting text from {filename}...",
+            },
+        )
 
         success, document_id = process_file_and_store(
             str(file_location),
@@ -79,51 +117,50 @@ def _process_document_background(
             file_size_bytes=file_size_bytes,
             embedding_api_key=embedding_api_key,
             progress_callback=update_progress,
+            document_name=filename,
+            kind=kind,
         )
 
         # Update progress: completed
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                if success:
-                    entry.update(
-                        {
-                            "status": "complete",
-                            "progress_percent": 100,
-                            "completed_at": datetime.now(UTC),
-                            "message": f"Successfully processed {filename}",
-                            "document_id": document_id,
-                        }
-                    )
-                    logger.info(
-                        f"Background processing completed for '{filename}': "
-                        f"document_id={document_id}, agent_id={agent_id}"
-                    )
-                else:
-                    entry.update(
-                        {
-                            "status": "failed",
-                            "progress_percent": 0,
-                            "completed_at": datetime.now(UTC),
-                            "message": f"Failed to process {filename}",
-                        }
-                    )
-                    logger.error(f"Background processing failed for '{filename}'")
-                break
+        if success:
+            progress_dao.update_upload_task(
+                task_id,
+                {
+                    "status": "complete",
+                    "progress_percent": 100,
+                    "completed_at": datetime.now(UTC),
+                    "message": f"Successfully processed {filename}",
+                    "document_id": document_id,
+                },
+            )
+            logger.info(
+                f"Background processing completed for '{filename}': "
+                f"document_id={document_id}, agent_id={agent_id}"
+            )
+        else:
+            progress_dao.update_upload_task(
+                task_id,
+                {
+                    "status": "failed",
+                    "progress_percent": 0,
+                    "completed_at": datetime.now(UTC),
+                    "message": f"Failed to process {filename}",
+                },
+            )
+            logger.error(f"Background processing failed for '{filename}'")
 
     except Exception as e:
         logger.error(f"Error in background processing of '{filename}': {e}")
         # Update progress: error
-        for entry in progress_log:
-            if entry.get("task_id") == task_id:
-                entry.update(
-                    {
-                        "status": "error",
-                        "progress_percent": 0,
-                        "completed_at": datetime.now(UTC),
-                        "message": f"Error processing {filename}: {e!s}",
-                    }
-                )
-                break
+        progress_dao.update_upload_task(
+            task_id,
+            {
+                "status": "error",
+                "progress_percent": 0,
+                "completed_at": datetime.now(UTC),
+                "message": f"Error processing {filename}: {e!s}",
+            },
+        )
     finally:
         # Clean up temp file
         if file_location.exists():
@@ -135,11 +172,12 @@ def _process_document_background(
 
 
 @router.post("/upload/agent")
-async def upload_document_for_agent(
+def upload_document_for_agent(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),  # noqa: B008
-    authorize: Annotated[Optional[str], Depends(get_auth)] = None,
+    kind: Annotated[Literal["world_lore", "educational"] | None, Form()] = None,
+    authorize: Annotated[str | None, Depends(get_auth)] = None,
 ):
     """Upload a document for a specific agent with role-based access control.
 
@@ -154,6 +192,9 @@ async def upload_document_for_agent(
         agent_id: Unique identifier of the agent
         background_tasks: FastAPI background tasks handler (injected)
         file: The uploaded document file (txt, md, pdf, docx, etc.)
+        kind: Optional form field, "world_lore" (canon inside the fiction) or
+            "educational" (real-world material). Omitted: a new document is
+            educational and a re-upload keeps the document's current kind.
         authorize (Annotated[AuthJWT, Depends()]): Jwt token object
 
     Returns:
@@ -173,28 +214,19 @@ async def upload_document_for_agent(
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
 
-    # Create the directory if it does not exist
-    temp_files_dir = Path("temp_files")
-    temp_files_dir.mkdir(parents=True, exist_ok=True)
-
-    # Save the file temporarily and capture its size
-    file_location = temp_files_dir / Path(file.filename).name
+    # Never use the client's filename on disk: same-name uploads would collide.
+    original_name = Path(file.filename).name
+    task_id = str(uuid.uuid4())
+    TEMP_FILES_DIR.mkdir(parents=True, exist_ok=True)
+    file_location = TEMP_FILES_DIR / f"{task_id}{Path(original_name).suffix}"
 
     try:
-        import uuid
-        from datetime import UTC, datetime
-
-        file_content = file.file.read()
-        file_size_bytes = len(file_content)
-
-        with open(file_location, "wb") as buffer:
-            buffer.write(file_content)
-
-        # Create a task ID for progress tracking
-        task_id = str(uuid.uuid4())
+        file_size_bytes = _save_upload(
+            file.file, file_location, config.MAX_UPLOAD_MB * 1024 * 1024
+        )
 
         # Initialize progress entry
-        progress_log.append(
+        progress_dao.create_upload_task(
             {
                 "task_id": task_id,
                 "task_name": f"upload_{file.filename}",
@@ -216,10 +248,11 @@ async def upload_document_for_agent(
             file_location=file_location,
             agent_id=agent_id,
             embedding_model=agent.embedding_model,
-            embedding_api_key=agent.embedding_api_key,
+            embedding_api_key=resolve_provider_keys(agent, user_dao).embedding_api_key,
             file_size_bytes=file_size_bytes,
-            filename=file.filename,
+            filename=original_name,
             task_id=task_id,
+            kind=kind,
         )
 
         logger.info(
@@ -236,20 +269,30 @@ async def upload_document_for_agent(
             "size_bytes": file_size_bytes,
         }
 
+    except _UploadTooLargeError:
+        file_location.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {config.MAX_UPLOAD_MB} MB upload limit",
+        ) from None
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
         # Clean up temp file if upload failed
-        if file_location.exists():
-            file_location.unlink()
+        file_location.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/upload/status/{task_id}")
-async def get_upload_status(task_id: str):
+async def get_upload_status(
+    task_id: str,
+    caller: Annotated[User | Agent, Depends(require_user_or_access_key)],
+):
     """Get the status of a background document upload/processing task.
 
     Args:
         task_id: The task ID returned from the upload endpoint
+        caller: The user, or the agent whose access key was sent. Tasks for
+            agents the caller cannot reach are reported as not found.
 
     Returns:
         dict: Status information about the upload task
@@ -257,27 +300,31 @@ async def get_upload_status(task_id: str):
     Raises:
         HTTPException: If task not found
     """
-    for entry in progress_log:
-        if entry.get("task_id") == task_id:
-            return {
-                "task_id": task_id,
-                "filename": entry.get("filename"),
-                "agent_id": entry.get("agent_id"),
-                "status": entry.get("status"),
-                "progress_percent": entry.get("progress_percent", 0),
-                "message": entry.get("message"),
-                "document_id": entry.get("document_id"),
-                "started_at": entry.get("started_at"),
-                "completed_at": entry.get("completed_at"),
-            }
+    if isinstance(caller, User):
+        visible_agents = set(caller.owned_agents) | set(caller.collaborating_agents)
+    else:
+        visible_agents = {caller.id}
+    entry = progress_dao.get_upload_task(task_id)
+    if entry is not None and entry.get("agent_id") in visible_agents:
+        return {
+            "task_id": task_id,
+            "filename": entry.get("filename"),
+            "agent_id": entry.get("agent_id"),
+            "status": entry.get("status"),
+            "progress_percent": entry.get("progress_percent", 0),
+            "message": entry.get("message"),
+            "document_id": entry.get("document_id"),
+            "started_at": entry.get("started_at"),
+            "completed_at": entry.get("completed_at"),
+        }
 
     raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
 
 
 @router.get("/documents/agent")
-async def get_documents_for_agent(
+def get_documents_for_agent(
     agent_id: str,
-    authorize: Annotated[Optional[str], Depends(get_auth)] = None,
+    authorize: Annotated[str | None, Depends(get_auth)] = None,
 ):
     """Retrieve all documents associated with a specific agent.
 
@@ -329,6 +376,7 @@ async def get_documents_for_agent(
                         "name": doc.name,
                         "size": size_str,
                         "size_bytes": size_bytes,
+                        "kind": doc.kind,
                         "created_at": doc.created_at.isoformat()
                         if doc.created_at
                         else None,
@@ -357,10 +405,10 @@ async def get_documents_for_agent(
 
 
 @router.delete("/documents/")
-async def delete_document(
+def delete_document(
     document_id: str,
     agent_id: str,
-    authorize: Annotated[Optional[str], Depends(get_auth)] = None,
+    authorize: Annotated[str | None, Depends(get_auth)] = None,
 ):
     """Delete a document and all its associated context chunks.
 

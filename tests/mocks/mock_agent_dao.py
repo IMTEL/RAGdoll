@@ -1,7 +1,9 @@
 """Mock implementation of AgentDAO for testing."""
 
 from copy import deepcopy
+from datetime import datetime
 
+from src.models.accesskey import AccessKey
 from src.models.agent import Agent
 from src.rag_service.dao import AgentDAO
 from src.utils import singleton
@@ -39,7 +41,9 @@ class MockAgentDAO(AgentDAO):
         try:
             index = int(agent.id)
             if 0 <= index < len(self.agents):
-                # UPDATE EXISTING AGENT
+                # UPDATE EXISTING AGENT. Like MongoDB, keep the stored access
+                # keys: they change only through push/pull/touch.
+                agent.access_key = deepcopy(self.agents[index].access_key)
                 self.agents[index] = agent
             else:
                 raise ValueError(f"Agent ID '{agent.id}' does not exist for update.")
@@ -85,6 +89,34 @@ class MockAgentDAO(AgentDAO):
             return None
         except (ValueError, IndexError):
             return None
+
+    def _stored(self, agent_id: str) -> Agent | None:
+        try:
+            index = int(agent_id)
+        except (TypeError, ValueError):
+            return None
+        return self.agents[index] if 0 <= index < len(self.agents) else None
+
+    def touch_access_key(self, agent_id: str, key_id: str, when: datetime) -> None:
+        agent = self._stored(agent_id)
+        for access_key in agent.access_key if agent else []:
+            if access_key.id == key_id:
+                access_key.last_use = when
+
+    def push_access_key(self, agent_id: str, access_key: AccessKey) -> bool:
+        agent = self._stored(agent_id)
+        if agent is None:
+            return False
+        agent.access_key.append(deepcopy(access_key))
+        return True
+
+    def pull_access_keys(self, agent_id: str, key_ids: list[str]) -> bool:
+        agent = self._stored(agent_id)
+        if agent is None:
+            return False
+        before = len(agent.access_key)
+        agent.access_key = [k for k in agent.access_key if k.id not in set(key_ids)]
+        return len(agent.access_key) < before
 
     def is_reachable(self) -> bool:
         """Check if DAO is reachable.

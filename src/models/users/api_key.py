@@ -6,8 +6,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from src.utils.crypto_utils import decrypt_value
-
 
 class UserAPIKey(BaseModel):
     """Stored API key metadata for a user."""
@@ -30,17 +28,6 @@ class UserAPIKey(BaseModel):
             created_at=self.created_at,
         )
 
-    def to_detail(self) -> UserAPIKeyDetailResponse:
-        return UserAPIKeyDetailResponse(
-            id=self.id,
-            label=self.label,
-            provider=self.provider,
-            usage=self.usage,
-            redacted_key=self.redacted_key,
-            created_at=self.created_at,
-            raw_key=decrypt_value(self.key_encrypted),
-        )
-
 
 class UserAPIKeyResponse(BaseModel):
     id: str
@@ -49,7 +36,3 @@ class UserAPIKeyResponse(BaseModel):
     usage: Literal["llm", "embedding", "both"]
     redacted_key: str
     created_at: datetime
-
-
-class UserAPIKeyDetailResponse(UserAPIKeyResponse):
-    raw_key: str

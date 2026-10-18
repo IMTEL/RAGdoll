@@ -44,10 +44,10 @@ import logging
 from pymongo import ASCENDING, MongoClient
 
 from src.config import Config
-from src.rag_service.context import Context
+from src.rag_service.context import Context, kind_of
 from src.rag_service.dao.context.base import ContextDAO
-from src.rag_service.dao.context.hybrid_search import hybrid_search
 from src.rag_service.dao.context.faiss_vector_store import FAISSVectorStoreManager
+from src.rag_service.dao.context.hybrid_search import hybrid_search
 from src.rag_service.embeddings import similarity_search
 
 
@@ -68,7 +68,7 @@ class MongoDBContextDAO(ContextDAO):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
-        self.similarity_threshold = 0.5  # lower = more similar
+        self.similarity_threshold = 0.5  # cosine similarity; higher = more similar
 
         # Create indexes for efficient querying
         self._create_indexes()
@@ -176,8 +176,9 @@ class MongoDBContextDAO(ContextDAO):
             raise ValueError("agent_id cannot be empty")
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
-        print("Available documents for filtering:", available_documents)
-        logger.info(f"Searching in {len(available_documents)} documents for agent {agent_id}")
+        logger.info(
+            f"Searching in {len(available_documents)} documents for agent {agent_id}"
+        )
 
         keyword_text = (
             keyword_query_text if keyword_query_text is not None else query_text
@@ -257,6 +258,7 @@ class MongoDBContextDAO(ContextDAO):
                         chunk_id=document.get("chunk_id"),
                         chunk_index=document.get("chunk_index"),
                         total_chunks=document.get("total_chunks", 1),
+                        kind=kind_of(document),
                     )
                 )
 
@@ -270,7 +272,7 @@ class MongoDBContextDAO(ContextDAO):
         context: Context,
     ) -> Context:
         """Store a new context document with metadata and embedding.
-        
+
         Stores the document in MongoDB and also indexes the embedding in FAISS
         for local vector similarity search.
         """
@@ -290,6 +292,7 @@ class MongoDBContextDAO(ContextDAO):
             "embedding": embedding,
             "document_id": document_id,
             "agent_id": agent_id,
+            "kind": context.kind,
         }
 
         # Add optional chunking fields if present
@@ -301,7 +304,7 @@ class MongoDBContextDAO(ContextDAO):
             document["total_chunks"] = context.total_chunks
 
         self.collection.insert_one(document)
-        
+
         # Also add to FAISS vector store for local similarity search
         try:
             manager = FAISSVectorStoreManager()
@@ -319,10 +322,59 @@ class MongoDBContextDAO(ContextDAO):
             )
             logger.debug(f"Added embedding to FAISS for chunk {chunk_id}")
         except Exception as e:
-            logger.error(f"Failed to add embedding to FAISS: {e}")
-            # Don't fail the entire operation if FAISS write fails
-        
+            # The upload must fail: a chunk without a vector is invisible to
+            # vector search. The Mongo row stays, so rebuild_index can recover.
+            logger.error(f"Failed to add embedding to FAISS for agent {agent_id}: {e}")
+            raise
+
         return context
+
+    def delete_by_document_id(
+        self,
+        document_id: str,
+        agent_id: str | None = None,
+        keep_chunk_ids: set[str] | None = None,
+    ) -> int:
+        """Delete a document's context rows, then its FAISS vectors.
+
+        FAISS vectors are removed by document id, so vectors left behind by
+        earlier replaces (without Mongo rows) go too. Mongo goes first: a vector
+        without a row is skipped by vector search, a row without a vector is not
+        searchable.
+        """
+        if not document_id:
+            raise ValueError("document_id cannot be empty")
+        query: dict = {"document_id": document_id}
+        if agent_id is not None:
+            query["agent_id"] = agent_id
+            agent_ids = {agent_id}
+        else:
+            agent_ids = set(self.collection.distinct("agent_id", query))
+        if keep_chunk_ids:
+            query["chunk_id"] = {"$nin": list(keep_chunk_ids)}
+
+        deleted = self.collection.delete_many(query).deleted_count
+        manager = FAISSVectorStoreManager()
+        removed = sum(
+            manager.remove_document(aid, document_id, keep_chunk_ids)
+            for aid in agent_ids
+            if aid
+        )
+        logger.info(
+            f"Deleted {deleted} contexts and {removed} vectors for document "
+            f"'{document_id}'"
+        )
+        return deleted
+
+    def delete_chunks(self, agent_id: str, chunk_ids: list[str]) -> int:
+        """Delete specific chunks of an agent from MongoDB and FAISS."""
+        if not chunk_ids:
+            return 0
+        deleted = self.collection.delete_many(
+            {"agent_id": agent_id, "chunk_id": {"$in": list(chunk_ids)}}
+        ).deleted_count
+        FAISSVectorStoreManager().remove_chunks(agent_id, chunk_ids)
+        return deleted
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.
@@ -332,8 +384,8 @@ class MongoDBContextDAO(ContextDAO):
         """
         try:
             self.client.admin.command("ping")
-            print("Successfully pinged MongoDB")
+            logger.debug("Successfully pinged MongoDB")
             return True
         except Exception as e:
-            print(f"Failed to ping MongoDB: {e}")
+            logger.warning("Failed to ping MongoDB: %s", e)
             return False

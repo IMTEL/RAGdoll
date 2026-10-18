@@ -1,20 +1,19 @@
-
 from enum import Enum, auto
 
-from src.services.knowledge_graph.parser.parser import Parser
 from src.services.knowledge_graph.parser.llm_parser import LLM_Parser
 from src.services.knowledge_graph.parser.nlp_parser import NLP_Parser
+from src.services.knowledge_graph.parser.parser import Parser
+
 
 class ParserType(Enum):
-    """
-    Enum for chunk database types.
-    """
+    """Enum for chunk database types."""
+
     LLM_PARSER = auto()
     HYBRID_NLP_PARSER = auto()
 
+
 def get_parser(parser_type: ParserType, topic_labels: list[str]) -> Parser:
-    """
-    Factory function to get the appropriate parser based on the parser type.
+    """Factory function to get the appropriate parser based on the parser type.
 
     Args:
         parser_type (str): The type of parser to retrieve.

@@ -1,5 +1,4 @@
-"""
-Graph Parser that parses natural language text chunks into a graph structure using langchain
+"""Graph Parser that parses natural language text chunks into a graph structure using langchain
 
 Pydantic-validated schema ➜ guarantees well-formed output
 
@@ -22,57 +21,62 @@ LLM stack	PromptTemplate → ChatOpenAI → OutputFixingParser(Pydantic).
 Batch size	handled later in the DB ingest layer; parser stays stateless.
 """
 
-#pip install langchain-openai langchain-core python-slugify nltk python-dotenv
-#python -m nltk.downloader punkt 
+# pip install langchain-openai langchain-core python-slugify nltk python-dotenv
+# python -m nltk.downloader punkt
 
 from __future__ import annotations
+
 import logging
 
 from dotenv import load_dotenv
+
+
 load_dotenv()
-from src.core.config import Config
+from langchain.output_parsers import OutputFixingParser, PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 
 # from nltk.tokenize import sent_tokenize
-
 from langchain_openai import ChatOpenAI
-from langchain.output_parsers import PydanticOutputParser, OutputFixingParser
-from langchain_core.prompts import PromptTemplate
+from src.core.config import Config
+from src.db.graph.models import Edge, GraphPayload, Node
 from src.services.knowledge_graph.parser.parser import Parser
-from src.db.graph.models import Node, Edge, NodeType, EdgeType, GraphPayload
+
 
 config = Config()
 sent_tokenize = lambda text: [text]
 logger = logging.getLogger(__name__)
 
-base_parser   = PydanticOutputParser(pydantic_object=GraphPayload)
+base_parser = PydanticOutputParser(pydantic_object=GraphPayload)
 repair_parser = OutputFixingParser.from_llm(
     parser=base_parser,
     llm=ChatOpenAI(model=config.GPT_MODEL, temperature=0),
 )
 
-VALID_EDGE_TYPES: frozenset[str] = frozenset({
-    "AUTHORED",
-    "INTRODUCED",
-    "FORMULATED",
-    "PROPOSED",
-    "PUPIL_OF",
-    "MENTOR_OF",
-    "INFLUENCED",
-    "DERIVED_FROM",
-    "BELONGS_TO",
-    "STUDIED_IN",
-    "PART_OF",
-    "LIVED_IN",
-    "BORN_IN",
-    "WORKED_AT",
-    "CHILD_OF",
-    "SIBLING_OF",
-    "SPOUSE_OF",
-    "DESCRIBES",
-    "REFERENCES",
-    "RELATED_TO",
-    "KNOWS",
-})
+VALID_EDGE_TYPES: frozenset[str] = frozenset(
+    {
+        "AUTHORED",
+        "INTRODUCED",
+        "FORMULATED",
+        "PROPOSED",
+        "PUPIL_OF",
+        "MENTOR_OF",
+        "INFLUENCED",
+        "DERIVED_FROM",
+        "BELONGS_TO",
+        "STUDIED_IN",
+        "PART_OF",
+        "LIVED_IN",
+        "BORN_IN",
+        "WORKED_AT",
+        "CHILD_OF",
+        "SIBLING_OF",
+        "SPOUSE_OF",
+        "DESCRIBES",
+        "REFERENCES",
+        "RELATED_TO",
+        "KNOWS",
+    }
+)
 
 
 SYSTEM_PROMPT = """
@@ -111,8 +115,9 @@ Output:
 Now extract entities and relations from this text:
 "{text}"
 """
+
+
 class LLM_Parser(Parser):
-    
     def __init__(self, topic_labels: set[str]) -> None:
         """Initialize the LLM parser with topic and edge labels."""
         logging.basicConfig(
@@ -122,18 +127,21 @@ class LLM_Parser(Parser):
         )
         self.edge_labels = VALID_EDGE_TYPES
         self.topic_labels = topic_labels
-        
+
         self.prompt = PromptTemplate(
             template=SYSTEM_PROMPT,
             input_variables=["text"],
             partial_variables={
                 "format_instructions": base_parser.get_format_instructions(),
                 "topic_labels": ", ".join(sorted(self.topic_labels)),
-                "edge_labels":  ", ".join(sorted(self.edge_labels)),
+                "edge_labels": ", ".join(sorted(self.edge_labels)),
             },
         )
-        self.chain = self.prompt | ChatOpenAI(model=config.GPT_MODEL, temperature=0) | repair_parser
-
+        self.chain = (
+            self.prompt
+            | ChatOpenAI(model=config.GPT_MODEL, temperature=0)
+            | repair_parser
+        )
 
     # ==========================================================
     # Graph Parser
@@ -146,10 +154,10 @@ class LLM_Parser(Parser):
             store.add(label)
             logging.warning("[Ontology] added new %s label: %s", kind, label)
 
-    def parse_text(self, text: str, graph_id: str, split_sentences: bool = False) -> dict:
-        """
-        Convert raw text into { "nodes":[…], "edges":[…] } ready for Neo4j ingest.
-        """
+    def parse_text(
+        self, text: str, graph_id: str, split_sentences: bool = False
+    ) -> dict:
+        """Convert raw text into { "nodes":[…], "edges":[…] } ready for Neo4j ingest."""
         sentences = sent_tokenize(text) if split_sentences else [text]
         node_map: dict[str, Node] = {}
         edge_seen: set[tuple[str, str, str]] = set()
@@ -173,10 +181,16 @@ class LLM_Parser(Parser):
             "nodes": [n.model_dump(exclude_none=True) for n in node_map.values()],
             "edges": [e.model_dump(exclude_none=True, by_alias=True) for e in edges],
         }
-        
-    def parse_multiple_texts(self, texts: list[str], graph_id: str, chunk_id: str, document_id: str, split_sentences: bool = True) -> dict:
-        """
-        Aggregate nodes/edges from several independent text snippets.
+
+    def parse_multiple_texts(
+        self,
+        texts: list[str],
+        graph_id: str,
+        chunk_id: str,
+        document_id: str,
+        split_sentences: bool = True,
+    ) -> dict:
+        """Aggregate nodes/edges from several independent text snippets.
         Returns a dict compatible with GraphPayload instantiation.
         """
         merged_nodes: dict[str, Node] = {}
@@ -186,7 +200,7 @@ class LLM_Parser(Parser):
         for chunk in texts:
             g = self.parse_text(chunk, graph_id, split_sentences=split_sentences)
             for n in g["nodes"]:
-                merged_nodes.setdefault(n["id"], Node(**n))   # dedupe by id
+                merged_nodes.setdefault(n["id"], Node(**n))  # dedupe by id
             for e in g["edges"]:
                 key = (e["from"], e["to"], e["type"])
                 if key not in edge_seen:
@@ -200,15 +214,27 @@ class LLM_Parser(Parser):
             "nodes": [n.model_dump(exclude_none=True) for n in merged_nodes.values()],
             "edges": [e.model_dump(exclude_none=True, by_alias=True) for e in edges],
         }
-    
-    def parse_multiple_texts_optimized(self, texts: list[str], graph_id: str, chunk_id: str, document_id: str, split_sentences: bool = True) -> dict:
-        """
-        Optimized batch processing that combines multiple texts into a single LLM call.
+
+    def parse_multiple_texts_optimized(
+        self,
+        texts: list[str],
+        graph_id: str,
+        chunk_id: str,
+        document_id: str,
+        split_sentences: bool = True,
+    ) -> dict:
+        """Optimized batch processing that combines multiple texts into a single LLM call.
         This is more efficient than processing each text individually.
         """
         if not texts:
-            return {"graph_id": graph_id, "chunk_id": chunk_id, "document_id": document_id, "nodes": [], "edges": []}
-        
+            return {
+                "graph_id": graph_id,
+                "chunk_id": chunk_id,
+                "document_id": document_id,
+                "nodes": [],
+                "edges": [],
+            }
+
         if len(texts) == 1:
             # Single text - use regular processing
             result = self.parse_text(texts[0], graph_id, split_sentences)
@@ -220,45 +246,54 @@ class LLM_Parser(Parser):
                 "nodes": result["nodes"],
                 "edges": result["edges"],
             }
-        
+
         # Combine all texts into a single batch for LLM processing
         if split_sentences:
             # If splitting sentences, combine all sentences from all texts
             all_sentences = []
             for text in texts:
                 all_sentences.extend(sent_tokenize(text))
-            
+
             # Process all sentences as a single batch
             combined_text = " ".join(all_sentences)
         else:
             # Combine all texts with clear separators
             combined_text = "\n\n--- DOCUMENT SEPARATOR ---\n\n".join(texts)
-        
+
         # Make a single LLM call for the combined text
         try:
             payload: GraphPayload = self.chain.invoke({"text": combined_text})
-            
+
             # Return the combined result with required fields
             return {
                 "graph_id": graph_id,
                 "chunk_id": chunk_id,
                 "document_id": document_id,
                 "nodes": [n.model_dump(exclude_none=True) for n in payload.nodes],
-                "edges": [e.model_dump(exclude_none=True, by_alias=True) for e in payload.edges],
+                "edges": [
+                    e.model_dump(exclude_none=True, by_alias=True)
+                    for e in payload.edges
+                ],
             }
-        except Exception as e:
+        except Exception:
             # If batch processing fails, fall back to individual processing
-            return self.parse_multiple_texts(texts, graph_id, chunk_id, document_id, split_sentences)
-    
-    def parse_multiple_texts_quality_optimized(self, text_chunk_pairs: list[tuple[str, str]], graph_id: str, split_sentences: bool = True) -> dict:
-        """
-        Quality-optimized batch processing that balances speed and graph quality.
-        
+            return self.parse_multiple_texts(
+                texts, graph_id, chunk_id, document_id, split_sentences
+            )
+
+    def parse_multiple_texts_quality_optimized(
+        self,
+        text_chunk_pairs: list[tuple[str, str]],
+        graph_id: str,
+        split_sentences: bool = True,
+    ) -> dict:
+        """Quality-optimized batch processing that balances speed and graph quality.
+
         This approach:
         1. Processes each text individually to maintain context quality
         2. But batches the API calls in smaller groups to reduce overhead
         3. Merges results intelligently to avoid information loss
-        
+
         Args:
             text_chunk_pairs: List of (text, chunk_id) tuples
             graph_id: The graph ID
@@ -266,7 +301,7 @@ class LLM_Parser(Parser):
         """
         if not text_chunk_pairs:
             return {"nodes": [], "edges": []}
-        
+
         if len(text_chunk_pairs) == 1:
             text, chunk_id = text_chunk_pairs[0]
             result = self.parse_text(text, graph_id, split_sentences)
@@ -276,22 +311,22 @@ class LLM_Parser(Parser):
             for edge in result["edges"]:
                 edge["chunk_ids"] = [chunk_id]
             return result
-        
+
         # Smart batching: process in small groups to balance quality and speed
         batch_size = 3  # Process 3 texts at a time - good balance
         merged_nodes: dict[str, Node] = {}
         edge_seen: set[tuple[str, str, str]] = set()
         edges: list[Edge] = []
-        
+
         # Process text-chunk pairs in small batches
         for i in range(0, len(text_chunk_pairs), batch_size):
-            batch_pairs = text_chunk_pairs[i:i + batch_size]
-            
+            batch_pairs = text_chunk_pairs[i : i + batch_size]
+
             if len(batch_pairs) == 1:
                 # Single text - process individually for best quality
                 text, chunk_id = batch_pairs[0]
                 g = self.parse_text(text, graph_id, split_sentences)
-                
+
                 # Merge nodes with chunk_id
                 for n in g["nodes"]:
                     node = Node(**n)
@@ -303,7 +338,7 @@ class LLM_Parser(Parser):
                         # New node
                         node.chunk_ids = [chunk_id]
                         merged_nodes[node.id] = node
-                
+
                 # Merge edges with chunk_id
                 for e in g["edges"]:
                     edge = Edge(**e)
@@ -315,7 +350,11 @@ class LLM_Parser(Parser):
                     else:
                         # Find existing edge and add chunk_id
                         for existing_edge in edges:
-                            if (existing_edge.from_, existing_edge.to, existing_edge.type) == key:
+                            if (
+                                existing_edge.from_,
+                                existing_edge.to,
+                                existing_edge.type,
+                            ) == key:
                                 if chunk_id not in existing_edge.chunk_ids:
                                     existing_edge.chunk_ids.append(chunk_id)
                                 break
@@ -324,11 +363,11 @@ class LLM_Parser(Parser):
                 batch_texts = [text for text, _ in batch_pairs]
                 batch_chunk_ids = [chunk_id for _, chunk_id in batch_pairs]
                 combined_text = "\n\n--- CONTEXT SEPARATOR ---\n\n".join(batch_texts)
-                
+
                 try:
                     # Single LLM call for the small batch
                     payload: GraphPayload = self.chain.invoke({"text": combined_text})
-                    
+
                     # Merge nodes with all chunk_ids from this batch
                     for n in payload.nodes:
                         if n.id in merged_nodes:
@@ -340,7 +379,7 @@ class LLM_Parser(Parser):
                             # New node
                             n.chunk_ids = batch_chunk_ids.copy()
                             merged_nodes[n.id] = n
-                    
+
                     # Merge edges with all chunk_ids from this batch
                     for e in payload.edges:
                         key = (e.from_, e.to, e.type)
@@ -351,18 +390,24 @@ class LLM_Parser(Parser):
                         else:
                             # Find existing edge and add chunk_ids
                             for existing_edge in edges:
-                                if (existing_edge.from_, existing_edge.to, existing_edge.type) == key:
+                                if (
+                                    existing_edge.from_,
+                                    existing_edge.to,
+                                    existing_edge.type,
+                                ) == key:
                                     for chunk_id in batch_chunk_ids:
                                         if chunk_id not in existing_edge.chunk_ids:
                                             existing_edge.chunk_ids.append(chunk_id)
                                     break
-                            
+
                 except Exception as e:
                     # If batch fails, fall back to individual processing
-                    logger.warning(f"Batch processing failed, falling back to individual: {e}")
+                    logger.warning(
+                        f"Batch processing failed, falling back to individual: {e}"
+                    )
                     for text, chunk_id in batch_pairs:
                         g = self.parse_text(text, graph_id, split_sentences)
-                        
+
                         # Merge nodes with chunk_id
                         for n in g["nodes"]:
                             node = Node(**n)
@@ -374,7 +419,7 @@ class LLM_Parser(Parser):
                                 # New node
                                 node.chunk_ids = [chunk_id]
                                 merged_nodes[node.id] = node
-                        
+
                         # Merge edges with chunk_id
                         for e in g["edges"]:
                             edge = Edge(**e)
@@ -386,23 +431,16 @@ class LLM_Parser(Parser):
                             else:
                                 # Find existing edge and add chunk_id
                                 for existing_edge in edges:
-                                    if (existing_edge.from_, existing_edge.to, existing_edge.type) == key:
+                                    if (
+                                        existing_edge.from_,
+                                        existing_edge.to,
+                                        existing_edge.type,
+                                    ) == key:
                                         if chunk_id not in existing_edge.chunk_ids:
                                             existing_edge.chunk_ids.append(chunk_id)
                                         break
-        
+
         return {
             "nodes": [n.model_dump(exclude_none=True) for n in merged_nodes.values()],
             "edges": [e.model_dump(exclude_none=True, by_alias=True) for e in edges],
         }
-
-
-
-
-
-
-
-
-
-
-

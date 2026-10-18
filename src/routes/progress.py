@@ -1,44 +1,25 @@
+import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import ValidationError
 
-from src.globals import access_service, agent_dao
+from src.config import Config
+from src.globals import access_service, agent_dao, progress_dao
 from src.models.training import ListProgressData, ProgressData
-
-# In-memory log to store progress data
-from src.utils.global_logs import progress_log
 
 
 # Define a router for progress-related endpoints
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/progress", tags=["Progress"])
 DEFAULT_SESSION_ID = "default"
-PROGRESS_TTL = timedelta(hours=24)
 
 
 def _normalize_session_id(session_id: str | None) -> str:
     normalized = session_id.strip() if session_id else ""
     return normalized or DEFAULT_SESSION_ID
-
-
-def _entry_timestamp(entry: dict) -> datetime:
-    timestamp = entry.get("updated_at") or entry.get("started_at") or datetime.min
-    if isinstance(timestamp, str):
-        try:
-            timestamp = datetime.fromisoformat(timestamp)
-        except ValueError:
-            return datetime.min.replace(tzinfo=UTC)
-    if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=UTC)
-    return timestamp
-
-
-def _prune_expired_progress() -> None:
-    cutoff = datetime.now(UTC) - PROGRESS_TTL
-    progress_log[:] = [
-        entry for entry in progress_log if _entry_timestamp(entry) >= cutoff
-    ]
 
 
 def _authorize_agent_access(agent_id: str | None, access_key: str | None) -> str:
@@ -58,7 +39,7 @@ def _authorize_agent_access(agent_id: str | None, access_key: str | None) -> str
 
 
 def _progress_dump(progress: ProgressData, agent_id: str, session_id: str) -> dict:
-    entry = progress.model_dump(exclude={"access_key"})
+    entry = progress.model_dump(exclude={"access_key", "completet_at"})
     entry["agent_id"] = agent_id
     entry["session_id"] = session_id
     entry["updated_at"] = datetime.now(UTC)
@@ -71,29 +52,22 @@ def get_recent_progress_for_session(
     if limit <= 0:
         return []
 
-    _prune_expired_progress()
-    normalized_session_id = _normalize_session_id(session_id)
-    entries = [
-        entry
-        for entry in progress_log
-        if entry.get("agent_id") == agent_id
-        and entry.get("session_id", DEFAULT_SESSION_ID) == normalized_session_id
-    ]
-    entries.sort(key=_entry_timestamp, reverse=True)
-    return [ProgressData.model_validate(entry) for entry in entries[:limit]]
+    entries = progress_dao.list_session_progress(
+        agent_id, _normalize_session_id(session_id), limit
+    )
+    return [ProgressData.model_validate(entry) for entry in entries]
 
 
 @router.post("/initializeTasks")
 def receive_hierarchy(task_hierarchy: ListProgressData):
     """Initializes a list of tasks with their subtasks and steps."""
     try:
-        _prune_expired_progress()
         agent_id = _authorize_agent_access(
             task_hierarchy.agent_id, task_hierarchy.access_key
         )
         session_id = _normalize_session_id(task_hierarchy.session_id)
         for task in task_hierarchy.items:
-            progress_log.append(
+            progress_dao.add_progress(
                 _progress_dump(
                     task,
                     agent_id,
@@ -107,7 +81,13 @@ def receive_hierarchy(task_hierarchy: ListProgressData):
             ),
         }
     except Exception as e:
-        print(f"Error processing task hierarchy: {e}")
+        if isinstance(e, ValidationError):
+            logger.warning(
+                "Error processing task hierarchy: ValidationError (%d errors)",
+                e.error_count(),
+            )
+        else:
+            logger.warning("Error processing task hierarchy: %s", type(e).__name__)
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -123,71 +103,67 @@ def create_progress_session(
     return {
         "agent_id": agent_id,
         "session_id": f"ragdoll-session-{uuid.uuid4()}",
-        "expires_after_hours": int(PROGRESS_TTL.total_seconds() // 3600),
+        "expires_after_hours": int(Config().PROGRESS_TTL_HOURS),
     }
 
 
 @router.post("/updateTask")
 def receive_progress(progress: ProgressData):
     """Handles task progress updates (started/complete) and stores them."""
-    _prune_expired_progress()
     agent_id = _authorize_agent_access(progress.agent_id, progress.access_key)
     session_id = _normalize_session_id(progress.session_id)
 
     if progress.status == "started" or progress.status == "pending":
-        # Check for existing incomplete task to update
-        for entry in progress_log:
-            if (
-                entry.get("agent_id") == agent_id
-                and entry.get("session_id", DEFAULT_SESSION_ID) == session_id
-                and entry["task_name"] == progress.task_name
-                and entry["completed_at"] is None
-            ):
-                now = datetime.now(UTC)
-                entry.update(
-                    {
-                        "subtask_progress": [
-                            subtask.model_dump()
-                            for subtask in progress.subtask_progress
-                        ],
-                        "started_at": entry.get("started_at") or now,
-                        "updated_at": now,
-                        "status": progress.status,
-                        "description": progress.description,
-                    }
+        now = datetime.now(UTC)
+        entry = progress_dao.update_active_progress(
+            agent_id,
+            session_id,
+            progress.task_name,
+            {
+                "subtask_progress": [
+                    subtask.model_dump() for subtask in progress.subtask_progress
+                ],
+                "updated_at": now,
+                "status": progress.status,
+                "description": progress.description,
+            },
+        )
+        if entry is not None:
+            if not entry.get("started_at"):
+                entry = progress_dao.update_active_progress(
+                    agent_id,
+                    session_id,
+                    progress.task_name,
+                    {"started_at": now},
                 )
-                return {"message": "Progress updated", "data": entry}
+            return {"message": "Progress updated", "data": entry}
 
         # New task entry
         new_entry = _progress_dump(progress, agent_id, session_id)
         new_entry["started_at"] = datetime.now(UTC)
-        progress_log.append(new_entry)
-        return {"message": "Progress received", "data": new_entry}
+        return {
+            "message": "Progress received",
+            "data": progress_dao.add_progress(new_entry),
+        }
 
     elif progress.status == "complete":
-        # Complete existing task
-        for entry in progress_log:
-            if (
-                entry.get("agent_id") == agent_id
-                and entry.get("session_id", DEFAULT_SESSION_ID) == session_id
-                and entry["task_name"] == progress.task_name
-                and entry["completed_at"] is None
-            ):
-                now = datetime.now(UTC)
-                entry.update(
-                    {
-                        "subtask_progress": [
-                            subtask.model_dump()
-                            for subtask in progress.subtask_progress
-                        ],
-                        "completed_at": now,
-                        "completet_at": now,
-                        "updated_at": now,
-                        "status": "complete",
-                        "description": progress.description,
-                    }
-                )
-                return {"message": "Task completed", "data": entry}
+        now = datetime.now(UTC)
+        entry = progress_dao.update_active_progress(
+            agent_id,
+            session_id,
+            progress.task_name,
+            {
+                "subtask_progress": [
+                    subtask.model_dump() for subtask in progress.subtask_progress
+                ],
+                "completed_at": now,
+                "updated_at": now,
+                "status": "complete",
+                "description": progress.description,
+            },
+        )
+        if entry is not None:
+            return {"message": "Task completed", "data": entry}
         return {"message": f"No active task {progress.task_name} found."}
 
     else:
@@ -201,14 +177,7 @@ def get_progress_log(
     limit: int | None = None,
     access_key: Annotated[str | None, Header()] = None,
 ):
-    _prune_expired_progress()
     authorized_agent_id = _authorize_agent_access(agent_id, access_key)
-    normalized_session_id = _normalize_session_id(session_id)
-    entries = [
-        entry
-        for entry in progress_log
-        if entry.get("agent_id") == authorized_agent_id
-        and entry.get("session_id", DEFAULT_SESSION_ID) == normalized_session_id
-    ]
-    entries.sort(key=_entry_timestamp, reverse=True)
-    return entries[:limit] if limit is not None and limit >= 0 else entries
+    return progress_dao.list_session_progress(
+        authorized_agent_id, _normalize_session_id(session_id), limit
+    )

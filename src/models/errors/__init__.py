@@ -7,6 +7,7 @@ from src.models.errors.llm_error import (
     LLMError,
     LLMGenerationError,
 )
+from src.models.errors.retrieval_error import RetrievalFailedError
 
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "LLMAPIError",
     "LLMError",
     "LLMGenerationError",
+    "RetrievalFailedError",
 ]

@@ -1,5 +1,4 @@
-"""
-Scraper client utility for testing and development.
+"""Scraper client utility for testing and development.
 
 This module provides a utility client for testing the tango-scraper service
 integration. It demonstrates how to send files to the scraper service and
@@ -15,9 +14,10 @@ import mimetypes
 import os
 import pathlib
 import uuid
-from typing import Iterable
+from collections.abc import Iterable
 
 import httpx
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +30,11 @@ AUTH_HEADER = os.getenv("SCRAPER_BEARER", "")
 
 
 async def send_files_and_stream_chunks(paths: Iterable[str]) -> None:
-    """
-    Send files to the scraper service and stream back extracted chunks.
-    
+    """Send files to the scraper service and stream back extracted chunks.
+
     This function demonstrates the integration with the tango-scraper service
     by sending files and processing the streaming response.
-    
+
     Args:
         paths: Iterable of file paths to process
     """
@@ -51,34 +50,34 @@ async def send_files_and_stream_chunks(paths: Iterable[str]) -> None:
         files.append(("files", (p.name, f, mime or "application/octet-stream")))
         params.append(("uuids", str(uuid.uuid4())))
 
-    headers = (
-        {"Authorization": f"Bearer {AUTH_HEADER}"} if AUTH_HEADER else {}
-    )
+    headers = {"Authorization": f"Bearer {AUTH_HEADER}"} if AUTH_HEADER else {}
 
     try:
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream(
+        async with (
+            httpx.AsyncClient(timeout=None) as client,
+            client.stream(
                 "POST",
                 SCRAPER_STREAM_URL,
                 params=params,
                 files=files,
                 headers=headers,
-            ) as resp:
-                resp.raise_for_status()
+            ) as resp,
+        ):
+            resp.raise_for_status()
 
-                async for line in resp.aiter_lines():
-                    if not line:  # Skip keep-alive blank lines
-                        continue
-                    if line == "[DONE]":
-                        logger.info("✓ All chunks received")
-                        break
+            async for line in resp.aiter_lines():
+                if not line:  # Skip keep-alive blank lines
+                    continue
+                if line == "[DONE]":
+                    logger.info("✓ All chunks received")
+                    break
 
-                    try:
-                        chunk = json.loads(line)
-                        handle_chunk(chunk)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Invalid JSON received: {line}")
-                        continue
+                try:
+                    chunk = json.loads(line)
+                    handle_chunk(chunk)
+                except json.JSONDecodeError:
+                    logger.warning(f"Invalid JSON received: {line}")
+                    continue
 
     finally:
         # Clean up file handles
@@ -87,13 +86,12 @@ async def send_files_and_stream_chunks(paths: Iterable[str]) -> None:
 
 
 def handle_chunk(chunk: dict) -> None:
-    """
-    Process a single chunk received from the scraper service.
-    
+    """Process a single chunk received from the scraper service.
+
     This is a simple handler that logs chunk information. In a production
     system, this would be replaced with database insertion, message queue
     publishing, or other processing logic.
-    
+
     Args:
         chunk: Dictionary containing chunk data (uuid, page, index, text, etc.)
     """
@@ -104,15 +102,14 @@ def handle_chunk(chunk: dict) -> None:
 
 
 async def main():
-    """
-    Main function for running the scraper client test.
-    
+    """Main function for running the scraper client test.
+
     Usage:
         python src/services/scraper_client.py
     """
     # Test with a sample file
     test_file = "/app/assets/Alpha.pdf"
-    
+
     if os.path.exists(test_file):
         logger.info(f"Testing with file: {test_file}")
         await send_files_and_stream_chunks([test_file])

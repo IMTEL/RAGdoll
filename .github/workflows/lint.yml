@@ -1,0 +1,37 @@
+name: Lint
+
+# Separate from "Tests" so deploy.yml (which waits for "Tests") is not
+# blocked by the legacy ruff backlog; lint still runs on every push and PR.
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint & Format Check
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Check lock file
+      run: uv lock --check
+
+    - name: Install dependencies
+      run: uv sync --dev
+
+    - name: Lint with Ruff
+      run: uv run ruff check --no-fix src tests
+
+    - name: Check formatting with Ruff
+      run: uv run ruff format --check src tests

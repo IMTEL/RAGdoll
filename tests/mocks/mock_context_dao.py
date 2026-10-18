@@ -182,6 +182,37 @@ class MockContextDAO(ContextDAO):
         """
         return True
 
+    def delete_by_document_id(
+        self,
+        document_id: str,
+        agent_id: str | None = None,
+        keep_chunk_ids: set[str] | None = None,
+    ) -> int:
+        """Delete a document's contexts from memory."""
+        keep = set(keep_chunk_ids or ())
+        before = len(self.data)
+        self.data = [
+            doc
+            for doc in self.data
+            if not (
+                doc.get("document_id") == document_id
+                and (agent_id is None or doc.get("agent_id") == agent_id)
+                and doc.get("chunk_id") not in keep
+            )
+        ]
+        return before - len(self.data)
+
+    def delete_chunks(self, agent_id: str, chunk_ids: list[str]) -> int:
+        """Delete specific chunks from memory."""
+        ids = set(chunk_ids)
+        before = len(self.data)
+        self.data = [
+            doc
+            for doc in self.data
+            if not (doc.get("agent_id") == agent_id and doc.get("chunk_id") in ids)
+        ]
+        return before - len(self.data)
+
     # TODO: REMOVE - For MongoDB compatibility in context upload
     def delete_many(self, filter_dict: dict) -> object:
         """Delete multiple documents matching a filter (for compatibility with MongoDB).

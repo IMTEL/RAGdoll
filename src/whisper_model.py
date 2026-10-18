@@ -63,7 +63,14 @@ class WhisperModelLoader:
         warmup_language = (language or "en").strip().lower() or "en"
         if warmup_language in {"nb", "nn", "nb-no", "nn-no", "nor"}:
             warmup_language = "no"
-        if warmup_language in {"zh-cn", "zh-hans", "zh_cn", "cmn", "mandarin", "chinese"}:
+        if warmup_language in {
+            "zh-cn",
+            "zh-hans",
+            "zh_cn",
+            "cmn",
+            "mandarin",
+            "chinese",
+        }:
             warmup_language = "zh"
         warmup_language = warmup_language.split("-")[0]
         # Force lazy runtime initialization inside CTranslate2 by running a tiny decode.

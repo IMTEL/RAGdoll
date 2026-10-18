@@ -35,6 +35,17 @@ class Config:
 
         if self.RUNNING_TESTS:  # Ensure tests always run in 'dev' environment
             self.ENV = "dev"
+        # Log user messages and responses (secrets masked). Off by default.
+        self.LOG_CONVERSATIONS = (
+            os.getenv("LOG_CONVERSATIONS", "false").strip().lower() == "true"
+        )
+        # Serve the speech and translation routes (transcribe, tts, stt/tts
+        # warmup, translate*, transliterate*) without credentials, for XR/Unity
+        # clients that do not send any. Off by default: those routes need a
+        # user token or an agent access key.
+        self.PUBLIC_SPEECH_ENDPOINTS = (
+            os.getenv("PUBLIC_SPEECH_ENDPOINTS", "false").strip().lower() == "true"
+        )
         self.RAGDOLL_CONFIG_API_URL = os.getenv(
             "RAGDOLL_CONFIG_API_URL", "http://localhost:3000"
         )
@@ -61,6 +72,11 @@ class Config:
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
+        # Seconds before an LLM or embedding HTTP call gives up.
+        self.LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
+        # Whisper transcriptions / Piper syntheses allowed to run at once.
+        self.STT_MAX_CONCURRENCY = int(os.getenv("STT_MAX_CONCURRENCY", "2"))
+        self.TTS_MAX_CONCURRENCY = int(os.getenv("TTS_MAX_CONCURRENCY", "2"))
 
         self.TTS_ENGINE = os.getenv("TTS_ENGINE", "piper").lower()
         self.TTS_VOICE_DIR = os.getenv("TTS_VOICE_DIR", "/data/piper/voices")
@@ -96,6 +112,8 @@ class Config:
             os.getenv("TRANSLATION_CACHE_MAX_ENTRIES", "2000")
         )
 
+        self.MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "50"))
+
         self.RAG_DATABASE_SYSTEM = os.getenv(
             self._prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"
         )
@@ -103,7 +121,11 @@ class Config:
         self.MONGODB_URI = os.getenv(
             self._prod_or_mock_env("MONGODB_URI"), "mongodb://localhost:27017"
         )
-        self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
+        if self.RUNNING_TESTS:
+            # Never let tests touch the database named by the production variable.
+            self.MONGODB_DATABASE = os.getenv("MOCK_MONGODB_DATABASE", "test_database")
+        else:
+            self.MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "test_database")
 
         # It is expected now that agents and contexts are in the same database
         # and in separate collections
@@ -115,6 +137,13 @@ class Config:
         )
         self.MONGODB_AGENT_COLLECTION = os.getenv("MONGODB_AGENT_COLLECTION", "agents")
         self.MONGODB_USER_COLLECTION = os.getenv("MONGODB_USER_COLLECTION", "users")
+        self.MONGODB_PROGRESS_COLLECTION = os.getenv(
+            "MONGODB_PROGRESS_COLLECTION", "progress"
+        )
+        self.MONGODB_UPLOAD_TASKS_COLLECTION = os.getenv(
+            "MONGODB_UPLOAD_TASKS_COLLECTION", "upload_tasks"
+        )
+        self.PROGRESS_TTL_HOURS = float(os.getenv("PROGRESS_TTL_HOURS", "24"))
 
         self.AUTH_SERVICE = os.getenv("AUTH_SERVICE", "service")
 

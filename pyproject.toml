@@ -31,12 +31,12 @@ dependencies = [
     "piper-tts>=1.4.2",
     "pypinyin>=0.53.0",
     "google-genai>=2.29.0",
-    "argon2-cffi>=25.1.0",
 ]
 
 [dependency-groups]
 dev = [
     "deptry>=0.23.1",
+    "mongomock>=4.3.0",
     "mypy>=1.18.2",
     "pre-commit>=4.3.0",
     "pytest>=8.3.4",

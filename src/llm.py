@@ -3,6 +3,7 @@ from typing import Protocol
 
 import requests
 from google import genai
+from google.genai import types as genai_types
 from openai import (
     APIError,
     AuthenticationError,
@@ -15,17 +16,76 @@ from openai import (
 from src.config import Config
 from src.models.errors import LLMAPIError, LLMGenerationError
 from src.models.model import Model
+from src.utils.client_cache import ClientCache, key_hash
+
+
+def gemini_http_options() -> genai_types.HttpOptions:
+    """google-genai options carrying LLM_TIMEOUT_SECONDS (the SDK wants ms)."""
+    return genai_types.HttpOptions(timeout=int(Config().LLM_TIMEOUT_SECONDS * 1000))
+
+
+# Stand-in user turn for when there is nothing the user said to send.
+EMPTY_USER_TURN = "(The user has not said anything yet.)"
+
+ChatMessage = dict[str, str]
+"""One chat turn: {"role": "system" | "user" | "assistant", "content": str}."""
+
+
+def as_messages(messages: list[ChatMessage] | str) -> list[ChatMessage]:
+    """Temporary adapter for callers that still pass one plain prompt string.
+
+    A string becomes a single user message; a message list is returned as is.
+    """
+    if isinstance(messages, str):
+        return [{"role": "user", "content": messages}]
+    return messages
+
+
+def to_gemini_request(
+    messages: list[ChatMessage],
+) -> tuple[str | None, list[genai_types.Content]]:
+    """Split chat messages into Gemini's system_instruction and contents.
+
+    Gemini takes system text separately, so every system message is joined
+    (in order, separated by blank lines) into one system_instruction. Each
+    system message keeps its own content, so a delimited reference block stays
+    delimited. "assistant" turns become role "model"; everything else "user".
+    Adjacent turns with the same role are merged (blank line between), and
+    the contents always start with a user turn.
+    """
+    system_parts = [m["content"] for m in messages if m["role"] == "system"]
+    turns: list[tuple[str, str]] = []
+    for m in messages:
+        if m["role"] == "system":
+            continue
+        role = "model" if m["role"] == "assistant" else "user"
+        if turns and turns[-1][0] == role:
+            turns[-1] = (role, turns[-1][1] + "\n\n" + m["content"])
+        else:
+            turns.append((role, m["content"]))
+    if not turns or turns[0][0] != "user":
+        turns.insert(0, ("user", EMPTY_USER_TURN))
+    contents = [
+        genai_types.Content(role=role, parts=[genai_types.Part(text=text)])
+        for role, text in turns
+    ]
+    system_instruction = "\n\n".join(system_parts) if system_parts else None
+    return system_instruction, contents
 
 
 class LLM(Protocol):
     @abstractmethod
     def generate(
         self,
-        prompt: str,
+        messages: list[ChatMessage] | str,
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        """Send the prompt to the LLM and return the generated response."""
+        """Send the chat messages to the LLM and return the generated text.
+
+        A plain string is still accepted (see ``as_messages``) for callers
+        that have not moved to role-separated messages yet.
+        """
 
 
 class IdunLLM(LLM):
@@ -33,6 +93,7 @@ class IdunLLM(LLM):
         config = Config()
         self.model = model or config.IDUN_MODEL
         self.url = config.IDUN_API_URL
+        self.timeout = config.LLM_TIMEOUT_SECONDS
         if not api_key:
             raise LLMAPIError(
                 "idun",
@@ -45,7 +106,7 @@ class IdunLLM(LLM):
 
     def generate(
         self,
-        prompt: str,
+        messages: list[ChatMessage] | str,
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
@@ -55,13 +116,15 @@ class IdunLLM(LLM):
         }
         data = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": as_messages(messages),
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
 
         try:
-            response = requests.post(self.url, headers=headers, json=data)
+            response = requests.post(
+                self.url, headers=headers, json=data, timeout=self.timeout
+            )
 
             # Handle HTTP errors
             if response.status_code == 401 or response.status_code == 403:
@@ -135,29 +198,31 @@ class OpenAILLM(LLM):
                 "OpenAILLM requires an explicit api_key. No fallback to config.",
                 401,
             )
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, timeout=self.config.LLM_TIMEOUT_SECONDS)
         self.client.models
 
     def generate(
         self,
-        prompt: str,
+        messages: list[ChatMessage] | str,
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
         """Uses the new API client interface to generate a response."""
         try:
-            messages = [
-                {"role": "system", "text": "You are a helpful assistant."},
-                {"role": "user", "text": prompt},
-            ]
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=as_messages(messages),
                 temperature=temperature,
                 max_completion_tokens=max_tokens,
             )
-            if response.choices[0].message.content != None:
-                return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            if content is None:
+                raise LLMGenerationError(
+                    "openai", self.model, "The API returned no message content."
+                )
+            return content.strip()
+        except LLMGenerationError:
+            raise
         except AuthenticationError as e:
             raise LLMAPIError(
                 "openai", self.model, "authentication", str(e), 401
@@ -201,25 +266,26 @@ class GeminiLLM(LLM):
                 "GeminiLLM requires an explicit api_key. No fallback to config.",
                 401,
             )
-        genai.configure(api_key=api_key)
-        self.client = genai.GenerativeModel(self.model)
+        self.client = genai.Client(api_key=api_key, http_options=gemini_http_options())
 
     def generate(
         self,
-        prompt: str,
+        messages: list[ChatMessage] | str,
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
         """Uses the Google Generative AI client to generate a response."""
+        system_instruction, contents = to_gemini_request(as_messages(messages))
         try:
-            response = self.client.generate_content(
-                prompt,
-                generation_config={
-                    "max_output_tokens": max_tokens,
-                    "temperature": temperature,
-                },
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                ),
             )
-            return response.text.strip()
         except Exception as e:
             error_msg = str(e).lower()
 
@@ -265,15 +331,22 @@ class GeminiLLM(LLM):
             # Default to generation error
             raise LLMGenerationError("gemini", self.model, str(e)) from e
 
+        if response.text is None:
+            raise LLMGenerationError(
+                "gemini", self.model, "Gemini returned no text in its response"
+            )
+        return response.text.strip()
+
 
 class MockLLM(LLM):
     def generate(
         self,
-        prompt: str,
+        messages: list[ChatMessage] | str,
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        return f"Mocked response for prompt: {prompt}"
+        last = as_messages(messages)[-1]["content"] if messages else ""
+        return f"Mocked response for prompt: {last}"
 
 
 def _filter_language_models(provider: str, models: list[Model]) -> list[Model]:
@@ -373,8 +446,8 @@ def list_openai_models(api_key: str) -> list[Model]:
 
 def list_gemini_models(api_key: str) -> list[Model]:
     try:
-        genai.configure(api_key=api_key)
-        models = list(genai.list_models())
+        client = genai.Client(api_key=api_key)
+        models = list(client.models.list())
     except Exception as exc:
         message = str(exc).lower()
         if (
@@ -416,6 +489,13 @@ def list_llm_models(provider: str, api_key: str) -> list[Model]:
     ]
 
 
+_llm_cache: ClientCache[LLM] = ClientCache(maxsize=64)
+
+
+def clear_llm_cache() -> None:
+    _llm_cache.clear()
+
+
 def create_llm(
     llm_provider: str = "idun", model: str | None = None, api_key: str | None = None
 ) -> LLM:
@@ -432,6 +512,13 @@ def create_llm(
     Returns:
         LLM: The specified LLM instance.
     """
+    cache_key = (llm_provider.lower(), model, key_hash(api_key))
+    return _llm_cache.get_or_create(
+        cache_key, lambda: _build_llm(llm_provider, model, api_key)
+    )
+
+
+def _build_llm(llm_provider: str, model: str | None, api_key: str | None) -> LLM:
     match llm_provider.lower():
         case "idun":
             return IdunLLM(model=model, api_key=api_key)

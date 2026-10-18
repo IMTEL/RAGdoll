@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 import base64
+import re
 import time
 import wave
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 
 from src.config import Config
+
+
+# Piper is CPU heavy: at most TTS_MAX_CONCURRENCY syntheses run at once, the
+# rest wait. Shared by every synthesis in the process.
+TTS_SEMAPHORE = BoundedSemaphore(Config().TTS_MAX_CONCURRENCY)
 
 
 @dataclass(frozen=True)
@@ -65,10 +72,11 @@ class PiperTextToSpeechService(TextToSpeechService):
         voice_name = self._voice_name_for_language(normalized_language)
         voice = self._load_voice(voice_name)
 
-        start_time = time.time()
         wav_buffer = BytesIO()
-        with wave.open(wav_buffer, "wb") as wav_file:
-            voice.synthesize_wav(clean_text, wav_file)
+        with TTS_SEMAPHORE:
+            start_time = time.time()
+            with wave.open(wav_buffer, "wb") as wav_file:
+                voice.synthesize_wav(clean_text, wav_file)
 
         return SpeechResult(
             audio_base64=base64.b64encode(wav_buffer.getvalue()).decode("ascii"),
@@ -97,7 +105,7 @@ class PiperTextToSpeechService(TextToSpeechService):
         value = (language or self.config.TTS_DEFAULT_LANGUAGE or "en").strip().lower()
         if value in {"nb", "nn", "nor", "no_no", "nb_no", "nn_no"}:
             return "no"
-        if value in {"en_us", "en-gb", "en_us", "eng"}:
+        if value in {"en_us", "en-gb", "eng"}:
             return "en"
         if value in {"es_es", "spa"}:
             return "es"
@@ -112,7 +120,9 @@ class PiperTextToSpeechService(TextToSpeechService):
             "es": self.config.TTS_DEFAULT_VOICE_ES,
             "zh": self.config.TTS_DEFAULT_VOICE_ZH,
         }
-        return voice_map.get(language, voice_map.get(self.config.TTS_DEFAULT_LANGUAGE, ""))
+        return voice_map.get(
+            language, voice_map.get(self.config.TTS_DEFAULT_LANGUAGE, "")
+        )
 
     def _load_voice(self, voice_name: str):
         if not voice_name:
@@ -184,3 +194,121 @@ def get_tts_service() -> TextToSpeechService:
             _service = UnsupportedTextToSpeechService(config.TTS_ENGINE)
 
         return _service
+
+
+_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+(?=\S)")
+_ABBREVIATIONS = (
+    "mr.",
+    "mrs.",
+    "ms.",
+    "dr.",
+    "prof.",
+    "st.",
+    "vs.",
+    "etc.",
+    "e.g.",
+    "i.e.",
+)
+
+
+def split_sentences(text: str) -> list[str]:
+    """Split text into sentences on ``.!?`` followed by whitespace (best effort).
+
+    Pieces ending in a known abbreviation are glued to the next sentence.
+    """
+    clean = (text or "").strip()
+    if not clean:
+        return []
+    sentences: list[str] = []
+    carry = ""
+    for piece in _SENTENCE_BOUNDARY.split(clean):
+        piece = f"{carry} {piece}".strip() if carry else piece.strip()
+        carry = ""
+        if piece.split()[-1].lower() in _ABBREVIATIONS:
+            carry = piece
+            continue
+        if piece:
+            sentences.append(piece)
+    if carry:
+        sentences.append(carry)
+    return sentences
+
+
+def _read_wav(audio_base64: str) -> tuple[tuple, bytes]:
+    with wave.open(BytesIO(base64.b64decode(audio_base64)), "rb") as wav_file:
+        params = (
+            wav_file.getnchannels(),
+            wav_file.getsampwidth(),
+            wav_file.getframerate(),
+        )
+        return params, wav_file.readframes(wav_file.getnframes())
+
+
+def _sample_rate(audio_base64: str) -> int | None:
+    try:
+        return _read_wav(audio_base64)[0][2]
+    except (wave.Error, ValueError, EOFError):
+        return None
+
+
+def concat_wav_base64(audio_parts: list[str]) -> str:
+    """Join base64 WAVs into one WAV: a single header over concatenated PCM."""
+    params = None
+    frames = []
+    for part in audio_parts:
+        part_params, part_frames = _read_wav(part)
+        if params is None:
+            params = part_params
+        elif part_params != params:
+            raise ValueError("Cannot concatenate WAV segments with different formats.")
+        frames.append(part_frames)
+    channels, sample_width, rate = params
+    out = BytesIO()
+    with wave.open(out, "wb") as wav_file:
+        wav_file.setnchannels(channels)
+        wav_file.setsampwidth(sample_width)
+        wav_file.setframerate(rate)
+        wav_file.writeframes(b"".join(frames))
+    return base64.b64encode(out.getvalue()).decode("ascii")
+
+
+def synthesize_sentences(
+    service: TextToSpeechService, text: str, language: str | None = None
+) -> tuple[dict, list[dict]]:
+    """Synthesize each sentence in parallel; return (speech, speech_segments).
+
+    Concurrency is bounded by TTS_SEMAPHORE (acquired inside each synthesize
+    call, never held while waiting on other sentences). ``speech`` is the
+    concatenation of all segments; for a one-sentence answer it is exactly the
+    single synthesis result.
+    """
+    sentences = split_sentences(text)
+    if len(sentences) <= 1:
+        result = service.synthesize(sentences[0] if sentences else text, language)
+        speech = result.to_dict()
+        segment = {
+            "text": sentences[0] if sentences else text.strip(),
+            "audio_base64": speech.get("audio_base64"),
+            "sample_rate": _sample_rate(speech.get("audio_base64") or ""),
+        }
+        return speech, [segment]
+
+    workers = min(len(sentences), max(1, Config().TTS_MAX_CONCURRENCY))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(lambda s: service.synthesize(s, language), sentences))
+
+    dicts = [r.to_dict() for r in results]
+    segments = [
+        {
+            "text": sentence,
+            "audio_base64": d["audio_base64"],
+            "sample_rate": _sample_rate(d["audio_base64"]),
+        }
+        for sentence, d in zip(sentences, dicts, strict=True)
+    ]
+    speech = dict(dicts[0])
+    speech["audio_base64"] = concat_wav_base64([d["audio_base64"] for d in dicts])
+    speech["processing_time_seconds"] = round(
+        sum(d.get("processing_time_seconds", 0) for d in dicts), 3
+    )
+    return speech, segments

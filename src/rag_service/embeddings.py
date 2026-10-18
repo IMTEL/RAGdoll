@@ -1,21 +1,35 @@
 from abc import ABC, abstractmethod
+from typing import Literal
 
 import openai
 from google import genai
+from google.genai import types as genai_types
 from numpy import dot
 from numpy.linalg import norm
 
 from src.config import Config
 from src.models.errors import EmbeddingAPIError, EmbeddingError
+from src.utils.client_cache import ClientCache, key_hash
+
+
+# What a text is embedded for. Providers with task-specific embeddings
+# (Gemini) use it; the others ignore it.
+EmbeddingTask = Literal["query", "document"]
+
+_GEMINI_TASK_TYPES: dict[str, str] = {
+    "query": "RETRIEVAL_QUERY",
+    "document": "RETRIEVAL_DOCUMENT",
+}
 
 
 class EmbeddingsModel(ABC):
     @abstractmethod
-    def get_embedding(self, text: str) -> list[float]:
+    def get_embedding(self, text: str, task: EmbeddingTask = "query") -> list[float]:
         """Get the embedding of a text.
 
         Args:
             text (str): The text to embed
+            task: "query" for a search query, "document" for a stored chunk.
 
         Returns:
             list[float]: The embedding of the text
@@ -36,10 +50,12 @@ class OpenAIEmbedding(EmbeddingsModel):
                 model_name,
                 "OpenAIEmbedding requires an explicit embedding_api_key.",
             )
-        self.client = openai.Client(api_key=embedding_api_key)
+        self.client = openai.Client(
+            api_key=embedding_api_key, timeout=self.config.LLM_TIMEOUT_SECONDS
+        )
         self.model_name = model_name
 
-    def get_embedding(self, text: str) -> list[float]:
+    def get_embedding(self, text: str, task: EmbeddingTask = "query") -> list[float]:
         text = text.replace("\n", " ")
         try:
             response = self.client.embeddings.create(
@@ -70,28 +86,35 @@ class GoogleEmbedding(EmbeddingsModel):
         model_name: str = "text-embedding-004",
         embedding_api_key: str | None = None,
     ):
-        Config()
+        config = Config()
         if not embedding_api_key:
             raise EmbeddingAPIError(
                 "Gemini",
                 model_name,
                 "GoogleEmbedding requires an explicit embedding_api_key.",
             )
-        genai.configure(api_key=embedding_api_key)
+        self.client = genai.Client(
+            api_key=embedding_api_key,
+            http_options=genai_types.HttpOptions(
+                timeout=int(config.LLM_TIMEOUT_SECONDS * 1000)
+            ),
+        )
         self.model_name = model_name
         if not self.model_name.startswith("models/"):
             self.model_name = f"models/{self.model_name}"
 
-    def get_embedding(self, text: str) -> list[float]:
+    def get_embedding(self, text: str, task: EmbeddingTask = "query") -> list[float]:
         text = text.replace("\n", " ")
         try:
-            embedding = genai.embed_content(
+            response = self.client.models.embed_content(
                 model=self.model_name,
-                content=text,
-                task_type="retrieval_query",
-                output_dimensionality=768,
+                contents=text,
+                config=genai_types.EmbedContentConfig(
+                    task_type=_GEMINI_TASK_TYPES[task],
+                    output_dimensionality=768,
+                ),
             )
-            return embedding["embedding"]
+            return list(response.embeddings[0].values)
         except Exception as e:
             # Check if it's an authentication or permission error
             error_msg = str(e).lower()
@@ -139,10 +162,11 @@ class IdunEmbedding(EmbeddingsModel):
         self.client = openai.Client(
             api_key=embedding_api_key,
             base_url=self.config.IDUN_API_BASE_URL,
+            timeout=self.config.LLM_TIMEOUT_SECONDS,
         )
         self.model_name = model_name
 
-    def get_embedding(self, text: str) -> list[float]:
+    def get_embedding(self, text: str, task: EmbeddingTask = "query") -> list[float]:
         text = text.replace("\n", " ")
         try:
             response = self.client.embeddings.create(
@@ -199,8 +223,8 @@ def list_gemini_embedding_models(
     api_key: str, provider_label: str = "gemini"
 ) -> list[str]:
     try:
-        genai.configure(api_key=api_key)
-        models = list(genai.list_models())
+        client = genai.Client(api_key=api_key)
+        models = list(client.models.list())
     except Exception as exc:
         message = str(exc).lower()
         if (
@@ -218,7 +242,7 @@ def list_gemini_embedding_models(
     embedding_models: list[str] = []
     for item in models:
         name = getattr(item, "name", "")
-        methods = getattr(item, "supported_generation_methods", []) or []
+        methods = getattr(item, "supported_actions", []) or []
         if not isinstance(name, str) or not name:
             continue
         name_lower = name.lower()
@@ -276,6 +300,13 @@ def list_embedding_models(provider: str, api_key: str) -> list[str]:
     )
 
 
+_embedding_cache: ClientCache[EmbeddingsModel] = ClientCache(maxsize=64)
+
+
+def clear_embedding_cache() -> None:
+    _embedding_cache.clear()
+
+
 def create_embeddings_model(
     embeddings_model: str = "gemini:models/text-embedding-004",
     embedding_api_key: str | None = None,
@@ -304,6 +335,15 @@ def create_embeddings_model(
     Returns:
         EmbeddingsModel: Instance of the appropriate embeddings model
     """
+    cache_key = (embeddings_model, key_hash(embedding_api_key))
+    return _embedding_cache.get_or_create(
+        cache_key, lambda: _build_embeddings_model(embeddings_model, embedding_api_key)
+    )
+
+
+def _build_embeddings_model(
+    embeddings_model: str, embedding_api_key: str | None
+) -> EmbeddingsModel:
     # Parse provider:model_name format
     if ":" in embeddings_model:
         provider, model_name = embeddings_model.split(":", 1)

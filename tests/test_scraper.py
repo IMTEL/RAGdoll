@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import nltk
@@ -79,6 +80,10 @@ class TestScraperService:
         assert Path(file_info["absolute_path"]).exists()
 
     @pytest.mark.integration
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="PDF partitioning needs real libmagic, stubbed on Windows",
+    )
     def test_scrape_pdf_file(self, scraper_service, test_pdf_path):
         """Test scraping a PDF file."""
         if not test_pdf_path.exists():

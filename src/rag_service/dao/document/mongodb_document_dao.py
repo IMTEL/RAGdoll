@@ -7,6 +7,7 @@ from pymongo import ASCENDING, MongoClient
 
 from src.config import Config
 from src.models.rag import Document
+from src.rag_service.context import kind_of
 from src.rag_service.dao.context.mongodb_context_dao import MongoDBContextDAO
 from src.rag_service.dao.document.base import DocumentDAO
 
@@ -120,6 +121,7 @@ class MongoDBDocumentDAO(DocumentDAO):
             "name": document.name,
             "agent_id": document.agent_id,
             "size_bytes": document.size_bytes,
+            "kind": document.kind,
             "created_at": document.created_at,
             "updated_at": document.updated_at,
         }
@@ -158,6 +160,7 @@ class MongoDBDocumentDAO(DocumentDAO):
         update_dict = {
             "$set": {
                 "name": document.name,
+                "kind": document.kind,
                 "updated_at": document.updated_at,
             }
         }
@@ -189,14 +192,14 @@ class MongoDBDocumentDAO(DocumentDAO):
             return False
 
         try:
-            # First, delete all contexts associated with this document
-            context_collection = self.context_dao.collection
-            context_result = context_collection.delete_many(
-                {"document_id": document_id}
+            # First, delete all contexts (Mongo rows and FAISS vectors)
+            # associated with this document
+            existing = self.collection.find_one({"_id": document_id}, {"agent_id": 1})
+            agent_id = existing.get("agent_id") if existing else None
+            deleted = self.context_dao.delete_by_document_id(
+                document_id, agent_id=agent_id or None
             )
-            logger.info(
-                f"Deleted {context_result.deleted_count} contexts for document '{document_id}'"
-            )
+            logger.info(f"Deleted {deleted} contexts for document '{document_id}'")
 
             # Then delete the document itself
             result = self.collection.delete_one({"_id": document_id})
@@ -257,6 +260,7 @@ class MongoDBDocumentDAO(DocumentDAO):
             name=doc.get("name", "Unnamed Document"),  # Default if name is missing
             agent_id=doc.get("agent_id", ""),
             size_bytes=doc.get("size_bytes", 0),
+            kind=kind_of(doc),
             created_at=doc.get("created_at", datetime.now()),
             updated_at=doc.get("updated_at", datetime.now()),
         )

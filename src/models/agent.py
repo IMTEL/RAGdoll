@@ -1,14 +1,11 @@
 """Agent domain models for AI agent configurations."""
 
 import logging
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from src.models.accesskey import AccessKey
-from src.utils.crypto_utils import (
-    decrypt_value,
-    encrypt_str,
-)
+from src.models.accesskey import AccessKey, AccessKeyPublic
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +58,78 @@ class AgentFunction(BaseModel):
     )
 
 
-class Agent(BaseModel):
+class AgentBase(BaseModel):
+    """Agent fields without secrets, shared by ``Agent`` and ``AgentPublic``."""
+
+    id: str | None = Field(default=None, description="Unique identifier for the agent")
+    name: str
+    description: str
+    prompt: str
+    roles: list[Role] = Field(default_factory=list)
+    functions: list[AgentFunction] = Field(default_factory=list)
+    llm_provider: str = Field(default="idun")
+    llm_model: str
+    llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    llm_max_tokens: int = Field(default=1000, gt=0)
+    retrieval_method: str = Field(default="semantic")
+    embedding_model: str
+    status: str = Field(default="active")
+    response_format: str = Field(default="text")
+    last_updated: str
+
+    # RAG retrieval configuration
+    top_k: int = Field(
+        default=5, gt=0, description="Number of context chunks to retrieve"
+    )
+    similarity_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Minimum similarity score for context relevance",
+    )
+    hybrid_search_alpha: float = Field(
+        default=0.75,
+        ge=0.0,
+        le=1.0,
+        description="Weight for hybrid search (0=keyword only, 1=vector only)",
+    )
+
+    context_aware_retrieval: bool = Field(
+        default=True,
+        description="If true, use context-aware retrieval; otherwise, use only the latest message as the retrieval query.",
+    )
+
+    on_retrieval_error: Literal["fail", "answer_without_context"] = Field(
+        default="fail",
+        description=(
+            "What to do when knowledge retrieval fails: 'fail' ends the request "
+            "with HTTP 503; 'answer_without_context' answers but tells the "
+            "character it has no reference material."
+        ),
+    )
+
+    knowledge_scope: Literal["documents_first", "documents_only"] = Field(
+        default="documents_first",
+        description=(
+            "'documents_first' prefers the uploaded documents and answers from "
+            "general knowledge when they do not cover the question; "
+            "'documents_only' answers only from the documents."
+        ),
+    )
+
+    # Optional reference to one of the agent owner's stored provider keys
+    # (UserAPIKey.id), resolved server-side when the key is needed. Not secret.
+    llm_api_key_id: str | None = None
+    embedding_api_key_id: str | None = None
+
+    # Set when loading or resolving, never stored: the provider key could not
+    # be decrypted (FERNET_KEY changed or was rotated out) or the referenced
+    # stored key no longer exists, so it must be entered again.
+    llm_api_key_invalid: bool = False
+    embedding_api_key_invalid: bool = False
+
+
+class Agent(AgentBase):
     """AI Agent configuration for RAG-enabled conversational systems.
 
     An agent encapsulates all configuration needed to create a specialized
@@ -88,46 +156,9 @@ class Agent(BaseModel):
         last_updated: ISO 8601 timestamp of last modification
     """
 
-    id: str | None = Field(default=None, description="Unique identifier for the agent")
-    name: str
-    description: str
-    prompt: str
-    roles: list[Role] = Field(default_factory=list)
-    functions: list[AgentFunction] = Field(default_factory=list)
-    llm_provider: str = Field(default="idun")
-    llm_model: str
-    llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    llm_max_tokens: int = Field(default=1000, gt=0)
     llm_api_key: str = Field(..., description="LLM service API key")
     access_key: list[AccessKey] = Field(default_factory=list)
-    retrieval_method: str = Field(default="semantic")
-    embedding_model: str
-    status: str = Field(default="active")
-    response_format: str = Field(default="text")
-    last_updated: str
     embedding_api_key: str = Field(..., description="Embedding service API key")
-
-    # RAG retrieval configuration
-    top_k: int = Field(
-        default=5, gt=0, description="Number of context chunks to retrieve"
-    )
-    similarity_threshold: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Minimum similarity score for context relevance",
-    )
-    hybrid_search_alpha: float = Field(
-        default=0.75,
-        ge=0.0,
-        le=1.0,
-        description="Weight for hybrid search (0=keyword only, 1=vector only)",
-    )
-
-    context_aware_retrieval: bool = Field(
-        default=True,
-        description="If true, use context-aware retrieval; otherwise, use only the latest message as the retrieval query.",
-    )
 
     def get_role_by_name(self, role_name: str) -> Role | None:
         """Retrieve a role by its name.
@@ -143,64 +174,42 @@ class Agent(BaseModel):
                 return role
         return None
 
-    # TODO: Use validators instead of this helper methods for encryption and hashing!!
+
+class AgentPublic(AgentBase):
+    """Agent as returned by the API: never contains a secret.
+
+    Provider API keys are reduced to ``has_*`` flags, and access keys to their
+    metadata (``AccessKeyPublic``).
+    """
+
+    access_key: list[AccessKeyPublic] = Field(default_factory=list)
+    has_llm_api_key: bool = False
+    has_embedding_api_key: bool = False
+
     @classmethod
-    def create_with_encryption(
-        cls,
-        name: str,
-        description: str,
-        prompt: str,
-        llm_model: str,
-        embedding_model: str,
-        last_updated: str,
-        plain_llm_api_key: str,
-        plain_access_keys: list[str] | None = None,
-        **kwargs,
-    ) -> "Agent":
-        """Create an Agent with automatic encryption of sensitive data.
-
-        This helper builds an Agent instance, encrypts the provided LLM API key
-        and optionally hashes provided access keys before returning the model.
-        """
-        if not plain_llm_api_key:
-            raise ValueError("plain_llm_api_key must not be empty")
-
-        # Create agent with placeholder encrypted key (will be replaced)
-        agent = cls(
-            name=name,
-            description=description,
-            prompt=prompt,
-            llm_model=llm_model,
-            embedding_model=embedding_model,
-            last_updated=last_updated,
-            llm_api_key="placeholder",
-            **kwargs,
-        )
-
-        # Set encrypted API key
-        agent.set_llm_api_key(plain_llm_api_key)
-
-        # Add hashed access keys
-        if plain_access_keys:
-            for access_key in plain_access_keys:
-                agent.add_access_key(access_key)
-
-        return agent
-
-    def set_llm_api_key(self, plain_api_key: str) -> None:
-        """Encrypt and store the LLM API key.
+    def from_agent(
+        cls, agent: Agent, include_access_keys: bool = True
+    ) -> "AgentPublic":
+        """Builds the public view of ``agent``.
 
         Args:
-            plain_api_key: The plain text API key to encrypt and store
+            agent: The stored agent
+            include_access_keys: False hides the access-key list entirely (for
+                callers that authenticated with an access key)
         """
-        if not plain_api_key:
-            raise ValueError("plain_api_key must not be empty")
-        self.llm_api_key = encrypt_str(plain_api_key)
-
-    def get_llm_api_key(self) -> str:
-        """Decrypt and return the LLM API key.
-
-        Returns:
-            The decrypted API key
-        """
-        return decrypt_value(self.llm_api_key)
+        fields = agent.model_dump(
+            exclude={"llm_api_key", "embedding_api_key", "access_key"}
+        )
+        access_keys = (
+            [AccessKeyPublic.model_validate(k.model_dump()) for k in agent.access_key]
+            if include_access_keys
+            else []
+        )
+        return cls(
+            **fields,
+            access_key=access_keys,
+            has_llm_api_key=bool(agent.llm_api_key or agent.llm_api_key_id),
+            has_embedding_api_key=bool(
+                agent.embedding_api_key or agent.embedding_api_key_id
+            ),
+        )

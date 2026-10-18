@@ -6,10 +6,12 @@ This module handles the main chat functionality including:
 - Combined transcribe + answer workflows
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
@@ -17,19 +19,30 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from pymongo.errors import PyMongoError
 
 from src.config import Config
 from src.models.chat.command import (
     Command,
     command_from_json_transcribe_version,
 )
-from src.models.errors import LLMAPIError, LLMGenerationError
+from src.models.errors import (
+    EmbeddingAPIError,
+    LLMAPIError,
+    LLMGenerationError,
+    RetrievalFailedError,
+)
 from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
-from src.tts import get_tts_service
-from src.utils.path_dependencies import get_auth, has_agent_call_access
+from src.tts import get_tts_service, synthesize_sentences
+from src.utils.path_dependencies import (
+    get_bearer_token,
+    get_optional_user,
+    has_agent_call_access,
+    require_speech_access,
+)
 from src.whisper_model import warmup_whisper_model
 
 
@@ -37,8 +50,13 @@ if TYPE_CHECKING:
     from src.models.agent import Agent
 
 
+# Every handler here is a plain ``def`` on purpose: they call blocking code (LLM
+# and embedding HTTP, Mongo, FAISS, Whisper, Piper), and FastAPI runs ``def``
+# handlers in its threadpool. An ``async def`` handler would run that work on
+# the event loop and stall every other request until it finished.
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 config = Config()
+logger = logging.getLogger(__name__)
 
 
 class TTSRequest(BaseModel):
@@ -67,9 +85,18 @@ def _attach_recent_progress(command: Command) -> None:
     ):
         return
 
-    recent_progress = get_recent_progress_for_session(
-        command.agent_id, command.session_id, command.progress_limit
-    )
+    try:
+        recent_progress = get_recent_progress_for_session(
+            command.agent_id, command.session_id, command.progress_limit
+        )
+    except (PyMongoError, ValidationError) as e:
+        # Progress is auxiliary context: answer without it rather than fail
+        # the chat. Only the type is logged (driver errors can hold the URI).
+        logger.warning(
+            "Could not load recent progress for the chat (%s); answering without it",
+            type(e).__name__,
+        )
+        return
     if not recent_progress:
         return
 
@@ -82,13 +109,15 @@ def _attach_recent_progress(command: Command) -> None:
 
 
 def _generate_speech_payload(text: str, language: str | None = None) -> dict:
-    return get_tts_service().synthesize(text, language).to_dict()
+    """Synthesize sentences in parallel: ``speech`` (concatenated) + segments."""
+    speech, segments = synthesize_sentences(get_tts_service(), text, language)
+    return {"speech": speech, "speech_segments": segments}
 
 
 def _build_response_with_speech(response: dict, language: str | None = None) -> dict:
     return {
         "response": response,
-        "speech": _generate_speech_payload(response.get("response", ""), language),
+        **_generate_speech_payload(response.get("response", ""), language),
     }
 
 
@@ -100,7 +129,7 @@ def _build_response_with_speech(response: dict, language: str | None = None) -> 
         400: {"description": "If the encoding is something else then utf-8"},
     },
 )
-async def ask(command: Command, request: Request):
+def ask(command: Command, request: Request):
     # TODO: We need a unviersal return object for LLMs. I have no idea about the current properties, which is why I am setting this dict until further notice
     """Process a user question using the specified agent and roles.
 
@@ -123,20 +152,36 @@ async def ask(command: Command, request: Request):
     command
         Raises:
             400: Invalid command format, agent not found, or role not found
-            401: LLM authentication failed (invalid API key or permissions)
-            402: Insufficient LLM tokens/credits
+            401: LLM or embedding authentication failed (invalid API key or
+                 permissions, or a stored key reference that is no longer valid)
+            402: Insufficient LLM or embedding tokens/credits
             404: LLM model not found or not accessible
-            429: LLM rate limit or quota exceeded
-            503: LLM generation service error
+            429: LLM or embedding rate limit or quota exceeded
+            503: LLM generation service error, or knowledge retrieval failed
+                 and the agent's on_retrieval_error is "fail"
             500: Other processing errors
     """
-    agent: Agent
+    agent = _authorize_command(command, request)
+    # Clients (chat, XR) read the answer at body["response"]["response"].
+    return {"response": _answer(command, agent)}
+
+
+def _authorize_command(command: Command, request: Request) -> "Agent":
+    """Returns the command's agent if the caller may call it.
+
+    Raises:
+        HTTPException: 401/403/404 from the bearer or access key checks
+    """
     # Until further notice we accept both the authorization header and the command access_key
     # Someone else can remove it down the line
-    if command.access_key == None:
-        agent = has_agent_call_access(command.agent_id, get_auth(request))
-    else:
-        agent = has_agent_call_access(command.agent_id, command.access_key)
+    credentials = (
+        get_bearer_token(request) if command.access_key is None else command.access_key
+    )
+    return has_agent_call_access(command.agent_id, get_optional_user(credentials))
+
+
+def _answer(command: Command, agent: "Agent") -> dict:
+    """Answers an already authorized command with the agent's LLM."""
     if (
         command.active_role_id
         and agent.get_role_by_name(command.active_role_id) is None
@@ -149,7 +194,12 @@ async def ask(command: Command, request: Request):
         response = assemble_prompt_with_agent(command, agent)
         return response
 
-    except LLMAPIError as e:
+    except RetrievalFailedError as e:
+        raise HTTPException(
+            detail="Knowledge retrieval failed",
+            status_code=503,
+        ) from e
+    except (LLMAPIError, EmbeddingAPIError) as e:
         # API-related errors (auth, quota, model not found, insufficient tokens)
         raise HTTPException(
             detail=str(e),
@@ -158,7 +208,7 @@ async def ask(command: Command, request: Request):
     except LLMGenerationError as e:
         # Generation/service errors
         raise HTTPException(
-            detail={str(e)},
+            detail=str(e),
             status_code=e.status_code,
         ) from e
     except UnicodeDecodeError as e:
@@ -174,8 +224,8 @@ async def ask(command: Command, request: Request):
         ) from e
 
 
-@router.post("/transcribe")
-async def transcribe_endpoint(
+@router.post("/transcribe", dependencies=[Depends(require_speech_access)])
+def transcribe_endpoint(
     audio: UploadFile = File(...),  # noqa: B008
     language: str = Form(None),
 ):
@@ -196,8 +246,8 @@ async def transcribe_endpoint(
         return JSONResponse(content=result, status_code=400)
 
 
-@router.post("/stt/warmup")
-async def stt_warmup(request: STTWarmupRequest | None = None):
+@router.post("/stt/warmup", dependencies=[Depends(require_speech_access)])
+def stt_warmup(request: STTWarmupRequest | None = None):
     """Lazy-load and warm the speech-to-text model."""
     try:
         result = warmup_whisper_model(request.language if request else None)
@@ -209,8 +259,8 @@ async def stt_warmup(request: STTWarmupRequest | None = None):
         )
 
 
-@router.post("/tts/warmup")
-async def tts_warmup(request: TTSWarmupRequest | None = None):
+@router.post("/tts/warmup", dependencies=[Depends(require_speech_access)])
+def tts_warmup(request: TTSWarmupRequest | None = None):
     """Lazy-load and warm the configured local text-to-speech model."""
     try:
         language = request.language if request else None
@@ -223,12 +273,14 @@ async def tts_warmup(request: TTSWarmupRequest | None = None):
         )
 
 
-@router.post("/tts")
-async def text_to_speech(request: TTSRequest):
+@router.post("/tts", dependencies=[Depends(require_speech_access)])
+def text_to_speech(request: TTSRequest):
     """Synthesize text using the configured local text-to-speech engine."""
     try:
-        result = _generate_speech_payload(request.text, request.language)
-        return JSONResponse(content={"speech": result}, status_code=200)
+        return JSONResponse(
+            content=_generate_speech_payload(request.text, request.language),
+            status_code=200,
+        )
     except ValueError as e:
         return JSONResponse(content={"message": str(e)}, status_code=400)
     except FileNotFoundError as e:
@@ -241,9 +293,9 @@ async def text_to_speech(request: TTSRequest):
 
 
 @router.post("/askWithSpeech")
-async def ask_with_speech(request: AskWithSpeechRequest, request_object: Request):
+def ask_with_speech(request: AskWithSpeechRequest, request_object: Request):
     """Process a text chat request and return both text and local speech audio."""
-    response = await ask(request.command, request_object)
+    response = ask(request.command, request_object)["response"]
     try:
         return JSONResponse(
             content=_build_response_with_speech(response, request.tts_language),
@@ -261,7 +313,7 @@ async def ask_with_speech(request: AskWithSpeechRequest, request_object: Request
 
 
 @router.post("/askTranscribe")
-async def ask_transcribe(
+def ask_transcribe(
     request_object: Request,
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
@@ -281,6 +333,13 @@ async def ask_transcribe(
     Returns:
     - A JSON response with the agent's answer
     """
+    # Authenticate before transcribing, so anonymous callers never reach Whisper.
+    # TODO: This is one of the many reasons we have pydmantic. Let it do the casting
+    command = command_from_json_transcribe_version(data)
+    if command is None:
+        raise HTTPException(status_code=400, detail="Invalid command format")
+    agent = _authorize_command(command, request_object)
+
     transcription_result = transcribe_audio(audio, stt_language)
     if not transcription_result["success"]:
         raise HTTPException(
@@ -289,12 +348,9 @@ async def ask_transcribe(
         )
     transcribed = transcription_result["transcription"]
 
-    # Parse command and add transcribed text as user message
-    # TODO: This is one of the many reasons we have pydmantic. Let it do the casting
+    # Parse the command again with the transcribed text as the user message
     command = command_from_json_transcribe_version(data, question=transcribed)
-    if command is None:
-        raise HTTPException(status_code=400, detail="Invalid command format")
-    response = await ask(command, request_object)
+    response = _answer(command, agent)
     return {
         "transcription": transcribed,
         "transcription_language": transcription_result["language"],
@@ -306,7 +362,7 @@ async def ask_transcribe(
 
 
 @router.post("/askTranscribeWithSpeech")
-async def ask_transcribe_with_speech(
+def ask_transcribe_with_speech(
     request_object: Request,
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
@@ -314,20 +370,20 @@ async def ask_transcribe_with_speech(
     stt_language: str = Form(None),
 ):
     """Transcribe audio, ask the agent, and return text plus local speech audio."""
-    response = await ask_transcribe(request_object, audio, data, stt_language)
+    response = ask_transcribe(request_object, audio, data, stt_language)
     try:
-        return (
-            {
-                **response,
-                **_build_response_with_speech(response, tts_language),
-            },
-        )
+        answer = response["response"]
+        answer_text = answer.get("response", "") if isinstance(answer, dict) else ""
+        return {
+            **response,
+            **_generate_speech_payload(answer_text, tts_language),
+        }
     except FileNotFoundError as e:
-        raise HTTPException(detail={"message": str(e)}, status_code=503) from e
+        raise HTTPException(detail=str(e), status_code=503) from e
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            detail={f"Error processing speech request: {e!s}"},
+            detail=f"Error processing speech request: {e!s}",
             status_code=500,
         ) from e

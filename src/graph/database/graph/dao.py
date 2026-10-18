@@ -1,16 +1,16 @@
-from abc import ABC, abstractmethod
 import os
-from neo4j import GraphDatabase as Neo4jDriver
+from abc import ABC, abstractmethod
 
+from neo4j import GraphDatabase as Neo4jDriver
 from src.db.graph.enums import GraphDatabaseType
 from src.db.graph.models import GraphPayload, GraphStructure
 from src.db.models import Status
-from src.models.graphs import Node, Edge, Graph
+from src.models.graphs import Edge, Node
+
 
 class GraphDatabase(ABC):
-    """
-    Abstract class for Connecting to a Database
-    """
+    """Abstract class for Connecting to a Database"""
+
     @classmethod
     def __instancecheck__(cls, instance: any) -> bool:
         return cls.__subclasscheck__(type(instance))
@@ -18,28 +18,24 @@ class GraphDatabase(ABC):
     @classmethod
     def __subclasscheck__(cls, subclass: type) -> bool:
         return issubclass(subclass, GraphDatabase)
-    
+
     @abstractmethod
     def close(self):
-        """
-        Close the database connection.
-        """
-        pass
-    
+        """Close the database connection."""
+
     @abstractmethod
     def is_reachable(self) -> bool:
-        """
-        Check if the database is reachable.
+        """Check if the database is reachable.
 
         Returns:
             bool: True if the database is reachable, False otherwise.
         """
-        pass
 
     @abstractmethod
-    def post_node(self, node: Node, graph_id: str, chunk_id: str, document_id: str) -> Status:
-        """
-        Posts a node to the graph database.
+    def post_node(
+        self, node: Node, graph_id: str, chunk_id: str, document_id: str
+    ) -> Status:
+        """Posts a node to the graph database.
 
         Args:
             node (Node): The node to be posted.
@@ -47,12 +43,10 @@ class GraphDatabase(ABC):
         Returns:
             Status: The status of the operation.
         """
-        pass
 
     @abstractmethod
     def post_edge(self, edge: Edge, graph_id: str, chunk_id: str) -> Status:
-        """
-        Posts an edge to the graph database.
+        """Posts an edge to the graph database.
 
         Args:
             edge (Edge): The edge to be posted.
@@ -60,12 +54,10 @@ class GraphDatabase(ABC):
         Returns:
             Status: The status of the operation.
         """
-        pass
 
     @abstractmethod
     def get_node(self, node_id: str) -> Node | None:
-        """
-        Retrieves a node from the graph database by its ID.
+        """Retrieves a node from the graph database by its ID.
 
         Args:
             node_id (str): The unique identifier of the node.
@@ -73,12 +65,10 @@ class GraphDatabase(ABC):
         Returns:
             Node: A Node object representing the retrieved node.
         """
-        pass
 
     @abstractmethod
     def get_edge(self, from_id: str, to_id: str, rel_type: str) -> Edge | None:
-        """
-        Retrieves an edge from the graph database by its endpoints and type.
+        """Retrieves an edge from the graph database by its endpoints and type.
 
         Args:
             from_id (str): ID of the source node.
@@ -88,12 +78,10 @@ class GraphDatabase(ABC):
         Returns:
             Edge: An Edge object representing the retrieved edge.
         """
-        pass
 
     @abstractmethod
     def post_graph(self, payload: GraphPayload) -> Status:
-        """
-        Posts a graph to the database.
+        """Posts a graph to the database.
 
         Args:
             payload (GraphPayload): The payload containing nodes and edges to be posted.
@@ -101,50 +89,37 @@ class GraphDatabase(ABC):
         Returns:
             Status: The status of the operation.
         """
-        pass
 
     @abstractmethod
     def get_graph(self, graph_id: str) -> GraphStructure:
-        """
-        Retrieves the full subgraph (all nodes & edges) for the given graph_id.
-        """
-        pass
-    
+        """Retrieves the full subgraph (all nodes & edges) for the given graph_id."""
+
     @abstractmethod
     def get_topic_labels(self, graph_id: str) -> list[str]:
-        """
-        Retrieves the list of existing topic labels for nodes.
-        """
-        pass
-    
+        """Retrieves the list of existing topic labels for nodes."""
+
     @abstractmethod
     def get_edge_labels(self, graph_id: str) -> list[str]:
-        """
-        Retrieves the list of existing edge labels for relationships.
-        """
-        pass
-    
+        """Retrieves the list of existing edge labels for relationships."""
+
     @staticmethod
     def get_node_titles(self, graph_id: str) -> list[dict]:
         """Retrieves all existing node titles in the graph.
+
         Args:
             graph_id (str)
+
         Returns:
             list[dict]: _description_
         """
 
     @abstractmethod
     def query(self, cypher: str, params: dict[str, any]) -> list[dict[str, any]]:
-        """
-        Run an arbitrary Cypher query and return a list of dicts.
-        """
-        pass
+        """Run an arbitrary Cypher query and return a list of dicts."""
 
 
 class Neo4jGraphDatabase(GraphDatabase):
-    """
-    Neo4j-backed Database that uses Node, Edge, and GraphPayload models.
-    """
+    """Neo4j-backed Database that uses Node, Edge, and GraphPayload models."""
 
     def __init__(self, uri: str = None, user: str = None, password: str = None):
         uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
@@ -164,14 +139,21 @@ class Neo4jGraphDatabase(GraphDatabase):
         except Exception:
             return False
 
-    def post_node(self, node: Node, graph_id: str, chunk_id: str, document_id: str) -> Status:
+    def post_node(
+        self, node: Node, graph_id: str, chunk_id: str, document_id: str
+    ) -> Status:
         props = {"id": node.id, "graph_id": graph_id}
         if node.title:
             props["title"] = node.title
         props.update(node.properties or {})
         with self._driver.session() as session:
-            session.execute_write(self._create_node_tx, node.type, props, chunk_id, document_id)
-        return Status(status="success", detail=f"Node '{node.id}' upserted in graph {graph_id}, chunk {chunk_id}")
+            session.execute_write(
+                self._create_node_tx, node.type, props, chunk_id, document_id
+            )
+        return Status(
+            status="success",
+            detail=f"Node '{node.id}' upserted in graph {graph_id}, chunk {chunk_id}",
+        )
 
     @staticmethod
     def _create_node_tx(tx, label: str, props: dict, chunk_id: str, document_id: str):
@@ -201,19 +183,23 @@ class Neo4jGraphDatabase(GraphDatabase):
             graph_id=props["graph_id"],
             props=props,
             chunk_id=chunk_id,
-            document_id=document_id
+            document_id=document_id,
         )
 
     def post_edge(self, edge: Edge, graph_id: str, chunk_id: str) -> Status:
         with self._driver.session() as session:
             session.execute_write(
-                self._create_edge_tx,
-                edge.from_, edge.to, edge.type, graph_id, chunk_id
+                self._create_edge_tx, edge.from_, edge.to, edge.type, graph_id, chunk_id
             )
-        return Status(status="success", detail=f"Edge '{edge.type}' in graph {graph_id}, chunk {chunk_id}")
+        return Status(
+            status="success",
+            detail=f"Edge '{edge.type}' in graph {graph_id}, chunk {chunk_id}",
+        )
 
     @staticmethod
-    def _create_edge_tx(tx, from_id: str, to_id: str, rel_type: str, graph_id: str, chunk_id: str):
+    def _create_edge_tx(
+        tx, from_id: str, to_id: str, rel_type: str, graph_id: str, chunk_id: str
+    ):
         cypher = f"""
         MATCH (a {{id: $from_id, graph_id: $graph_id}}),
             (b {{id: $to_id,   graph_id: $graph_id}})
@@ -228,11 +214,7 @@ class Neo4jGraphDatabase(GraphDatabase):
             END
         """
         tx.run(
-            cypher,
-            from_id=from_id,
-            to_id=to_id,
-            graph_id=graph_id,
-            chunk_id=chunk_id
+            cypher, from_id=from_id, to_id=to_id, graph_id=graph_id, chunk_id=chunk_id
         )
 
     def get_node(self, node_id: str) -> Node | None:
@@ -255,11 +237,9 @@ class Neo4jGraphDatabase(GraphDatabase):
             "title": n.get("title", ""),
             "type": label,
             "properties": {
-                k: v
-                for k, v in n.items()
-                if k not in ("id", "title", "graph_id")
+                k: v for k, v in n.items() if k not in ("id", "title", "graph_id")
             },
-            "chunk_ids": n.get("chunk_ids", [])
+            "chunk_ids": n.get("chunk_ids", []),
         }
 
     def get_edge(self, from_id: str, to_id: str, rel_type: str) -> Edge | None:
@@ -281,11 +261,7 @@ class Neo4jGraphDatabase(GraphDatabase):
         rec = tx.run(cypher, from_id=from_id, to_id=to_id, rel_type=rel_type).single()
         if not rec:
             return None
-        return {
-            "from": rec["from"],
-            "to": rec["to"],
-            "type": rec["type"]
-        }
+        return {"from": rec["from"], "to": rec["to"], "type": rec["type"]}
 
     def post_graph(self, payload: GraphPayload) -> Status:
         for n in payload.nodes:
@@ -301,19 +277,15 @@ class Neo4jGraphDatabase(GraphDatabase):
         return GraphStructure(graph_id=graph_id, nodes=nodes, edges=edges)
 
     def get_topic_labels(self, graph_id: str) -> list[str]:
-        """
-        Return every distinct label attached to ANY node that belongs to `graph_id`.
-        """
+        """Return every distinct label attached to ANY node that belongs to `graph_id`."""
         with self._driver.session() as session:
             return session.execute_read(self._topic_labels_tx, graph_id)
 
     def get_edge_labels(self, graph_id: str) -> list[str]:
-        """
-        Return every distinct relationship-type used inside `graph_id`.
-        """
+        """Return every distinct relationship-type used inside `graph_id`."""
         with self._driver.session() as session:
             return session.execute_read(self._edge_labels_tx, graph_id)
-        
+
     @staticmethod
     def _topic_labels_tx(tx, graph_id: str) -> list[str]:
         q = (
@@ -332,7 +304,7 @@ class Neo4jGraphDatabase(GraphDatabase):
             "RETURN DISTINCT type(r) AS rel"
         )
         return [record["rel"] for record in tx.run(q, graph_id=graph_id)]
-        
+
     # TODO: Performance note on indexing
     """
     Add an index on graph_id for both nodes and relationships once:
@@ -350,10 +322,9 @@ class Neo4jGraphDatabase(GraphDatabase):
     FOR (n) ON (n.graph_id, n.title);
     
     """
-    
+
     def get_node_titles(self, graph_id: str) -> list[dict]:
-        """
-        Return every existing node title inside `graph_id`.
+        """Return every existing node title inside `graph_id`.
 
         Output schema:
             [
@@ -368,7 +339,7 @@ class Neo4jGraphDatabase(GraphDatabase):
         """
         with self._driver.session() as sess:
             return sess.execute_read(self._titles_tx, graph_id)
-        
+
     @staticmethod
     def _titles_tx(tx, graph_id: str) -> list[dict]:
         q = (
@@ -380,7 +351,7 @@ class Neo4jGraphDatabase(GraphDatabase):
             {"title": r["title"], "label": r["label"], "id": r["id"]}
             for r in tx.run(q, graph_id=graph_id)
         ]
-    
+
     @staticmethod
     def _fetch_nodes_tx(tx, graph_id: str):
         q = "MATCH (n) WHERE n.graph_id = $graph_id RETURN n"
@@ -389,8 +360,20 @@ class Neo4jGraphDatabase(GraphDatabase):
         for rec in result:
             n = rec["n"]
             label = next(iter(n.labels)) if n.labels else ""
-            props = {k: v for k, v in n.items() if k not in ("id", "title", "graph_id", "chunk_ids")}
-            out.append({"id": n["id"], "type": label, "title": n.get("title",""), "properties": props, "chunk_ids": n.get("chunk_ids", [])})
+            props = {
+                k: v
+                for k, v in n.items()
+                if k not in ("id", "title", "graph_id", "chunk_ids")
+            }
+            out.append(
+                {
+                    "id": n["id"],
+                    "type": label,
+                    "title": n.get("title", ""),
+                    "properties": props,
+                    "chunk_ids": n.get("chunk_ids", []),
+                }
+            )
         return out
 
     @staticmethod
@@ -405,20 +388,26 @@ class Neo4jGraphDatabase(GraphDatabase):
           r.chunk_ids AS chunk_ids
         """
         result = tx.run(q, graph_id=graph_id)
-        return [{"from": r["from"], "to": r["to"], "type": r["type"], "chunk_ids": r["chunk_ids"] or []} for r in result]
-    
+        return [
+            {
+                "from": r["from"],
+                "to": r["to"],
+                "type": r["type"],
+                "chunk_ids": r["chunk_ids"] or [],
+            }
+            for r in result
+        ]
+
     def query(self, cypher: str, params: dict[str, any] = None) -> list[dict[str, any]]:
-        """
-        Execute a read-only Cypher query and return each row as a dict.
-        """
+        """Execute a read-only Cypher query and return each row as a dict."""
         params = params or {}
         with self._driver.session() as session:
             return session.execute_read(self._run_query_tx, cypher, params)
-        
-    def execute_write(self, cypher: str, params: dict[str, any] = None) -> list[dict[str, any]]:
-        """
-        Execute a write Cypher query and return each row as a dict.
-        """
+
+    def execute_write(
+        self, cypher: str, params: dict[str, any] = None
+    ) -> list[dict[str, any]]:
+        """Execute a write Cypher query and return each row as a dict."""
         params = params or {}
         with self._driver.session() as session:
             return session.execute_write(self._run_query_tx, cypher, params)
@@ -430,8 +419,7 @@ class Neo4jGraphDatabase(GraphDatabase):
 
 
 def create_graph_database(
-    db_system: GraphDatabaseType,
-    uri=None, user=None, password=None
+    db_system: GraphDatabaseType, uri=None, user=None, password=None
 ) -> GraphDatabase:
     match db_system:
         case GraphDatabaseType.NEO4J:

@@ -10,7 +10,6 @@ from src.constants import (
 from src.globals import user_dao
 from src.models.users.api_key import (
     UserAPIKey,
-    UserAPIKeyDetailResponse,
     UserAPIKeyResponse,
 )
 from src.models.users.user import User
@@ -99,11 +98,12 @@ def create_api_key(
     return api_key.to_response()
 
 
-@router.get("/{key_id}", response_model=UserAPIKeyDetailResponse)
+@router.get("/{key_id}", response_model=UserAPIKeyResponse)
 def get_api_key_detail(key_id: str, user: Annotated[User, Depends(require_user)]):
+    """Returns the key's metadata. The stored key is never sent back, only masked."""
     for key in user.api_keys:
         if key.id == key_id:
-            return key.to_detail()
+            return key.to_response()
 
     raise HTTPException(status_code=404, detail="API key not found")
 

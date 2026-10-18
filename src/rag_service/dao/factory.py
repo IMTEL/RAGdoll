@@ -17,6 +17,8 @@ from src.rag_service.dao.document.base import DocumentDAO
 from src.rag_service.dao.document.mongodb_document_dao import (
     MongoDBDocumentDAO,
 )
+from src.rag_service.dao.progress.base import ProgressDAO
+from src.rag_service.dao.progress.mongodb_progress_dao import MongoDBProgressDAO
 from src.rag_service.dao.user.base import UserDao
 from src.rag_service.dao.user.mongodb_user_dao import MongoDBUserDao
 from tests.mocks.mock_user_dao import MockUserDao
@@ -126,6 +128,27 @@ def get_document_dao() -> DocumentDAO:
             return MockDocumentDAO()
         case "mongodb":
             return MongoDBDocumentDAO()
+        case _:
+            raise ValueError(
+                f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "
+                "Supported types: 'mongodb', 'mock'"
+            )
+
+
+def get_progress_dao() -> ProgressDAO:
+    """Get the configured progress/upload-status DAO implementation.
+
+    Supported types:
+        - 'mongodb': Production MongoDB implementation
+        - 'mock': Mock implementation for testing
+    """
+    match config.RAG_DATABASE_SYSTEM.lower():
+        case "mock":
+            from tests.mocks.mock_progress_dao import MockProgressDAO
+
+            return MockProgressDAO()
+        case "mongodb":
+            return MongoDBProgressDAO()
         case _:
             raise ValueError(
                 f"Invalid database type: {config.RAG_DATABASE_SYSTEM}. "

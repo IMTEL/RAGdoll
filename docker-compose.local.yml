@@ -55,6 +55,16 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_HTTP_PORT: 8080
       KC_HOSTNAME: localhost
+      # Outgoing mail (password reset). Defaults to the local Mailpit inbox.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@ragdoll.local}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-RAGdoll}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      SMTP_SSL: ${SMTP_SSL:-false}
     ports:
       - "8080:8080"
     volumes:
@@ -68,6 +78,17 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
+  # Local mail catcher: Keycloak's password-reset emails land here.
+  # Inbox UI at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: ragdoll-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+    networks:
+      - ragdoll-network
 
   # FastAPI Backend Service
   backend:
