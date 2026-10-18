@@ -9,9 +9,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 
 from src.config import Config
+
+
+# Piper is CPU heavy: at most TTS_MAX_CONCURRENCY syntheses run at once, the
+# rest wait. Shared by every synthesis in the process.
+TTS_SEMAPHORE = BoundedSemaphore(Config().TTS_MAX_CONCURRENCY)
 
 
 @dataclass(frozen=True)
@@ -65,10 +70,11 @@ class PiperTextToSpeechService(TextToSpeechService):
         voice_name = self._voice_name_for_language(normalized_language)
         voice = self._load_voice(voice_name)
 
-        start_time = time.time()
         wav_buffer = BytesIO()
-        with wave.open(wav_buffer, "wb") as wav_file:
-            voice.synthesize_wav(clean_text, wav_file)
+        with TTS_SEMAPHORE:
+            start_time = time.time()
+            with wave.open(wav_buffer, "wb") as wav_file:
+                voice.synthesize_wav(clean_text, wav_file)
 
         return SpeechResult(
             audio_base64=base64.b64encode(wav_buffer.getvalue()).decode("ascii"),

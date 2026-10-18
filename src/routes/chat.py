@@ -43,6 +43,10 @@ if TYPE_CHECKING:
     from src.models.agent import Agent
 
 
+# Every handler here is a plain ``def`` on purpose: they call blocking code (LLM
+# and embedding HTTP, Mongo, FAISS, Whisper, Piper), and FastAPI runs ``def``
+# handlers in its threadpool. An ``async def`` handler would run that work on
+# the event loop and stall every other request until it finished.
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 config = Config()
 
@@ -106,7 +110,7 @@ def _build_response_with_speech(response: dict, language: str | None = None) -> 
         400: {"description": "If the encoding is something else then utf-8"},
     },
 )
-async def ask(command: Command, request: Request):
+def ask(command: Command, request: Request):
     # TODO: We need a unviersal return object for LLMs. I have no idea about the current properties, which is why I am setting this dict until further notice
     """Process a user question using the specified agent and roles.
 
@@ -200,7 +204,7 @@ def _answer(command: Command, agent: "Agent") -> dict:
 
 
 @router.post("/transcribe", dependencies=[Depends(require_speech_access)])
-async def transcribe_endpoint(
+def transcribe_endpoint(
     audio: UploadFile = File(...),  # noqa: B008
     language: str = Form(None),
 ):
@@ -222,7 +226,7 @@ async def transcribe_endpoint(
 
 
 @router.post("/stt/warmup", dependencies=[Depends(require_speech_access)])
-async def stt_warmup(request: STTWarmupRequest | None = None):
+def stt_warmup(request: STTWarmupRequest | None = None):
     """Lazy-load and warm the speech-to-text model."""
     try:
         result = warmup_whisper_model(request.language if request else None)
@@ -235,7 +239,7 @@ async def stt_warmup(request: STTWarmupRequest | None = None):
 
 
 @router.post("/tts/warmup", dependencies=[Depends(require_speech_access)])
-async def tts_warmup(request: TTSWarmupRequest | None = None):
+def tts_warmup(request: TTSWarmupRequest | None = None):
     """Lazy-load and warm the configured local text-to-speech model."""
     try:
         language = request.language if request else None
@@ -249,7 +253,7 @@ async def tts_warmup(request: TTSWarmupRequest | None = None):
 
 
 @router.post("/tts", dependencies=[Depends(require_speech_access)])
-async def text_to_speech(request: TTSRequest):
+def text_to_speech(request: TTSRequest):
     """Synthesize text using the configured local text-to-speech engine."""
     try:
         result = _generate_speech_payload(request.text, request.language)
@@ -266,9 +270,9 @@ async def text_to_speech(request: TTSRequest):
 
 
 @router.post("/askWithSpeech")
-async def ask_with_speech(request: AskWithSpeechRequest, request_object: Request):
+def ask_with_speech(request: AskWithSpeechRequest, request_object: Request):
     """Process a text chat request and return both text and local speech audio."""
-    response = await ask(request.command, request_object)
+    response = ask(request.command, request_object)
     try:
         return JSONResponse(
             content=_build_response_with_speech(response, request.tts_language),
@@ -286,7 +290,7 @@ async def ask_with_speech(request: AskWithSpeechRequest, request_object: Request
 
 
 @router.post("/askTranscribe")
-async def ask_transcribe(
+def ask_transcribe(
     request_object: Request,
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
@@ -335,7 +339,7 @@ async def ask_transcribe(
 
 
 @router.post("/askTranscribeWithSpeech")
-async def ask_transcribe_with_speech(
+def ask_transcribe_with_speech(
     request_object: Request,
     audio: UploadFile = File(...),  # noqa: B008
     data: str = Form(...),
@@ -343,7 +347,7 @@ async def ask_transcribe_with_speech(
     stt_language: str = Form(None),
 ):
     """Transcribe audio, ask the agent, and return text plus local speech audio."""
-    response = await ask_transcribe(request_object, audio, data, stt_language)
+    response = ask_transcribe(request_object, audio, data, stt_language)
     try:
         answer = response["response"]
         answer_text = answer.get("response", "") if isinstance(answer, dict) else ""

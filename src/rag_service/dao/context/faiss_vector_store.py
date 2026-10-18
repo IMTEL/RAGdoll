@@ -5,11 +5,19 @@ with cosine similarity. It replaces MongoDB Atlas Vector Search for self-contain
 
 Key Features:
 - Local vector indexing with FAISS (no external dependencies)
-- Cosine similarity search
+- Cosine similarity search: IndexIDMap2 over IndexFlatIP with L2-normalized
+  vectors, so the inner product is the cosine similarity
+- Stable int64 id per vector (``id_to_chunk`` in the metadata file), so vectors
+  can be removed (documents replaced or deleted) without shifting the others
 - Per-agent vector indices (isolated namespaces)
 - Persistence to disk (atomic writes; files are never deleted on load errors)
 - The index dimension comes from the file, or from the first vector added
 - Rebuild from the MongoDB context rows (see scripts/rebuild_faiss_index.py)
+
+Legacy indexes (IndexFlatL2 + a ``chunk_id -> metadata`` dict, where the
+position of a vector was its dict order) still load and search. The first add or
+remove converts them in memory to the id-mapped format before saving; a rebuild
+from MongoDB is recommended because they may hold vectors of replaced documents.
 """
 
 import logging
@@ -36,6 +44,10 @@ _READ_ERRORS = (
     EOFError,
     pickle.PickleError,
 )
+
+# Layout version of the metadata file written by this module. Files without
+# "format_version" are legacy (IndexFlatL2, positions in dict order).
+METADATA_FORMAT_VERSION = 2
 
 # Directory for storing FAISS indices
 FAISS_INDEX_DIR = Path("/data/faiss_indices")
@@ -159,7 +171,13 @@ class FAISSVectorStore:
         """
         self.agent_id = agent_id
         self.index: faiss.Index | None = None
-        self.chunk_metadata: dict = {}  # chunk_id -> {document_id, document_name, text, ...}
+        # chunk_id -> {int_id, document_id, document_name, text, ...}
+        self.chunk_metadata: dict = {}
+        # FAISS vector id -> chunk_id. Ids are never reused.
+        self._id_to_chunk: dict[int, str] = {}
+        self._next_id = 0
+        # Old IndexFlatL2 file: ids are positions, scores need 1 - d/2.
+        self._legacy = False
         # Identity of the files this copy matches (from the last load or save).
         # Another process (the rebuild CLI, another worker) may replace them;
         # refresh() then reloads instead of serving or overwriting stale data.
@@ -205,9 +223,15 @@ class FAISSVectorStore:
         logger.info(
             f"FAISS index files for agent {self.agent_id} changed on disk; reloading"
         )
+        self._reset()
+        self._load_index(None)
+
+    def _reset(self) -> None:
         self.index = None
         self.chunk_metadata = {}
-        self._load_index(None)
+        self._id_to_chunk = {}
+        self._next_id = 0
+        self._legacy = False
 
     def _load_index(self, requested_dim: int | None) -> None:
         """Load the agent's index from disk, if there is one.
@@ -226,13 +250,13 @@ class FAISSVectorStore:
 
         try:
             try:
-                index, metadata = self._read_files(index_path, metadata_path)
+                loaded = self._read_files(index_path, metadata_path)
             except _READ_ERRORS:
                 # Another process may be between replacing the index and the
                 # metadata file; give it a moment before calling it corrupt.
                 time.sleep(0.2)
                 signature = self._current_disk_signature()
-                index, metadata = self._read_files(index_path, metadata_path)
+                loaded = self._read_files(index_path, metadata_path)
         except Exception as e:
             suffix = f".corrupt-{time.strftime('%Y%m%d-%H%M%S')}"
             for path in (index_path, metadata_path):
@@ -248,17 +272,32 @@ class FAISSVectorStore:
                 f"Run scripts/rebuild_faiss_index.py --agent-id {self.agent_id}."
             ) from e
 
+        index, chunks, id_to_chunk, next_id, legacy = loaded
         self.index = index
-        self.chunk_metadata = metadata
+        self.chunk_metadata = chunks
+        self._id_to_chunk = id_to_chunk
+        self._next_id = next_id
+        self._legacy = legacy
         self._disk_signature = signature
         logger.info(
             f"Loaded FAISS index for agent {self.agent_id} with {index.ntotal} "
             f"vectors of dimension {index.d}"
         )
+        if legacy:
+            logger.warning(
+                f"FAISS index for agent {self.agent_id} uses the legacy L2 format; "
+                f"it may still hold vectors of replaced documents. Rebuild it with "
+                f"scripts/rebuild_faiss_index.py --agent-id {self.agent_id}"
+            )
         self.check_dimension(requested_dim)
 
     @staticmethod
     def _read_files(index_path: Path, metadata_path: Path) -> tuple:
+        """Read and cross-check the index and metadata files.
+
+        Returns:
+            (index, chunk_metadata, id_to_chunk, next_id, is_legacy)
+        """
         index = faiss.read_index(str(index_path))
         metadata = (
             np.load(str(metadata_path), allow_pickle=True).item()
@@ -267,21 +306,77 @@ class FAISSVectorStore:
         )
         if not isinstance(metadata, dict):
             raise TypeError("metadata file does not hold a dict")
-        # Search maps result positions to metadata order, so they must agree.
-        if len(metadata) != index.ntotal:
+
+        if "format_version" not in metadata:
+            # Legacy: chunk_id -> metadata, vector position = dict order.
+            if isinstance(index, faiss.IndexIDMap2):
+                raise ValueError("id-mapped index with legacy metadata")
+            if len(metadata) != index.ntotal:
+                raise ValueError(
+                    f"metadata has {len(metadata)} entries but the index has "
+                    f"{index.ntotal} vectors"
+                )
+            id_to_chunk = dict(enumerate(metadata))
+            return index, metadata, id_to_chunk, len(id_to_chunk), True
+
+        if metadata["format_version"] != METADATA_FORMAT_VERSION:
             raise ValueError(
-                f"metadata has {len(metadata)} entries but the index has "
-                f"{index.ntotal} vectors"
+                f"unknown metadata format_version {metadata['format_version']}"
             )
-        return index, metadata
+        if not isinstance(index, faiss.IndexIDMap2):
+            raise TypeError("metadata expects an id-mapped index")
+        chunks = metadata["chunks"]
+        id_to_chunk = {int(k): v for k, v in metadata["id_to_chunk"].items()}
+        index_ids = {int(i) for i in faiss.vector_to_array(index.id_map)}
+        # Every vector id must map to a chunk, and every chunk to a vector.
+        if (
+            len(id_to_chunk) != index.ntotal
+            or set(id_to_chunk) != index_ids
+            or set(id_to_chunk.values()) != set(chunks)
+        ):
+            raise ValueError(
+                f"metadata ({len(id_to_chunk)} ids, {len(chunks)} chunks) does not "
+                f"match the index ({index.ntotal} vectors)"
+            )
+        next_id = int(metadata["next_id"])
+        if id_to_chunk and next_id <= max(id_to_chunk):
+            raise ValueError("metadata next_id would reuse an existing id")
+        return index, chunks, id_to_chunk, next_id, False
 
     def _create_new_index(self, embedding_dim: int) -> None:
         """Create a new FAISS index with cosine similarity."""
-        # Use IndexFlatL2 with cosine distance
-        # For cosine similarity, we normalize vectors and use L2 distance
-        self.index = faiss.IndexFlatL2(embedding_dim)
+        # Vectors are L2-normalized, so inner product == cosine similarity.
+        # The id map gives each vector a stable id for removal.
+        self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(embedding_dim))
+        self._id_to_chunk = {}
+        self._next_id = 0
+        self._legacy = False
         logger.info(
             f"Created new {embedding_dim}-dim FAISS index for agent {self.agent_id}"
+        )
+
+    def _convert_legacy(self) -> None:
+        """Convert a loaded legacy IndexFlatL2 to the id-mapped format in memory.
+
+        The stored vectors are already normalized, so they are copied as is;
+        their positions become their ids. Nothing is written until the next save.
+        """
+        old = self.index
+        n = old.ntotal
+        new = faiss.IndexIDMap2(faiss.IndexFlatIP(old.d))
+        if n:
+            vectors = old.reconstruct_n(0, n)
+            new.add_with_ids(vectors, np.arange(n, dtype=np.int64))
+        for int_id, chunk_id in self._id_to_chunk.items():
+            self.chunk_metadata[chunk_id]["int_id"] = int_id
+        self.index = new
+        self._next_id = n
+        self._legacy = False
+        logger.warning(
+            f"Converted legacy FAISS index for agent {self.agent_id} "
+            f"({n} vectors) to the id-mapped format. It may still hold vectors "
+            f"of replaced documents; rebuild it with "
+            f"scripts/rebuild_faiss_index.py --agent-id {self.agent_id}"
         )
 
     def add_vectors(
@@ -322,6 +417,8 @@ class FAISSVectorStore:
             )
         if self.index is None:
             self._create_new_index(len(embedding))
+        elif self._legacy:
+            self._convert_legacy()
 
         # Validate embedding dimensions
         if len(embedding) != self.embedding_dim:
@@ -338,12 +435,16 @@ class FAISSVectorStore:
         size_before = self.index.ntotal
         faiss.normalize_L2(vector)
 
-        # Add to FAISS index
-        self.index.add(vector)
+        # Add to FAISS index under a fresh id
+        int_id = self._next_id
+        self.index.add_with_ids(vector, np.array([int_id], dtype=np.int64))
+        self._next_id += 1
         size_after = self.index.ntotal
 
         # Store metadata
+        self._id_to_chunk[int_id] = chunk_id
         self.chunk_metadata[chunk_id] = {
+            "int_id": int_id,
             "document_id": document_id,
             "document_name": document_name,
             "text": text,
@@ -374,10 +475,11 @@ class FAISSVectorStore:
             query_embedding: Query embedding vector (will be normalized)
             available_documents: List of document IDs to filter by
             top_k: Number of results to return
-            similarity_threshold: Minimum similarity score (0-1 for cosine)
+            similarity_threshold: Minimum cosine similarity; the default 0.0
+                drops vectors pointing away from the query
 
         Returns:
-            Dictionary mapping chunk_id -> similarity_score (0-1 range)
+            Dictionary mapping chunk_id -> cosine similarity in [-1, 1]
 
         Raises:
             IndexDimensionMismatchError: The query has another dimension.
@@ -434,27 +536,29 @@ class FAISSVectorStore:
                 f"FAISS raw search for agent {self.agent_id}: index_size={self.index.ntotal}, search_k={search_k}, raw_results={len(indices[0])}"
             )
 
-            # Create chunk_id list in index order (must match insertion order)
-            chunk_ids = list(self.chunk_metadata.keys())
-
             logger.debug(
-                f"FAISS metadata for agent {self.agent_id}: chunk_ids_count={len(chunk_ids)}, available_docs={available_docs_set}"
+                f"FAISS metadata for agent {self.agent_id}: chunk_ids_count={len(self._id_to_chunk)}, available_docs={available_docs_set}"
             )
 
             results = {}
             for i, (dist, idx) in enumerate(zip(distances[0], indices[0])):
-                idx = int(idx)
-                if idx < 0 or idx >= len(chunk_ids):
-                    logger.debug(f"  Result {i}: invalid index {idx}")
+                chunk_id = self._id_to_chunk.get(int(idx))
+                if chunk_id is None:
+                    logger.debug(f"  Result {i}: unknown id {idx}")
                     continue
 
-                chunk_id = chunk_ids[idx]
                 metadata = self.chunk_metadata.get(chunk_id, {})
 
                 # Filter by available documents
                 doc_id = metadata.get("document_id")
-                dist_float = float(dist)
-                cosine_similarity = max(0.0, 1.0 - (dist_float**2 / 2.0))
+                if self._legacy:
+                    # IndexFlatL2 returns squared L2 distances; for unit
+                    # vectors d = 2 - 2*cos.
+                    cosine_similarity = 1.0 - float(dist) / 2.0
+                else:
+                    # Inner product of unit vectors is the cosine.
+                    cosine_similarity = float(dist)
+                cosine_similarity = min(1.0, max(-1.0, cosine_similarity))
 
                 if not available_docs_set:
                     logger.debug(
@@ -469,9 +573,6 @@ class FAISSVectorStore:
                     logger.debug(
                         f"  Result {i}: chunk={chunk_id}, doc={doc_id}, sim={cosine_similarity:.4f}"
                     )
-
-                # Convert L2 distance to cosine similarity (0-1 range)
-                # For L2 normalized vectors: cosine_sim = 1 - (L2_dist^2 / 2)
 
                 # Apply threshold
                 if cosine_similarity >= similarity_threshold:
@@ -503,6 +604,9 @@ class FAISSVectorStore:
         """
         if not self.index:
             return
+        if self._legacy:
+            # Never write the new metadata layout next to an L2 index.
+            self._convert_legacy()
 
         index_path = get_index_path(self.agent_id)
         metadata_path = get_metadata_path(self.agent_id)
@@ -511,9 +615,13 @@ class FAISSVectorStore:
             _atomic_write(
                 index_path, lambda tmp: faiss.write_index(self.index, str(tmp))
             )
-            _atomic_write(
-                metadata_path, lambda tmp: _save_metadata(tmp, self.chunk_metadata)
-            )
+            metadata = {
+                "format_version": METADATA_FORMAT_VERSION,
+                "next_id": self._next_id,
+                "id_to_chunk": self._id_to_chunk,
+                "chunks": self.chunk_metadata,
+            }
+            _atomic_write(metadata_path, lambda tmp: _save_metadata(tmp, metadata))
             self._disk_signature = self._current_disk_signature()
             self._sync_with_disk = True
             logger.debug(f"Saved FAISS index for agent {self.agent_id}")
@@ -522,6 +630,53 @@ class FAISSVectorStore:
             raise FAISSIndexError(
                 f"Failed to save FAISS index for agent {self.agent_id}: {e}"
             ) from e
+
+    def remove_chunks(self, chunk_ids, persist: bool = True) -> int:
+        """Remove the vectors of the given chunks; unknown ids are ignored.
+
+        Returns:
+            Number of vectors removed.
+
+        Raises:
+            FAISSIndexError: Saving the index failed.
+        """
+        self.refresh()
+        targets = [c for c in set(chunk_ids) if c in self.chunk_metadata]
+        if not targets:
+            return 0
+        if self._legacy:
+            # Positions of an IndexFlatL2 shift on removal; ids do not.
+            self._convert_legacy()
+
+        ids = [self.chunk_metadata[c]["int_id"] for c in targets]
+        removed = self.index.remove_ids(np.array(ids, dtype=np.int64))
+        for int_id, chunk_id in zip(ids, targets, strict=True):
+            del self._id_to_chunk[int_id]
+            del self.chunk_metadata[chunk_id]
+        if persist:
+            self._save_index()
+        logger.info(
+            f"Removed {removed} vectors from FAISS index for agent {self.agent_id}. "
+            f"Index size: {self.index.ntotal}"
+        )
+        return int(removed)
+
+    def remove_document(
+        self, document_id: str, keep_chunk_ids=None, persist: bool = True
+    ) -> int:
+        """Remove every vector of a document except ``keep_chunk_ids``.
+
+        Returns:
+            Number of vectors removed.
+        """
+        self.refresh()
+        keep = set(keep_chunk_ids or ())
+        targets = [
+            chunk_id
+            for chunk_id, meta in self.chunk_metadata.items()
+            if meta.get("document_id") == document_id and chunk_id not in keep
+        ]
+        return self.remove_chunks(targets, persist=persist)
 
     def get_metadata(self, chunk_id: str) -> dict | None:
         """Get metadata for a chunk.
@@ -651,13 +806,33 @@ class FAISSVectorStoreManager:
             similarity_threshold,
         )
 
+    def remove_document(
+        self, agent_id: str, document_id: str, keep_chunk_ids=None
+    ) -> int:
+        """Remove a document's vectors from an agent's store (except ``keep_chunk_ids``).
+
+        Returns:
+            Number of vectors removed (0 when the agent has no index).
+        """
+        return self.get_store(agent_id).remove_document(document_id, keep_chunk_ids)
+
+    def remove_chunks(self, agent_id: str, chunk_ids) -> int:
+        """Remove the vectors of specific chunks from an agent's store.
+
+        Returns:
+            Number of vectors removed.
+        """
+        return self.get_store(agent_id).remove_chunks(chunk_ids)
+
     def rebuild_index(self, agent_id: str, context_collection=None) -> int:
         """Rebuild an agent's FAISS index from its MongoDB context rows.
 
         The rows store each chunk's embedding, so MongoDB can always recreate
         the index. The new index is built in memory through the normal add
         path and only replaces the files on disk once every row was added.
-        With no rows, existing files are left alone.
+        With no rows, existing files are left alone. The result is always the
+        id-mapped inner-product format, so this also migrates legacy indexes
+        and drops vectors whose Mongo rows are gone.
 
         Args:
             agent_id: The agent ID

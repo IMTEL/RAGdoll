@@ -84,6 +84,34 @@ class ContextDAO(ABC):
         """
 
     @abstractmethod
+    def delete_by_document_id(
+        self,
+        document_id: str,
+        agent_id: str | None = None,
+        keep_chunk_ids: set[str] | None = None,
+    ) -> int:
+        """Delete a document's contexts and their vectors.
+
+        Args:
+            document_id (str): Document whose contexts are deleted
+            agent_id (str | None): Owning agent; None means every agent that
+                has contexts for this document
+            keep_chunk_ids (set[str] | None): Chunks to keep (e.g. the new
+                version of a replaced document)
+
+        Returns:
+            int: Number of contexts deleted
+        """
+
+    @abstractmethod
+    def delete_chunks(self, agent_id: str, chunk_ids: list[str]) -> int:
+        """Delete specific chunks of an agent and their vectors.
+
+        Returns:
+            int: Number of contexts deleted
+        """
+
+    @abstractmethod
     def is_reachable(self) -> bool:
         """Check if the DAO backend is accessible.
 

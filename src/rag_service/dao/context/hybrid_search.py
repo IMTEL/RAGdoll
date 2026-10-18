@@ -104,7 +104,8 @@ def hybrid_search(
     all_chunk_ids = set(vector_scores.keys()) | set(keyword_scores.keys())
     hybrid_scores = {}
     for chunk_id in all_chunk_ids:
-        vector_score = vector_scores.get(chunk_id, 0)
+        # Cosine is in [-1, 1]; the blend with BM25 assumes [0, 1].
+        vector_score = max(0.0, vector_scores.get(chunk_id, 0))
         keyword_score = keyword_scores.get(chunk_id, 0)
         hybrid_scores[chunk_id] = alpha * vector_score + (1 - alpha) * keyword_score
 
@@ -350,7 +351,7 @@ def vector_search(
         document_map: Output dictionary to populate with document metadata
 
     Returns:
-        Dictionary mapping chunk_id -> cosine similarity score (0-1)
+        Dictionary mapping chunk_id -> cosine similarity (negatives dropped)
     """
     vector_scores = {}
 

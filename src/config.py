@@ -72,6 +72,11 @@ class Config:
         self.IDUN_API_KEY = os.getenv("IDUN_API_KEY", "secret_secret")
         self.ACCESS_SERVICE = os.getenv("ACCESS_SERVICE", "service")
         self.IDUN_MODEL = os.getenv("IDUN_MODEL", "openai/gpt-oss-120b")
+        # Seconds before an LLM or embedding HTTP call gives up.
+        self.LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
+        # Whisper transcriptions / Piper syntheses allowed to run at once.
+        self.STT_MAX_CONCURRENCY = int(os.getenv("STT_MAX_CONCURRENCY", "2"))
+        self.TTS_MAX_CONCURRENCY = int(os.getenv("TTS_MAX_CONCURRENCY", "2"))
 
         self.TTS_ENGINE = os.getenv("TTS_ENGINE", "piper").lower()
         self.TTS_VOICE_DIR = os.getenv("TTS_VOICE_DIR", "/data/piper/voices")
@@ -106,6 +111,8 @@ class Config:
         self.TRANSLATION_CACHE_MAX_ENTRIES = int(
             os.getenv("TRANSLATION_CACHE_MAX_ENTRIES", "2000")
         )
+
+        self.MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "50"))
 
         self.RAG_DATABASE_SYSTEM = os.getenv(
             self._prod_or_mock_env("RAG_DATABASE_SYSTEM"), "mongodb"

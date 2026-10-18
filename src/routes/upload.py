@@ -1,5 +1,8 @@
 import logging
 import os
+import time
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -28,6 +31,43 @@ router = APIRouter()
 
 config = Config()
 
+TEMP_FILES_DIR = Path("temp_files")
+STALE_TEMP_FILE_SECONDS = 3600
+_COPY_CHUNK_BYTES = 1024 * 1024
+
+
+def sweep_stale_temp_files(
+    directory: Path | None = None, max_age_seconds: int = STALE_TEMP_FILE_SECONDS
+) -> None:
+    """Delete files in the upload temp directory older than ``max_age_seconds``."""
+    directory = TEMP_FILES_DIR if directory is None else directory
+    if not directory.is_dir():
+        return
+    cutoff = time.time() - max_age_seconds
+    for path in directory.iterdir():
+        try:
+            if path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+                logger.info(f"Removed stale temp file: {path}")
+        except OSError as e:
+            logger.warning(f"Could not remove stale temp file {path}: {e}")
+
+
+class _UploadTooLargeError(Exception):
+    pass
+
+
+def _save_upload(source, destination: Path, max_bytes: int) -> int:
+    """Stream ``source`` to ``destination``; raise _UploadTooLargeError past max_bytes."""
+    written = 0
+    with open(destination, "wb") as buffer:
+        while chunk := source.read(_COPY_CHUNK_BYTES):
+            written += len(chunk)
+            if written > max_bytes:
+                raise _UploadTooLargeError
+            buffer.write(chunk)
+    return written
+
 
 def _process_document_background(
     file_location: Path,
@@ -44,7 +84,6 @@ def _process_document_background(
     to return immediately while processing continues. Progress is tracked
     in the global progress_log.
     """
-    from datetime import UTC, datetime
 
     def update_progress(progress_percent: int, message: str):
         """Callback to update progress in progress_log."""
@@ -80,6 +119,7 @@ def _process_document_background(
             file_size_bytes=file_size_bytes,
             embedding_api_key=embedding_api_key,
             progress_callback=update_progress,
+            document_name=filename,
         )
 
         # Update progress: completed
@@ -136,7 +176,7 @@ def _process_document_background(
 
 
 @router.post("/upload/agent")
-async def upload_document_for_agent(
+def upload_document_for_agent(
     agent_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),  # noqa: B008
@@ -174,25 +214,16 @@ async def upload_document_for_agent(
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
 
-    # Create the directory if it does not exist
-    temp_files_dir = Path("temp_files")
-    temp_files_dir.mkdir(parents=True, exist_ok=True)
-
-    # Save the file temporarily and capture its size
-    file_location = temp_files_dir / Path(file.filename).name
+    # Never use the client's filename on disk: same-name uploads would collide.
+    original_name = Path(file.filename).name
+    task_id = str(uuid.uuid4())
+    TEMP_FILES_DIR.mkdir(parents=True, exist_ok=True)
+    file_location = TEMP_FILES_DIR / f"{task_id}{Path(original_name).suffix}"
 
     try:
-        import uuid
-        from datetime import UTC, datetime
-
-        file_content = file.file.read()
-        file_size_bytes = len(file_content)
-
-        with open(file_location, "wb") as buffer:
-            buffer.write(file_content)
-
-        # Create a task ID for progress tracking
-        task_id = str(uuid.uuid4())
+        file_size_bytes = _save_upload(
+            file.file, file_location, config.MAX_UPLOAD_MB * 1024 * 1024
+        )
 
         # Initialize progress entry
         progress_log.append(
@@ -219,7 +250,7 @@ async def upload_document_for_agent(
             embedding_model=agent.embedding_model,
             embedding_api_key=agent.embedding_api_key,
             file_size_bytes=file_size_bytes,
-            filename=file.filename,
+            filename=original_name,
             task_id=task_id,
         )
 
@@ -237,11 +268,16 @@ async def upload_document_for_agent(
             "size_bytes": file_size_bytes,
         }
 
+    except _UploadTooLargeError:
+        file_location.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds the {config.MAX_UPLOAD_MB} MB upload limit",
+        ) from None
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
         # Clean up temp file if upload failed
-        if file_location.exists():
-            file_location.unlink()
+        file_location.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -285,7 +321,7 @@ async def get_upload_status(
 
 
 @router.get("/documents/agent")
-async def get_documents_for_agent(
+def get_documents_for_agent(
     agent_id: str,
     authorize: Annotated[str | None, Depends(get_auth)] = None,
 ):
@@ -367,7 +403,7 @@ async def get_documents_for_agent(
 
 
 @router.delete("/documents/")
-async def delete_document(
+def delete_document(
     document_id: str,
     agent_id: str,
     authorize: Annotated[str | None, Depends(get_auth)] = None,

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from logging.config import dictConfig
 
 import uvicorn
@@ -41,7 +42,16 @@ def warn_if_speech_endpoints_public(public: bool) -> None:
 
 warn_if_speech_endpoints_public(config.PUBLIC_SPEECH_ENDPOINTS)
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Remove upload temp files left behind by an earlier crash."""
+    upload.sweep_stale_temp_files()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Chat-Service Microservice API",
     description="Generate prompts with context and passing them to LLM.",
     root_path=config.PROXY_PATH,

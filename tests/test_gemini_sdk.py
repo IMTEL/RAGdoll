@@ -21,7 +21,8 @@ def fake_client(monkeypatch):
 class TestGoogleEmbedding:
     def test_constructs_with_dummy_key(self, fake_client):
         model = embeddings_module.GoogleEmbedding(embedding_api_key="dummy")
-        fake_client.factory.assert_called_once_with(api_key="dummy")
+        fake_client.factory.assert_called_once()
+        assert fake_client.factory.call_args.kwargs["api_key"] == "dummy"
         assert model.model_name == "models/text-embedding-004"
 
     def test_returns_list_of_floats(self, fake_client):
@@ -59,7 +60,8 @@ class TestGoogleEmbedding:
 class TestGeminiLLM:
     def test_constructs_with_dummy_key(self, fake_client):
         model = llm_module.GeminiLLM(model="gemini-2.0-flash", api_key="dummy")
-        fake_client.factory.assert_called_once_with(api_key="dummy")
+        fake_client.factory.assert_called_once()
+        assert fake_client.factory.call_args.kwargs["api_key"] == "dummy"
         assert model.model == "gemini-2.0-flash"
 
     def test_generate_returns_text(self, fake_client):

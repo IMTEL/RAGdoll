@@ -18,6 +18,11 @@ from src.models.errors import LLMAPIError, LLMGenerationError
 from src.models.model import Model
 
 
+def gemini_http_options() -> genai_types.HttpOptions:
+    """google-genai options carrying LLM_TIMEOUT_SECONDS (the SDK wants ms)."""
+    return genai_types.HttpOptions(timeout=int(Config().LLM_TIMEOUT_SECONDS * 1000))
+
+
 class LLM(Protocol):
     @abstractmethod
     def generate(
@@ -34,6 +39,7 @@ class IdunLLM(LLM):
         config = Config()
         self.model = model or config.IDUN_MODEL
         self.url = config.IDUN_API_URL
+        self.timeout = config.LLM_TIMEOUT_SECONDS
         if not api_key:
             raise LLMAPIError(
                 "idun",
@@ -62,7 +68,9 @@ class IdunLLM(LLM):
         }
 
         try:
-            response = requests.post(self.url, headers=headers, json=data)
+            response = requests.post(
+                self.url, headers=headers, json=data, timeout=self.timeout
+            )
 
             # Handle HTTP errors
             if response.status_code == 401 or response.status_code == 403:
@@ -136,7 +144,7 @@ class OpenAILLM(LLM):
                 "OpenAILLM requires an explicit api_key. No fallback to config.",
                 401,
             )
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, timeout=self.config.LLM_TIMEOUT_SECONDS)
         self.client.models
 
     def generate(
@@ -208,7 +216,7 @@ class GeminiLLM(LLM):
                 "GeminiLLM requires an explicit api_key. No fallback to config.",
                 401,
             )
-        self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(api_key=api_key, http_options=gemini_http_options())
 
     def generate(
         self,

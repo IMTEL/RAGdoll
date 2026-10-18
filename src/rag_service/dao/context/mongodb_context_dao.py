@@ -68,7 +68,7 @@ class MongoDBContextDAO(ContextDAO):
         self.client = MongoClient(config.MONGODB_URI)
         self.db = self.client[config.MONGODB_DATABASE]
         self.collection = self.db[config.MONGODB_CONTEXT_COLLECTION]
-        self.similarity_threshold = 0.5  # lower = more similar
+        self.similarity_threshold = 0.5  # cosine similarity; higher = more similar
 
         # Create indexes for efficient querying
         self._create_indexes()
@@ -326,6 +326,53 @@ class MongoDBContextDAO(ContextDAO):
             raise
 
         return context
+
+    def delete_by_document_id(
+        self,
+        document_id: str,
+        agent_id: str | None = None,
+        keep_chunk_ids: set[str] | None = None,
+    ) -> int:
+        """Delete a document's context rows, then its FAISS vectors.
+
+        FAISS vectors are removed by document id, so vectors left behind by
+        earlier replaces (without Mongo rows) go too. Mongo goes first: a vector
+        without a row is skipped by vector search, a row without a vector is not
+        searchable.
+        """
+        if not document_id:
+            raise ValueError("document_id cannot be empty")
+        query: dict = {"document_id": document_id}
+        if agent_id is not None:
+            query["agent_id"] = agent_id
+            agent_ids = {agent_id}
+        else:
+            agent_ids = set(self.collection.distinct("agent_id", query))
+        if keep_chunk_ids:
+            query["chunk_id"] = {"$nin": list(keep_chunk_ids)}
+
+        deleted = self.collection.delete_many(query).deleted_count
+        manager = FAISSVectorStoreManager()
+        removed = sum(
+            manager.remove_document(aid, document_id, keep_chunk_ids)
+            for aid in agent_ids
+            if aid
+        )
+        logger.info(
+            f"Deleted {deleted} contexts and {removed} vectors for document "
+            f"'{document_id}'"
+        )
+        return deleted
+
+    def delete_chunks(self, agent_id: str, chunk_ids: list[str]) -> int:
+        """Delete specific chunks of an agent from MongoDB and FAISS."""
+        if not chunk_ids:
+            return 0
+        deleted = self.collection.delete_many(
+            {"agent_id": agent_id, "chunk_id": {"$in": list(chunk_ids)}}
+        ).deleted_count
+        FAISSVectorStoreManager().remove_chunks(agent_id, chunk_ids)
+        return deleted
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.

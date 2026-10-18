@@ -49,7 +49,9 @@ class OpenAIEmbedding(EmbeddingsModel):
                 model_name,
                 "OpenAIEmbedding requires an explicit embedding_api_key.",
             )
-        self.client = openai.Client(api_key=embedding_api_key)
+        self.client = openai.Client(
+            api_key=embedding_api_key, timeout=self.config.LLM_TIMEOUT_SECONDS
+        )
         self.model_name = model_name
 
     def get_embedding(self, text: str, task: EmbeddingTask = "query") -> list[float]:
@@ -83,14 +85,19 @@ class GoogleEmbedding(EmbeddingsModel):
         model_name: str = "text-embedding-004",
         embedding_api_key: str | None = None,
     ):
-        Config()
+        config = Config()
         if not embedding_api_key:
             raise EmbeddingAPIError(
                 "Gemini",
                 model_name,
                 "GoogleEmbedding requires an explicit embedding_api_key.",
             )
-        self.client = genai.Client(api_key=embedding_api_key)
+        self.client = genai.Client(
+            api_key=embedding_api_key,
+            http_options=genai_types.HttpOptions(
+                timeout=int(config.LLM_TIMEOUT_SECONDS * 1000)
+            ),
+        )
         self.model_name = model_name
         if not self.model_name.startswith("models/"):
             self.model_name = f"models/{self.model_name}"
@@ -154,6 +161,7 @@ class IdunEmbedding(EmbeddingsModel):
         self.client = openai.Client(
             api_key=embedding_api_key,
             base_url=self.config.IDUN_API_BASE_URL,
+            timeout=self.config.LLM_TIMEOUT_SECONDS,
         )
         self.model_name = model_name
 

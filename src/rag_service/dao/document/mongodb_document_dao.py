@@ -189,14 +189,14 @@ class MongoDBDocumentDAO(DocumentDAO):
             return False
 
         try:
-            # First, delete all contexts associated with this document
-            context_collection = self.context_dao.collection
-            context_result = context_collection.delete_many(
-                {"document_id": document_id}
+            # First, delete all contexts (Mongo rows and FAISS vectors)
+            # associated with this document
+            existing = self.collection.find_one({"_id": document_id}, {"agent_id": 1})
+            agent_id = existing.get("agent_id") if existing else None
+            deleted = self.context_dao.delete_by_document_id(
+                document_id, agent_id=agent_id or None
             )
-            logger.info(
-                f"Deleted {context_result.deleted_count} contexts for document '{document_id}'"
-            )
+            logger.info(f"Deleted {deleted} contexts for document '{document_id}'")
 
             # Then delete the document itself
             result = self.collection.delete_one({"_id": document_id})

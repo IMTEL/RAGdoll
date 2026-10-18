@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import tempfile
+import threading
 import time
 
 import numpy as np
@@ -11,6 +12,7 @@ from fastapi import UploadFile
 from flask import Flask
 from scipy.signal import resample_poly
 
+from src.config import Config
 from src.whisper_model import get_whisper_model
 
 
@@ -21,6 +23,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 TARGET_SR = 16_000
+
+# Whisper is CPU heavy: at most STT_MAX_CONCURRENCY transcriptions decode at
+# once, the rest wait. Shared by every caller of the model.
+STT_SEMAPHORE = threading.BoundedSemaphore(Config().STT_MAX_CONCURRENCY)
 
 
 def _save_audio_to_temp(raw: bytes, filename: str | None = None) -> str:
@@ -74,13 +80,15 @@ def _transcribe_input(
 ) -> dict:
     model = get_whisper_model()
     whisper_language = _normalize_whisper_language(language)
-    segments, info = model.transcribe(
-        audio_input,
-        language=whisper_language,
-        beam_size=int(os.getenv("WHISPER_BEAM_SIZE", "1")),
-        vad_filter=os.getenv("WHISPER_VAD_FILTER", "false").lower() == "true",
-    )
-    text = "".join(segment.text for segment in segments).strip()
+    with STT_SEMAPHORE:
+        segments, info = model.transcribe(
+            audio_input,
+            language=whisper_language,
+            beam_size=int(os.getenv("WHISPER_BEAM_SIZE", "1")),
+            vad_filter=os.getenv("WHISPER_VAD_FILTER", "false").lower() == "true",
+        )
+        # Segments decode lazily, so consume them while holding the semaphore.
+        text = "".join(segment.text for segment in segments).strip()
     return {
         "text": text,
         "language": info.language,
