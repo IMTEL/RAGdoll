@@ -147,8 +147,8 @@ class OpenAILLM(LLM):
         """Uses the new API client interface to generate a response."""
         try:
             messages = [
-                {"role": "system", "text": "You are a helpful assistant."},
-                {"role": "user", "text": prompt},
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
             ]
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -156,8 +156,14 @@ class OpenAILLM(LLM):
                 temperature=temperature,
                 max_completion_tokens=max_tokens,
             )
-            if response.choices[0].message.content != None:
-                return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            if content is None:
+                raise LLMGenerationError(
+                    "openai", self.model, "The API returned no message content."
+                )
+            return content.strip()
+        except LLMGenerationError:
+            raise
         except AuthenticationError as e:
             raise LLMAPIError(
                 "openai", self.model, "authentication", str(e), 401

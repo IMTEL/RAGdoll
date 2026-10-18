@@ -1,13 +1,16 @@
 """Translation endpoints for external language-learning clients."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.translation import get_translation_service
+from src.utils.path_dependencies import require_speech_access
 
 
-router = APIRouter(prefix="/api", tags=["translation"])
+router = APIRouter(
+    prefix="/api", dependencies=[Depends(require_speech_access)], tags=["translation"]
+)
 
 
 class TranslateRequest(BaseModel):

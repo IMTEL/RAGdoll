@@ -43,6 +43,13 @@ def _scrub_agent_api_keys(agent: Agent) -> Agent:
     return agent_copy
 
 
+def _agent_for_access_key_holder(agent: Agent) -> Agent:
+    """Agent view for access-key callers: no provider keys and no access keys."""
+    agent_copy = _scrub_agent_api_keys(agent)
+    agent_copy.access_key = []
+    return agent_copy
+
+
 class UserSearchResult(BaseModel):
     id: str
     name: str | None = None
@@ -196,44 +203,21 @@ def delete_agent(
             user_dao.set_user(collaborator)
 
 
-# Get a specific agent by ID
-@router.get(
-    "/{agent_id}",
-    response_model=Agent,
-    dependencies=[Depends(has_agent_call_access)],
-)
-def get_agent(
-    agent: Annotated[Agent, Depends(agent_with_id)],
-    user: Annotated[User, Depends(get_optional_user)],
-):
-    """Retrieve a specific agent by ID.
-
-    Args:
-        agent_id (str): The unique identifier of the agent
-        authorize (Annotated[User, Depends()]): The user fetched from the token
-
-    Returns:
-        Agent: The requested agent
-    """
-    if agent.id not in user.owned_agents:
-        return _scrub_agent_api_keys(agent)
-    return agent
-
-
 @router.get(
     "/users/search",
     response_model=list[UserSearchResult],
-    dependencies=[Depends(require_user)],
 )
 def search_users(
     q: str,
+    requester: Annotated[User, Depends(require_user)],
     limit: int = 10,
 ):
+    """Searches users to invite as collaborators, excluding the requesting user."""
     users = user_dao.search_users(q, min(max(limit, 1), 25))
     return [
         UserSearchResult(**_public_user(user))
         for user in users
-        if user.id is not None and user.id != user.id
+        if user.id is not None and user.id != requester.id
     ]
 
 
@@ -355,7 +339,6 @@ def leave_agent(
 @router.get(
     "/agent-info", response_model=Agent, dependencies=[Depends(has_agent_call_access)]
 )
-@router.get("/{agent_id}", response_model=Agent)
 def agent_info(
     agent_id: str,
     access_key: Annotated[str, Depends(get_auth)],
@@ -367,7 +350,7 @@ def agent_info(
         access_key (Annotated[str | None, Header()]): access key header
 
     Returns:
-        Agent: The requested agent
+        Agent: The requested agent, without provider API keys or access keys
 
     Raises:
         HTTPException: If agent not found
@@ -383,7 +366,7 @@ def agent_info(
         raise HTTPException(
             status_code=404, detail=f"Agent with id {agent_id} not found"
         )
-    return agent
+    return _agent_for_access_key_holder(agent)
 
 
 @router.get("/agent-info-by-accesskey", response_model=ExternalAgentInfo)
@@ -401,7 +384,8 @@ def agent_info_by_access_key(
     active_keys = 0
     expired_keys = 0
     has_header = bool(access_key and access_key.strip())
-    now = datetime.datetime.now(tz=datetime.UTC)
+    # Naive local time, matching how AccessService stores and checks expiry.
+    now = datetime.datetime.now()
     if not (access_key and access_key.strip()):
         raise HTTPException(
             status_code=400,
@@ -414,7 +398,7 @@ def agent_info_by_access_key(
                 active_keys += 1
             else:
                 expired_keys += 1
-        if access_service.authenticate(agent, access_key):
+        if agent.id and access_service.authenticate(agent.id, access_key):
             return ExternalAgentInfo(
                 agent_id=agent.id or "",
                 name=agent.name,
@@ -528,7 +512,8 @@ def chat_access_key(
 
     user_key_suffix = user.id if user and user.id else "demo"
     key_name = f"Chat Access Key - {user_key_suffix}"
-    now = datetime.datetime.now(tz=datetime.UTC)
+    # Naive local time, matching how AccessService stores and checks expiry.
+    now = datetime.datetime.now()
 
     for access_key in agent.access_key:
         if (
@@ -543,3 +528,31 @@ def chat_access_key(
         now + datetime.timedelta(days=2),
         agent.id,
     )
+
+
+# Get a specific agent by ID.
+# Registered last: GET "/{agent_id}" would otherwise swallow the literal GET
+# paths above (e.g. "/agent-info-by-accesskey", "/chat-accesskey").
+@router.get(
+    "/{agent_id}",
+    response_model=Agent,
+    dependencies=[Depends(has_agent_call_access)],
+)
+def get_agent(
+    agent: Annotated[Agent, Depends(agent_with_id)],
+    caller: Annotated[User | str, Depends(get_optional_user)],
+):
+    """Retrieve a specific agent by ID.
+
+    Args:
+        agent (Agent): The agent, resolved from the agent_id path parameter
+        caller (Annotated[User | str, Depends()]): The user or access key from the token
+
+    Returns:
+        Agent: The requested agent, with secrets removed unless the caller owns it
+    """
+    if not isinstance(caller, User):
+        return _agent_for_access_key_holder(agent)
+    if agent.id not in caller.owned_agents:
+        return _scrub_agent_api_keys(agent)
+    return agent

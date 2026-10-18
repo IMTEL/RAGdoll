@@ -1,8 +1,10 @@
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import ValidationError
 
 from src.globals import access_service, agent_dao
 from src.models.training import ListProgressData, ProgressData
@@ -12,6 +14,7 @@ from src.utils.global_logs import progress_log
 
 
 # Define a router for progress-related endpoints
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/progress", tags=["Progress"])
 DEFAULT_SESSION_ID = "default"
 PROGRESS_TTL = timedelta(hours=24)
@@ -107,7 +110,13 @@ def receive_hierarchy(task_hierarchy: ListProgressData):
             ),
         }
     except Exception as e:
-        print(f"Error processing task hierarchy: {e}")
+        if isinstance(e, ValidationError):
+            logger.warning(
+                "Error processing task hierarchy: ValidationError (%d errors)",
+                e.error_count(),
+            )
+        else:
+            logger.warning("Error processing task hierarchy: %s", type(e).__name__)
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=str(e)) from e

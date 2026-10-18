@@ -1,13 +1,18 @@
 """Transliteration endpoints for language-learning clients."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.transliteration import get_transliteration_service
+from src.utils.path_dependencies import require_speech_access
 
 
-router = APIRouter(prefix="/api", tags=["transliteration"])
+router = APIRouter(
+    prefix="/api",
+    dependencies=[Depends(require_speech_access)],
+    tags=["transliteration"],
+)
 
 
 class TransliterateRequest(BaseModel):

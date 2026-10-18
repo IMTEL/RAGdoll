@@ -98,8 +98,6 @@ def hybrid_search(
     else:
         keyword_scores = {}
 
-    print(vector_scores, keyword_scores)
-
     all_chunk_ids = set(vector_scores.keys()) | set(keyword_scores.keys())
     hybrid_scores = {}
     for chunk_id in all_chunk_ids:

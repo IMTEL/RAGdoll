@@ -28,6 +28,19 @@ dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 config = Config()
 
+
+def warn_if_speech_endpoints_public(public: bool) -> None:
+    """Log a warning when the speech and translation routes need no credentials."""
+    if public:
+        logger.warning(
+            "PUBLIC_SPEECH_ENDPOINTS=true: /api/chat/transcribe, /api/chat/tts, "
+            "/api/chat/tts/warmup, /api/chat/stt/warmup, /api/translate* and "
+            "/api/transliterate* accept requests without credentials."
+        )
+
+
+warn_if_speech_endpoints_public(config.PUBLIC_SPEECH_ENDPOINTS)
+
 app = FastAPI(
     title="Chat-Service Microservice API",
     description="Generate prompts with context and passing them to LLM.",

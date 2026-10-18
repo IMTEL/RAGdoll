@@ -4,56 +4,31 @@ to ensure proper HTTP request/response handling.
 """
 
 import pytest
-from fastapi.testclient import TestClient
 
-from src.config import Config
-from src.main import app
-from tests.mocks import MockAgentDAO
+from tests.endpoints.conftest import AuthEnv
 
 
-client = TestClient(app)
-
-_STALE = pytest.mark.skip(
-    reason="Stale test: endpoints now require auth (401) / routes changed (404); "
-    "unrelated to MongoDB"
-)
-
-
-@pytest.fixture(autouse=True)
-def clear_mock_dao():
-    """Clear mock dao before and after each test."""
-    # Set the environment to use the mock DAO
-    prev_db_system = Config().RAG_DATABASE_SYSTEM
-    Config().RAG_DATABASE_SYSTEM = "mock"
-
-    print("DB CONFIG IN FIXTURE:", Config().RAG_DATABASE_SYSTEM)
-
-    repo = MockAgentDAO()
-    repo.clear()
-
-    yield
-
-    repo.clear()
-
-    # Restore previous database system configuration
-    Config().RAG_DATABASE_SYSTEM = prev_db_system
+@pytest.fixture
+def client(auth_env: AuthEnv):
+    """TestClient authenticated as a fresh user with no agents."""
+    _, token = auth_env.add_user("agent-endpoint-user")
+    auth_env.client.headers["Authorization"] = f"Bearer {token}"
+    return auth_env.client
 
 
 class TestAgentEndpoints:
     """Tests for agent-related HTTP endpoints."""
 
-    @_STALE
-    def test_get_agents_empty(self):
+    def test_get_agents_empty(self, client):
         """Test getting agents when DAO is empty."""
-        response = client.get("/agents/")
+        response = client.get("/agents")
 
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
         assert len(data) == 0
 
-    @_STALE
-    def test_create_agent_success(self):
+    def test_create_agent_success(self, client):
         """Test creating an agent via POST /agents/."""
         agent_data = {
             "name": "Test Assistant",
@@ -79,9 +54,7 @@ class TestAgentEndpoints:
             "embedding_api_key": "test-embedding-key",
         }
 
-        print("DB CONFIG:", Config().RAG_DATABASE_SYSTEM)
-
-        response = client.post("/update-agent/", json=agent_data)
+        response = client.post("/agents", json=agent_data)
 
         assert response.status_code == 200
         data = response.json()
@@ -89,20 +62,18 @@ class TestAgentEndpoints:
         assert data["description"] == "An assistant for testing"
         assert data["llm_model"] == "gpt-3.5-turbo"
 
-    @_STALE
-    def test_create_agent_missing_field(self):
+    def test_create_agent_missing_field(self, client):
         """Test creating an agent with missing required fields."""
         incomplete_agent = {
             "name": "Incomplete Agent",
             # Missing many required fields
         }
 
-        response = client.post("/update-agent/", json=incomplete_agent)
+        response = client.post("/agents", json=incomplete_agent)
 
         assert response.status_code == 422  # Validation error
 
-    @_STALE
-    def test_get_agents_multiple(self):
+    def test_get_agents_multiple(self, client):
         """Test retrieving multiple agents."""
         # Create first agent
         agent1_data = {
@@ -155,20 +126,19 @@ class TestAgentEndpoints:
         }
 
         # Create both agents
-        client.post("/update-agent/", json=agent1_data)
-        client.post("/update-agent/", json=agent2_data)
+        client.post("/agents", json=agent1_data)
+        client.post("/agents", json=agent2_data)
 
         # Get all agents
-        response = client.get("/agents/")
+        response = client.get("/agents")
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 3
-        assert data[1]["name"] == "Agent One"
-        assert data[2]["name"] == "Agent Two"
+        assert len(data) == 2
+        assert data[0]["name"] == "Agent One"
+        assert data[1]["name"] == "Agent Two"
 
-    @_STALE
-    def test_get_agent_by_id_success(self):
+    def test_get_agent_by_id_success(self, client):
         """Test retrieving a specific agent by ID."""
         # Create an agent first
         agent_data = {
@@ -192,27 +162,25 @@ class TestAgentEndpoints:
         }
 
         # Create the agent
-        create_response = client.post("/update-agent/", json=agent_data)
+        create_response = client.post("/agents", json=agent_data)
         assert create_response.status_code == 200
         agent_id = create_response.json().get("id")
 
-        # Since DAO is cleared before each test, this should be the only agent (ID = 0)
-        response = client.get(f"/fetch-agent?agent_id={agent_id}")
+        response = client.get(f"/agents/{agent_id}")
 
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Specific Agent"
 
-    def test_get_agent_by_id_not_found(self):
+    def test_get_agent_by_id_not_found(self, client):
         """Test retrieving non-existent agent returns 404."""
-        response = client.get("/fetch-agent?agent_id=999")
+        response = client.get("/agents/999")
 
         assert response.status_code == 404
         data = response.json()
         assert "not found" in data["detail"].lower()
 
-    @_STALE
-    def test_agent_data_integrity(self):
+    def test_agent_data_integrity(self, client):
         """Test that agent data is preserved through create and retrieve."""
         agent_data = {
             "name": "Integrity Test Agent",
@@ -244,11 +212,11 @@ class TestAgentEndpoints:
         }
 
         # Create agent
-        create_response = client.post("/update-agent/", json=agent_data)
+        create_response = client.post("/agents", json=agent_data)
         assert create_response.status_code == 200
 
         # Retrieve all agents and find the one we just created
-        get_response = client.get("/agents/")
+        get_response = client.get("/agents")
         assert get_response.status_code == 200
 
         # Find the agent we just created by name (should be the only one if fixture cleared)
@@ -273,8 +241,8 @@ class TestAgentEndpoints:
         assert retrieved["retrieval_method"] == agent_data["retrieval_method"]
         assert retrieved["status"] == agent_data["status"]
 
-    def test_invalid_agent_id_format(self):
+    def test_invalid_agent_id_format(self, client):
         """Test that invalid ID format returns 404."""
-        response = client.get("/fetch-agent?agent_id=invalid-id-format")
+        response = client.get("/agents/invalid-id-format")
 
         assert response.status_code == 404

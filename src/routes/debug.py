@@ -1,11 +1,13 @@
 import os
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from src.globals import agent_dao, user_dao
 from src.models.users.user import User
 from src.utils.global_logs import failure_log, progress_log
+from src.utils.path_dependencies import require_user
 
 
 router = APIRouter()
@@ -22,16 +24,28 @@ class BootstrapKeycloakUserRequest(BaseModel):
 
 
 @router.get("/api/debug/logs")
-def get_logs():
-    """Returns the in-memory logs for progress and failure."""
-    return {"progressLog": progress_log, "failureLog": failure_log}
+def get_logs(user: Annotated[User, Depends(require_user)]):
+    """Returns the in-memory progress and failure logs for the user's agents.
+
+    Only entries whose agent_id is an agent the user owns or collaborates on
+    are returned.
+    """
+    agent_ids = set(user.owned_agents) | set(user.collaborating_agents)
+    return {
+        "progressLog": [e for e in progress_log if e.get("agent_id") in agent_ids],
+        "failureLog": [e for e in failure_log if e.get("agent_id") in agent_ids],
+    }
 
 
 @router.post("/api/debug/bootstrap-keycloak-user")
-def bootstrap_keycloak_user(payload: BootstrapKeycloakUserRequest):
+def bootstrap_keycloak_user(
+    payload: BootstrapKeycloakUserRequest,
+    _user: Annotated[User, Depends(require_user)],
+):
     """Local migration helper for attaching existing data to a Keycloak user.
 
-    This endpoint is intentionally disabled unless AUTH_BOOTSTRAP_ENABLED=true.
+    This endpoint is intentionally disabled unless AUTH_BOOTSTRAP_ENABLED=true,
+    and even then it requires an authenticated user.
     It is useful when moving from DISABLE_AUTH/demo mode to Keycloak locally.
     """
     if os.getenv("AUTH_BOOTSTRAP_ENABLED", "").lower() != "true":

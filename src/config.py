@@ -35,6 +35,17 @@ class Config:
 
         if self.RUNNING_TESTS:  # Ensure tests always run in 'dev' environment
             self.ENV = "dev"
+        # Log user messages and responses (secrets masked). Off by default.
+        self.LOG_CONVERSATIONS = (
+            os.getenv("LOG_CONVERSATIONS", "false").strip().lower() == "true"
+        )
+        # Serve the speech and translation routes (transcribe, tts, stt/tts
+        # warmup, translate*, transliterate*) without credentials, for XR/Unity
+        # clients that do not send any. Off by default: those routes need a
+        # user token or an agent access key.
+        self.PUBLIC_SPEECH_ENDPOINTS = (
+            os.getenv("PUBLIC_SPEECH_ENDPOINTS", "false").strip().lower() == "true"
+        )
         self.RAGDOLL_CONFIG_API_URL = os.getenv(
             "RAGDOLL_CONFIG_API_URL", "http://localhost:3000"
         )

@@ -1,14 +1,20 @@
 import json
+import logging
 import re
 import time
 import uuid
 
+from src.config import Config
 from src.llm import create_llm
+from src.log_redaction import redact
 from src.models import Agent
 from src.models.chat.command import Command
 from src.rag_service.dao import get_context_dao
 from src.rag_service.embeddings import create_embeddings_model
 
+
+logger = logging.getLogger(__name__)
+config = Config()
 
 CONTEXT_TRUNCATE_LENGTH = 500  # Limit context text length to avoid overly long prompts
 
@@ -204,10 +210,10 @@ def generate_retrieval_query(
         standalone_query = query_llm.generate(
             summary_prompt, agent.llm_max_tokens, agent.llm_temperature
         )
-        print(f"Generated retrieval query: {standalone_query}")
+        logger.debug("Retrieval query generated: %d chars", len(standalone_query))
         return standalone_query.strip()
     except Exception as e:
-        print(f"Error generating retrieval query: {e}")
+        logger.warning("Error generating retrieval query: %s", type(e).__name__)
         return last_message
 
 
@@ -258,9 +264,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         else []
     )
 
-    print(f"Active role: {command.active_role_id}")
-    print(f"Accessible documents for role: {accessible_documents}")
-    print(f"Number of accessible documents: {len(accessible_documents)}")
+    logger.debug(
+        "Active role: %s, %d accessible documents",
+        command.active_role_id,
+        len(accessible_documents),
+    )
 
     # Perform RAG retrieval from accessible documents
     retrieved_contexts = []
@@ -268,7 +276,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     # Use agent's configured embedding model
     embedding_model_config = agent.embedding_model
-    print("Using embedding model:", embedding_model_config)
+    logger.debug("Using embedding model: %s", embedding_model_config)
 
     embedding_api_key = getattr(agent, "embedding_api_key", None)
     if ":" not in embedding_model_config:
@@ -299,10 +307,12 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
             hybrid_search_alpha=agent.hybrid_search_alpha,  # Use agent's configured alpha
         )
     except Exception as e:
-        print(f"Error retrieving context: {e}")
+        logger.warning("Error retrieving context: %s", type(e).__name__)
         retrieved_contexts = []
 
-    print(f"Retrieved {len(retrieved_contexts)} contexts for agent {agent.name}")
+    logger.debug(
+        "Retrieved %d contexts for agent %s", len(retrieved_contexts), agent.name
+    )
 
     prompt = ""
     if last_user_response:
@@ -335,7 +345,11 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     prompt = full_chat_history + "\n" + prompt
 
-    print(f"Prompt sent to LLM:\n{prompt}")
+    logger.debug(
+        "Prompt assembled: %d chunks, %d chars", len(retrieved_contexts), len(prompt)
+    )
+    if config.LOG_CONVERSATIONS:
+        logger.info("User message: %s", redact(last_user_response))
 
     # Use agent's configured LLM with specific model
     language_model = create_llm(
@@ -343,11 +357,15 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         model=agent.llm_model,
         api_key=agent.llm_api_key,
     )
-    response = language_model.generate(prompt)
+    response = language_model.generate(
+        prompt, agent.llm_max_tokens, agent.llm_temperature
+    )
 
     parsed_response, function_calls = _parse_llm_response(
         response, allowed_function_names
     )
+    if config.LOG_CONVERSATIONS:
+        logger.info("Agent response: %s", redact(parsed_response))
     legacy_function_call = (
         {
             "function_name": function_calls[0]["name"],

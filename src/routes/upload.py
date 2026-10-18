@@ -15,9 +15,11 @@ from fastapi import (
 from src.config import Config
 from src.context_upload import process_file_and_store
 from src.globals import agent_dao, auth_service
+from src.models.agent import Agent
+from src.models.users.user import User
 from src.rag_service.dao.factory import get_document_dao
 from src.utils.global_logs import progress_log
-from src.utils.path_dependencies import get_auth
+from src.utils.path_dependencies import get_auth, require_user_or_access_key
 
 
 logger = logging.getLogger(__name__)
@@ -244,11 +246,16 @@ async def upload_document_for_agent(
 
 
 @router.get("/upload/status/{task_id}")
-async def get_upload_status(task_id: str):
+async def get_upload_status(
+    task_id: str,
+    caller: Annotated[User | Agent, Depends(require_user_or_access_key)],
+):
     """Get the status of a background document upload/processing task.
 
     Args:
         task_id: The task ID returned from the upload endpoint
+        caller: The user, or the agent whose access key was sent. Tasks for
+            agents the caller cannot reach are reported as not found.
 
     Returns:
         dict: Status information about the upload task
@@ -256,8 +263,12 @@ async def get_upload_status(task_id: str):
     Raises:
         HTTPException: If task not found
     """
+    if isinstance(caller, User):
+        visible_agents = set(caller.owned_agents) | set(caller.collaborating_agents)
+    else:
+        visible_agents = {caller.id}
     for entry in progress_log:
-        if entry.get("task_id") == task_id:
+        if entry.get("task_id") == task_id and entry.get("agent_id") in visible_agents:
             return {
                 "task_id": task_id,
                 "filename": entry.get("filename"),

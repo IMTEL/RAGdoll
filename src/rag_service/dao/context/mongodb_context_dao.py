@@ -176,7 +176,6 @@ class MongoDBContextDAO(ContextDAO):
             raise ValueError("agent_id cannot be empty")
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
-        print("Available documents for filtering:", available_documents)
         logger.info(
             f"Searching in {len(available_documents)} documents for agent {agent_id}"
         )
@@ -334,8 +333,8 @@ class MongoDBContextDAO(ContextDAO):
         """
         try:
             self.client.admin.command("ping")
-            print("Successfully pinged MongoDB")
+            logger.debug("Successfully pinged MongoDB")
             return True
         except Exception as e:
-            print(f"Failed to ping MongoDB: {e}")
+            logger.warning("Failed to ping MongoDB: %s", e)
             return False

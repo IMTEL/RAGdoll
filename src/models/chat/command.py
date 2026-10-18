@@ -4,10 +4,23 @@ This module defines the data structures for incoming requests from the VR applic
 and the prompts sent to language models.
 """
 
+import logging
+
 from pydantic import BaseModel, Field, ValidationError
 
 from src.models.chat.message import Message
 from src.models.training import ProgressData
+
+
+logger = logging.getLogger(__name__)
+
+
+def _log_validation_error(e: ValidationError) -> None:
+    """Log only error locations and types; str(e) would echo input values."""
+    details = [
+        (".".join(str(p) for p in err["loc"]), err["type"]) for err in e.errors()
+    ]
+    logger.warning("Command validation failed: %d errors %s", len(details), details)
 
 
 class Command(BaseModel):
@@ -108,7 +121,7 @@ def command_from_json(json_str: str) -> Command | None:
         command = Command.model_validate_json(json_str)
         return command
     except ValidationError as e:
-        print("Validation error:", e)
+        _log_validation_error(e)
         return None
 
 
@@ -133,5 +146,5 @@ def command_from_json_transcribe_version(
             command.chat_log.append(Message(role="user", content=""))
         return command
     except ValidationError as e:
-        print("Validation error:", e)
+        _log_validation_error(e)
         return None

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
@@ -29,7 +30,12 @@ from src.pipeline import assemble_prompt_with_agent
 from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
 from src.tts import get_tts_service
-from src.utils.path_dependencies import get_auth, has_agent_call_access
+from src.utils.path_dependencies import (
+    get_bearer_token,
+    get_optional_user,
+    has_agent_call_access,
+    require_speech_access,
+)
 from src.whisper_model import warmup_whisper_model
 
 
@@ -130,13 +136,26 @@ async def ask(command: Command, request: Request):
             503: LLM generation service error
             500: Other processing errors
     """
-    agent: Agent
+    agent = _authorize_command(command, request)
+    return _answer(command, agent)
+
+
+def _authorize_command(command: Command, request: Request) -> "Agent":
+    """Returns the command's agent if the caller may call it.
+
+    Raises:
+        HTTPException: 401/403/404 from the bearer or access key checks
+    """
     # Until further notice we accept both the authorization header and the command access_key
     # Someone else can remove it down the line
-    if command.access_key == None:
-        agent = has_agent_call_access(command.agent_id, get_auth(request))
-    else:
-        agent = has_agent_call_access(command.agent_id, command.access_key)
+    credentials = (
+        get_bearer_token(request) if command.access_key is None else command.access_key
+    )
+    return has_agent_call_access(command.agent_id, get_optional_user(credentials))
+
+
+def _answer(command: Command, agent: "Agent") -> dict:
+    """Answers an already authorized command with the agent's LLM."""
     if (
         command.active_role_id
         and agent.get_role_by_name(command.active_role_id) is None
@@ -158,7 +177,7 @@ async def ask(command: Command, request: Request):
     except LLMGenerationError as e:
         # Generation/service errors
         raise HTTPException(
-            detail={str(e)},
+            detail=str(e),
             status_code=e.status_code,
         ) from e
     except UnicodeDecodeError as e:
@@ -174,7 +193,7 @@ async def ask(command: Command, request: Request):
         ) from e
 
 
-@router.post("/transcribe")
+@router.post("/transcribe", dependencies=[Depends(require_speech_access)])
 async def transcribe_endpoint(
     audio: UploadFile = File(...),  # noqa: B008
     language: str = Form(None),
@@ -196,7 +215,7 @@ async def transcribe_endpoint(
         return JSONResponse(content=result, status_code=400)
 
 
-@router.post("/stt/warmup")
+@router.post("/stt/warmup", dependencies=[Depends(require_speech_access)])
 async def stt_warmup(request: STTWarmupRequest | None = None):
     """Lazy-load and warm the speech-to-text model."""
     try:
@@ -209,7 +228,7 @@ async def stt_warmup(request: STTWarmupRequest | None = None):
         )
 
 
-@router.post("/tts/warmup")
+@router.post("/tts/warmup", dependencies=[Depends(require_speech_access)])
 async def tts_warmup(request: TTSWarmupRequest | None = None):
     """Lazy-load and warm the configured local text-to-speech model."""
     try:
@@ -223,7 +242,7 @@ async def tts_warmup(request: TTSWarmupRequest | None = None):
         )
 
 
-@router.post("/tts")
+@router.post("/tts", dependencies=[Depends(require_speech_access)])
 async def text_to_speech(request: TTSRequest):
     """Synthesize text using the configured local text-to-speech engine."""
     try:
@@ -281,6 +300,13 @@ async def ask_transcribe(
     Returns:
     - A JSON response with the agent's answer
     """
+    # Authenticate before transcribing, so anonymous callers never reach Whisper.
+    # TODO: This is one of the many reasons we have pydmantic. Let it do the casting
+    command = command_from_json_transcribe_version(data)
+    if command is None:
+        raise HTTPException(status_code=400, detail="Invalid command format")
+    agent = _authorize_command(command, request_object)
+
     transcription_result = transcribe_audio(audio, stt_language)
     if not transcription_result["success"]:
         raise HTTPException(
@@ -289,12 +315,9 @@ async def ask_transcribe(
         )
     transcribed = transcription_result["transcription"]
 
-    # Parse command and add transcribed text as user message
-    # TODO: This is one of the many reasons we have pydmantic. Let it do the casting
+    # Parse the command again with the transcribed text as the user message
     command = command_from_json_transcribe_version(data, question=transcribed)
-    if command is None:
-        raise HTTPException(status_code=400, detail="Invalid command format")
-    response = await ask(command, request_object)
+    response = _answer(command, agent)
     return {
         "transcription": transcribed,
         "transcription_language": transcription_result["language"],
@@ -316,18 +339,18 @@ async def ask_transcribe_with_speech(
     """Transcribe audio, ask the agent, and return text plus local speech audio."""
     response = await ask_transcribe(request_object, audio, data, stt_language)
     try:
-        return (
-            {
-                **response,
-                **_build_response_with_speech(response, tts_language),
-            },
-        )
+        answer = response["response"]
+        answer_text = answer.get("response", "") if isinstance(answer, dict) else ""
+        return {
+            **response,
+            "speech": _generate_speech_payload(answer_text, tts_language),
+        }
     except FileNotFoundError as e:
-        raise HTTPException(detail={"message": str(e)}, status_code=503) from e
+        raise HTTPException(detail=str(e), status_code=503) from e
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            detail={f"Error processing speech request: {e!s}"},
+            detail=f"Error processing speech request: {e!s}",
             status_code=500,
         ) from e
