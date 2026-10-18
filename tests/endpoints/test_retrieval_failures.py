@@ -1,4 +1,4 @@
-"""Retrieval failures are surfaced instead of silently becoming empty context."""
+﻿"""Retrieval failures are surfaced instead of silently becoming empty context."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -127,7 +127,7 @@ class TestRetrievalErrorPolicy:
         r = _ask(auth_env, agent_id, key)
 
         assert r.status_code == 200, r.text
-        body = r.json()
+        body = r.json()["response"]
         assert body["retrieval"]["status"] == "error"
         assert body["retrieval"]["error"]
         assert "quota" not in body["retrieval"]["error"]
@@ -162,7 +162,7 @@ class TestRetrievalSkipsAndKeyErrors:
         r = _ask(auth_env, agent_id, key, content="   ")
 
         assert r.status_code == 200, r.text
-        assert r.json()["retrieval"] == {"status": "empty", "error": None}
+        assert r.json()["response"]["retrieval"] == {"status": "empty", "error": None}
         assert embedder.calls == 0
         fake_llm.generate.assert_called_once()
 
@@ -175,7 +175,7 @@ class TestRetrievalSkipsAndKeyErrors:
         r = _ask(auth_env, agent_id, key, role=None)
 
         assert r.status_code == 200, r.text
-        assert r.json()["retrieval"] == {"status": "empty", "error": None}
+        assert r.json()["response"]["retrieval"] == {"status": "empty", "error": None}
         assert embedder.calls == 0
 
     @pytest.mark.parametrize(
@@ -345,8 +345,8 @@ class TestMongoUnreachableDuringSearch:
         )
         r = _ask(auth_env, agent_id, key, role="student")
         assert r.status_code == 200, r.text
-        assert r.json()["retrieval"]["status"] == "error"
-        assert "PyMongoError" in r.json()["retrieval"]["error"]
+        assert r.json()["response"]["retrieval"]["status"] == "error"
+        assert "PyMongoError" in r.json()["response"]["retrieval"]["error"]
 
     def test_vector_metadata_lookup_mongo_error_propagates(
         self, unreachable_mongo_dao, monkeypatch

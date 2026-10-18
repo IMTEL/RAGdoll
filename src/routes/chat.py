@@ -162,7 +162,8 @@ def ask(command: Command, request: Request):
             500: Other processing errors
     """
     agent = _authorize_command(command, request)
-    return _answer(command, agent)
+    # Clients (chat, XR) read the answer at body["response"]["response"].
+    return {"response": _answer(command, agent)}
 
 
 def _authorize_command(command: Command, request: Request) -> "Agent":
@@ -294,7 +295,7 @@ def text_to_speech(request: TTSRequest):
 @router.post("/askWithSpeech")
 def ask_with_speech(request: AskWithSpeechRequest, request_object: Request):
     """Process a text chat request and return both text and local speech audio."""
-    response = ask(request.command, request_object)
+    response = ask(request.command, request_object)["response"]
     try:
         return JSONResponse(
             content=_build_response_with_speech(response, request.tts_language),

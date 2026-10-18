@@ -81,6 +81,40 @@ class ScraperService:
         """Check if the file type is supported."""
         return Path(file_path).suffix.lower() in self.SUPPORTED_EXTENSIONS
 
+    # PDF strategies, cheapest first. "fast" reads the text layer and needs no
+    # models or system tools; "hi_res" needs a layout model and tesseract;
+    # "ocr_only" needs tesseract and poppler and is only for scanned PDFs.
+    _PDF_STRATEGIES = (
+        ("fast", {"include_page_breaks": True}),
+        (
+            "hi_res",
+            {
+                "infer_table_structure": True,
+                "extract_images_in_pdf": False,
+                "include_page_breaks": True,
+            },
+        ),
+        ("ocr_only", {"extract_images_in_pdf": False}),
+    )
+
+    def _extract_pdf_elements(self, file_path: str) -> list[Element]:
+        """Returns the elements of the first strategy that yields any text."""
+        for strategy, options in self._PDF_STRATEGIES:
+            try:
+                elements = partition_pdf(
+                    filename=file_path, strategy=strategy, **options
+                )
+            except Exception as e:  # noqa: BLE001 - try the next strategy
+                logger.warning(f"PDF strategy '{strategy}' failed: {e!s}")
+                continue
+            if any((getattr(e, "text", "") or "").strip() for e in elements or []):
+                logger.info(
+                    f"Extracted {len(elements)} elements using '{strategy}' strategy"
+                )
+                return elements
+            logger.info(f"PDF strategy '{strategy}' found no text, trying next")
+        return []
+
     def extract_elements(self, file_path: str) -> list[Element]:
         """Extract elements from a file using unstructured.
 
@@ -101,38 +135,7 @@ class ScraperService:
             file_extension = Path(file_path).suffix.lower()
 
             if file_extension == ".pdf":
-                # Try different strategies for PDF processing
-                elements = None
-                try:
-                    elements = partition_pdf(
-                        filename=file_path,
-                        strategy="auto",
-                        infer_table_structure=True,
-                        extract_images_in_pdf=False,  # Set to True if you want image extraction
-                        include_page_breaks=True,
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to process using auto: {e!s}")
-
-                # If all strategies fail, try with OCR
-                if not elements or len(elements) == 0:
-                    try:
-                        logger.info(
-                            "Trying PDF processing with OCR (ocr_only strategy)"
-                        )
-                        elements = partition_pdf(
-                            filename=file_path,
-                            strategy="ocr_only",
-                            infer_table_structure=True,
-                            extract_images_in_pdf=False,
-                        )
-                        if elements:
-                            logger.info(
-                                f"Successfully extracted {len(elements)} elements using OCR"
-                            )
-                    except Exception as e:
-                        logger.warning(f"OCR strategy also failed: {e!s}")
-                        elements = []
+                elements = self._extract_pdf_elements(file_path)
             elif file_extension in [".docx", ".doc"]:
                 elements = partition_docx(filename=file_path)
             elif file_extension in [".pptx", ".ppt"]:

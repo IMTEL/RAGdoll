@@ -42,7 +42,13 @@ class TestAskWithAccessKey:
     def test_valid_key_in_body_is_accepted(self, auth_env, agent_id, valid_key):
         response = auth_env.client.post(ASK, json=_ask_body(agent_id, valid_key))
         assert response.status_code == 200
-        assert response.json() == {"response": f"answer from {agent_id}"}
+
+    def test_answer_is_wrapped_in_response_envelope(
+        self, auth_env, agent_id, valid_key
+    ):
+        # Chat and XR clients read the answer at body["response"]["response"].
+        response = auth_env.client.post(ASK, json=_ask_body(agent_id, valid_key))
+        assert response.json() == {"response": {"response": f"answer from {agent_id}"}}
 
     def test_valid_key_as_bearer_is_accepted(self, auth_env, agent_id, valid_key):
         response = auth_env.client.post(
