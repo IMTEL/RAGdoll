@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 from uuid import UUID
 
 from langchain_core.output_parsers import StrOutputParser
@@ -8,12 +7,12 @@ from langchain_core.runnables import (
     RunnableLambda,
     RunnablePassthrough,
 )
-
 from src.core.dependencies import get_llm
 from src.db.content.dao import PostgresDatabase
 from src.db.graph.dao import GraphDatabase
 from src.models.chunks import Chunk
 from src.services.embedding.base import EmbeddingModel
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -114,8 +113,7 @@ Query Intent Recognition:
 
 
 class RetrievalService:
-    """
-    Implements a multi-step retrieval chain combining vector search, entity extraction,
+    """Implements a multi-step retrieval chain combining vector search, entity extraction,
     and a hybrid graph query to fetch rich, relevant context.
     """
 
@@ -129,158 +127,197 @@ class RetrievalService:
         self.graph_db = graph_db
         self.em = em
         self.llm = get_llm()
-        
+
         entity_prompt = PromptTemplate.from_template(ENTITY_EXTRACTION_TEMPLATE)
         self.entity_extraction_chain = entity_prompt | self.llm | StrOutputParser()
-        
+
         self.retrieval_chain = self._create_retrieval_chain()
 
     def _clean_cypher_query(self, text: str) -> str:
         """A helper function to clean markdown fences from the LLM's output."""
         logger.info(f"Raw LLM output: {text}")
-        
+
         # Look for code blocks with ```cypher or ```
         import re
-        
+
         # Pattern to match code blocks
-        cypher_pattern = r'```(?:cypher)?\s*\n(.*?)```'
+        cypher_pattern = r"```(?:cypher)?\s*\n(.*?)```"
         matches = re.findall(cypher_pattern, text, re.DOTALL)
-        
+
         if matches:
             # Take the first match (should be the Cypher query)
             cypher_query = matches[0].strip()
             logger.info(f"Extracted from code block: {cypher_query}")
         else:
             # Fallback: look for lines starting with Cypher keywords
-            lines = text.split('\n')
+            lines = text.split("\n")
             cypher_lines = []
             in_cypher = False
-            
+
             for line in lines:
                 stripped = line.strip()
                 # Start collecting when we see a Cypher keyword
-                if not in_cypher and stripped.upper().startswith(('MATCH', 'RETURN', 'WITH', 'CALL', 'CREATE', 'MERGE', 'DELETE', 'SET', 'REMOVE', 'UNION')):
+                if not in_cypher and stripped.upper().startswith(
+                    (
+                        "MATCH",
+                        "RETURN",
+                        "WITH",
+                        "CALL",
+                        "CREATE",
+                        "MERGE",
+                        "DELETE",
+                        "SET",
+                        "REMOVE",
+                        "UNION",
+                    )
+                ):
                     in_cypher = True
                     cypher_lines.append(line)
                 elif in_cypher:
                     # Stop if we hit explanatory text or empty lines after the query
-                    if stripped.startswith(('This query', 'The query', 'Based on')):
+                    if stripped.startswith(("This query", "The query", "Based on")):
                         break
                     cypher_lines.append(line)
-            
-            cypher_query = '\n'.join(cypher_lines).strip()
+
+            cypher_query = "\n".join(cypher_lines).strip()
             logger.info(f"Extracted from keyword detection: {cypher_query}")
-        
+
         # Final cleanup
-        if cypher_query.startswith('```cypher'):
+        if cypher_query.startswith("```cypher"):
             cypher_query = cypher_query[9:].strip()
-        if cypher_query.startswith('```'):
+        if cypher_query.startswith("```"):
             cypher_query = cypher_query[3:].strip()
-        if cypher_query.endswith('```'):
+        if cypher_query.endswith("```"):
             cypher_query = cypher_query[:-3].strip()
-        
+
         # Fix common document filtering mistakes
         cypher_query = self._fix_document_filtering_syntax(cypher_query)
-        
+
         # Fix common relationship variable mistakes
         cypher_query = self._fix_relationship_variable_syntax(cypher_query)
-        
+
         logger.info(f"Final cleaned Cypher query: {cypher_query}")
         return cypher_query
-    
+
     def _fix_document_filtering_syntax(self, cypher_query: str) -> str:
         """Fix common document filtering syntax mistakes in Cypher queries."""
-        
         import re
-        
+
         # Common mistake: n.document_ids IN $document_ids
         # This checks if the entire array is in the parameter list, which never matches
         # Fix: Replace with ANY(doc_id IN $document_ids WHERE doc_id IN n.document_ids)
-        
-        incorrect_pattern = r'(\w+)\.document_ids\s+IN\s+\$document_ids'
-        correct_replacement = r'ANY(doc_id IN $document_ids WHERE doc_id IN \1.document_ids)'
-        
+
+        incorrect_pattern = r"(\w+)\.document_ids\s+IN\s+\$document_ids"
+        correct_replacement = (
+            r"ANY(doc_id IN $document_ids WHERE doc_id IN \1.document_ids)"
+        )
+
         if re.search(incorrect_pattern, cypher_query):
-            logger.warning(f"Found incorrect document filtering syntax, fixing...")
+            logger.warning("Found incorrect document filtering syntax, fixing...")
             cypher_query = re.sub(incorrect_pattern, correct_replacement, cypher_query)
             logger.info(f"Fixed query: {cypher_query}")
-        
+
         # Another common mistake: WHERE $document_ids CONTAINS n.document_ids
-        incorrect_pattern_2 = r'\$document_ids\s+CONTAINS\s+(\w+)\.document_ids'
+        incorrect_pattern_2 = r"\$document_ids\s+CONTAINS\s+(\w+)\.document_ids"
         if re.search(incorrect_pattern_2, cypher_query):
-            logger.warning(f"Found incorrect CONTAINS syntax, fixing...")
-            cypher_query = re.sub(incorrect_pattern_2, r'ANY(doc_id IN $document_ids WHERE doc_id IN \1.document_ids)', cypher_query)
+            logger.warning("Found incorrect CONTAINS syntax, fixing...")
+            cypher_query = re.sub(
+                incorrect_pattern_2,
+                r"ANY(doc_id IN $document_ids WHERE doc_id IN \1.document_ids)",
+                cypher_query,
+            )
             logger.info(f"Fixed query: {cypher_query}")
-        
+
         # Validate that the query has proper document filtering
-        if '$document_ids' in cypher_query and 'ANY(doc_id IN $document_ids WHERE doc_id IN' not in cypher_query:
-            logger.warning(f"Query uses $document_ids but doesn't have proper ANY() syntax")
-            logger.warning(f"Query might not filter correctly for multiple document IDs")
-        
+        if (
+            "$document_ids" in cypher_query
+            and "ANY(doc_id IN $document_ids WHERE doc_id IN" not in cypher_query
+        ):
+            logger.warning(
+                "Query uses $document_ids but doesn't have proper ANY() syntax"
+            )
+            logger.warning("Query might not filter correctly for multiple document IDs")
+
         return cypher_query
 
     def _fix_relationship_variable_syntax(self, cypher_query: str) -> str:
         """Fix common relationship variable syntax mistakes in Cypher queries."""
-        
         import re
-        
+
         # Common mistake: Using type(r) without defining the r variable
-        if 'type(r)' in cypher_query:
-            logger.warning(f"Query uses type(r), checking if all relationship patterns have r variable...")
-            
+        if "type(r)" in cypher_query:
+            logger.warning(
+                "Query uses type(r), checking if all relationship patterns have r variable..."
+            )
+
             # Find all relationship patterns and check if they have the r variable
             # Look for patterns like: -[:TYPE]-> or -[]-> but not -[r:TYPE]-> or -[r]->
-            
+
             # Pattern 1: -[:TYPE]-> (missing r variable)
-            missing_r_patterns = re.findall(r'-\[:([\w_]+)\]->', cypher_query)
+            missing_r_patterns = re.findall(r"-\[:([\w_]+)\]->", cypher_query)
             if missing_r_patterns:
-                logger.warning(f"Found relationship patterns without r variable: {missing_r_patterns}")
-                cypher_query = re.sub(r'-\[:([\w_]+)\]->', r'-[r:\1]->', cypher_query)
-                logger.info(f"Fixed -[:TYPE]-> patterns")
-            
+                logger.warning(
+                    f"Found relationship patterns without r variable: {missing_r_patterns}"
+                )
+                cypher_query = re.sub(r"-\[:([\w_]+)\]->", r"-[r:\1]->", cypher_query)
+                logger.info("Fixed -[:TYPE]-> patterns")
+
             # Pattern 2: -[:TYPE]- (bidirectional, missing r variable)
-            missing_r_patterns_bidir = re.findall(r'-\[:([\w_]+)\]-(?!>)', cypher_query)
+            missing_r_patterns_bidir = re.findall(r"-\[:([\w_]+)\]-(?!>)", cypher_query)
             if missing_r_patterns_bidir:
-                logger.warning(f"Found bidirectional relationship patterns without r variable: {missing_r_patterns_bidir}")
-                cypher_query = re.sub(r'-\[:([\w_]+)\]-(?!>)', r'-[r:\1]-', cypher_query)
-                logger.info(f"Fixed -[:TYPE]- patterns")
-            
+                logger.warning(
+                    f"Found bidirectional relationship patterns without r variable: {missing_r_patterns_bidir}"
+                )
+                cypher_query = re.sub(
+                    r"-\[:([\w_]+)\]-(?!>)", r"-[r:\1]-", cypher_query
+                )
+                logger.info("Fixed -[:TYPE]- patterns")
+
             # Pattern 3: -[]-> (any relationship, missing r variable)
-            if re.search(r'-\[\]->', cypher_query):
-                logger.warning(f"Found -[]-> pattern without r variable")
-                cypher_query = re.sub(r'-\[\]->', r'-[r]->', cypher_query)
-                logger.info(f"Fixed -[]-> patterns")
-            
+            if re.search(r"-\[\]->", cypher_query):
+                logger.warning("Found -[]-> pattern without r variable")
+                cypher_query = re.sub(r"-\[\]->", r"-[r]->", cypher_query)
+                logger.info("Fixed -[]-> patterns")
+
             # Pattern 4: -[]- (bidirectional any relationship, missing r variable)
-            if re.search(r'-\[\]-(?!>)', cypher_query):
-                logger.warning(f"Found -[]- pattern without r variable")
-                cypher_query = re.sub(r'-\[\]-(?!>)', r'-[r]-', cypher_query)
-                logger.info(f"Fixed -[]- patterns")
-            
+            if re.search(r"-\[\]-(?!>)", cypher_query):
+                logger.warning("Found -[]- pattern without r variable")
+                cypher_query = re.sub(r"-\[\]-(?!>)", r"-[r]-", cypher_query)
+                logger.info("Fixed -[]- patterns")
+
             # Final check: if we still have type(r) but no r variable anywhere, replace with null
-            if 'type(r)' in cypher_query and not re.search(r'-\[r[^\]]*\]', cypher_query):
-                logger.warning(f"Still no relationship variable r found, replacing type(r) with null...")
-                cypher_query = cypher_query.replace('type(r)', 'null')
-                logger.info(f"Replaced type(r) with null")
-            
+            if "type(r)" in cypher_query and not re.search(
+                r"-\[r[^\]]*\]", cypher_query
+            ):
+                logger.warning(
+                    "Still no relationship variable r found, replacing type(r) with null..."
+                )
+                cypher_query = cypher_query.replace("type(r)", "null")
+                logger.info("Replaced type(r) with null")
+
             logger.info(f"Final relationship variable fixed query: {cypher_query}")
-        
+
         return cypher_query
 
     def _create_retrieval_chain(self):
         """Builds the custom LCEL chain for context retrieval."""
-
         cypher_prompt = PromptTemplate.from_template(CYPHER_GENERATION_TEMPLATE)
         cypher_generation_chain = (
-            cypher_prompt 
-            | self.llm 
+            cypher_prompt
+            | self.llm
             | StrOutputParser()
-            | RunnableLambda(self._clean_cypher_query) # Add the cleaning step
+            | RunnableLambda(self._clean_cypher_query)  # Add the cleaning step
         )
 
-        vector_search_fn = RunnableLambda(self._vector_search).with_config(run_name="VectorSearch")
-        extract_entities_fn = RunnableLambda(self._extract_entities).with_config(run_name="ExtractEntities")
-        run_graph_query_fn = RunnableLambda(self._run_graph_query).with_config(run_name="RunGraphQuery")
+        vector_search_fn = RunnableLambda(self._vector_search).with_config(
+            run_name="VectorSearch"
+        )
+        extract_entities_fn = RunnableLambda(self._extract_entities).with_config(
+            run_name="ExtractEntities"
+        )
+        run_graph_query_fn = RunnableLambda(self._run_graph_query).with_config(
+            run_name="RunGraphQuery"
+        )
 
         return (
             RunnablePassthrough.assign(vector_context=vector_search_fn)
@@ -307,19 +344,19 @@ class RetrievalService:
             )
         )
 
-    async def _vector_search(self, inputs: Dict) -> List[Dict]:
+    async def _vector_search(self, inputs: dict) -> list[dict]:
         """Performs vector search and returns serialized chunk data."""
         q_embedding = await self.em.get_embedding(inputs["query"])
         chunks = self.pg_db.get_chunks_by_similarity(
             document_ids=inputs["document_ids"],
             embedding=q_embedding,
             limit=inputs.get("vector_limit", 5),
-            threshold=1.0
+            threshold=1.0,
         )
         logger.info(f"Vector search found {len(chunks)} chunks.")
         return [Chunk.model_validate(c).model_dump() for c in chunks]
 
-    def _extract_entities(self, chunks: List[Dict]) -> List[str]:
+    def _extract_entities(self, chunks: list[dict]) -> list[str]:
         """Extracts entities from chunk text using the pre-built chain."""
         text_blob = " ".join([chunk.get("text", "") for chunk in chunks])
         if not text_blob:
@@ -330,7 +367,7 @@ class RetrievalService:
         logger.info(f"Extracted entities: {entities}")
         return entities
 
-    def _run_graph_query(self, inputs: Dict) -> List[Dict]:
+    def _run_graph_query(self, inputs: dict) -> list[dict]:
         """Executes the generated Cypher query against the graph database."""
         cypher_query = inputs["cypher_query"]
         logger.info(f"Executing Cypher query: {cypher_query}")
@@ -338,12 +375,12 @@ class RetrievalService:
             # Convert UUIDs to strings for Neo4j compatibility
             document_ids_str = [str(doc_id) for doc_id in inputs["document_ids"]]
             params = {
-                "entities": inputs["entities"], 
+                "entities": inputs["entities"],
                 "query": inputs["query"],
-                "document_ids": document_ids_str
+                "document_ids": document_ids_str,
             }
             results = self.graph_db.query(cypher_query, params=params)
-            
+
             # Remove duplicates based on node_title and relationship_type
             seen = set()
             unique_results = []
@@ -352,13 +389,15 @@ class RetrievalService:
                 key = (
                     result.get("node_title"),
                     result.get("relationship_type"),
-                    result.get("neighbor_title")
+                    result.get("neighbor_title"),
                 )
                 if key not in seen:
                     seen.add(key)
                     unique_results.append(result)
-            
-            logger.info(f"Graph query returned {len(unique_results)} unique results (from {len(results)} total).")
+
+            logger.info(
+                f"Graph query returned {len(unique_results)} unique results (from {len(results)} total)."
+            )
             return unique_results
         except Exception as e:
             logger.error(f"Graph query failed: {e}", exc_info=True)
@@ -367,13 +406,11 @@ class RetrievalService:
     async def retrieve_contexts(
         self,
         query: str,
-        document_ids: List[UUID],
+        document_ids: list[UUID],
         vector_limit: int = 5,
         graph_limit: int = 15,
-    ) -> Dict[str, List[Dict]]:
-        """
-        Invokes the custom retrieval chain to fetch combined vector and graph context.
-        """
+    ) -> dict[str, list[dict]]:
+        """Invokes the custom retrieval chain to fetch combined vector and graph context."""
         logger.info(f"Initiating custom retrieval chain for query: '{query}'")
 
         chain_input = {

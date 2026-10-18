@@ -1,7 +1,7 @@
 import logging
 import os
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from src.config import Config
 from src.models.errors import EmbeddingAPIError, EmbeddingError
@@ -160,9 +160,9 @@ def process_file_and_store(
                 if progress_callback:
                     progress_callback(
                         progress_percent,
-                        f"Processing chunk {chunk_idx + 1}/{total_chunks}..."
+                        f"Processing chunk {chunk_idx + 1}/{total_chunks}...",
                     )
-                
+
                 # Compute embedding for this chunk using the agent's embedding model
                 try:
                     embedding = compute_embedding(
@@ -211,7 +211,7 @@ def process_file_and_store(
         logger.info(
             f"Successfully stored '{document_name}' with {total_chunks} chunks into the database."
         )
-        
+
         if progress_callback:
             progress_callback(100, f"Successfully processed {document_name}")
 

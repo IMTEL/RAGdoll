@@ -1,10 +1,11 @@
 from enum import Enum, auto
 
+
 class GraphDatabaseType(Enum):
-    """
-    Enum for chunk database types.
-    """
+    """Enum for chunk database types."""
+
     NEO4J = auto()
+
 
 class NodeType(Enum):
     PERSON = auto()
@@ -34,6 +35,7 @@ class NodeType(Enum):
     EVENT = auto()
     DISCOVERY = auto()
     APPLICATION = auto()
+
 
 class EdgeType(Enum):
     AUTHORED = auto()

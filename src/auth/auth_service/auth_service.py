@@ -2,11 +2,13 @@ import logging
 from collections.abc import Callable
 
 from fastapi import HTTPException
+
 from src.auth.auth_provider.base import AuthProvider
 from src.auth.auth_service.base import BaseAuthService
 from src.config import Config
 from src.models.users.user import User
 from src.rag_service.dao.user.base import UserDao
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class AuthService(BaseAuthService):
             raise HTTPException(status_code=401, detail="Unauthorized edit of agent")
         user = self.login_user(authorize)
         if user is None:
-            logger.warning(f"User does not exist")
+            logger.warning("User does not exist")
             raise HTTPException(
                 status_code=404, detail="Invalid user, could not find user"
             )

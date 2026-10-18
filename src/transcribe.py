@@ -69,7 +69,9 @@ def _normalize_whisper_language(language: str | None) -> str | None:
     return value.split("-")[0]
 
 
-def _transcribe_input(audio_input: np.ndarray | str, language: str | None = None) -> dict:
+def _transcribe_input(
+    audio_input: np.ndarray | str, language: str | None = None
+) -> dict:
     model = get_whisper_model()
     whisper_language = _normalize_whisper_language(language)
     segments, info = model.transcribe(

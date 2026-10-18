@@ -46,8 +46,8 @@ from pymongo import ASCENDING, MongoClient
 from src.config import Config
 from src.rag_service.context import Context
 from src.rag_service.dao.context.base import ContextDAO
-from src.rag_service.dao.context.hybrid_search import hybrid_search
 from src.rag_service.dao.context.faiss_vector_store import FAISSVectorStoreManager
+from src.rag_service.dao.context.hybrid_search import hybrid_search
 from src.rag_service.embeddings import similarity_search
 
 
@@ -177,7 +177,9 @@ class MongoDBContextDAO(ContextDAO):
         if not query_embedding:
             raise ValueError("Embedding cannot be empty")
         print("Available documents for filtering:", available_documents)
-        logger.info(f"Searching in {len(available_documents)} documents for agent {agent_id}")
+        logger.info(
+            f"Searching in {len(available_documents)} documents for agent {agent_id}"
+        )
 
         keyword_text = (
             keyword_query_text if keyword_query_text is not None else query_text
@@ -270,7 +272,7 @@ class MongoDBContextDAO(ContextDAO):
         context: Context,
     ) -> Context:
         """Store a new context document with metadata and embedding.
-        
+
         Stores the document in MongoDB and also indexes the embedding in FAISS
         for local vector similarity search.
         """
@@ -301,7 +303,7 @@ class MongoDBContextDAO(ContextDAO):
             document["total_chunks"] = context.total_chunks
 
         self.collection.insert_one(document)
-        
+
         # Also add to FAISS vector store for local similarity search
         try:
             manager = FAISSVectorStoreManager()
@@ -321,7 +323,7 @@ class MongoDBContextDAO(ContextDAO):
         except Exception as e:
             logger.error(f"Failed to add embedding to FAISS: {e}")
             # Don't fail the entire operation if FAISS write fails
-        
+
         return context
 
     def is_reachable(self) -> bool:

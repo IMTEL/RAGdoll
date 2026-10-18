@@ -64,7 +64,9 @@ def _extract_json_object(text: str) -> dict | None:
     return None
 
 
-def _parse_llm_response(raw_response: str, allowed_function_names: set[str]) -> tuple[str, list[dict]]:
+def _parse_llm_response(
+    raw_response: str, allowed_function_names: set[str]
+) -> tuple[str, list[dict]]:
     parsed = _extract_json_object(raw_response)
     if parsed is not None:
         message = parsed.get("message")
@@ -101,7 +103,9 @@ def _parse_llm_response(raw_response: str, allowed_function_names: set[str]) -> 
     return parsed_response.strip(), function_calls
 
 
-def function_prompt_section(agent: Agent, active_role_id: str | None) -> tuple[str, set[str]]:
+def function_prompt_section(
+    agent: Agent, active_role_id: str | None
+) -> tuple[str, set[str]]:
     if not active_role_id:
         return "", set()
 
@@ -117,7 +121,9 @@ def function_prompt_section(agent: Agent, active_role_id: str | None) -> tuple[s
     if not function_definitions:
         return "", set()
 
-    allowed_names = {_normalize_function_name(function.name) for function in function_definitions}
+    allowed_names = {
+        _normalize_function_name(function.name) for function in function_definitions
+    }
     lines = [
         "You may request external function calls, but only from this allowed list.",
         "Always respond as valid JSON and nothing else, using this exact shape:",
@@ -266,7 +272,9 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
 
     embedding_api_key = getattr(agent, "embedding_api_key", None)
     if ":" not in embedding_model_config:
-        embedding_model_config = f"gemini:{embedding_model_config or 'text-embedding-004'}"
+        embedding_model_config = (
+            f"gemini:{embedding_model_config or 'text-embedding-004'}"
+        )
     embedding_model = create_embeddings_model(
         embedding_model_config,
         embedding_api_key=embedding_api_key,
@@ -310,7 +318,9 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     )
     prompt += ("Your role: " + role_prompt + "\n") if role_prompt else ""
     if function_prompt:
-        prompt += "\n\nExternal function calling instructions:\n" + function_prompt + "\n"
+        prompt += (
+            "\n\nExternal function calling instructions:\n" + function_prompt + "\n"
+        )
     # Add retrieved context to prompt
     if retrieved_contexts:
         prompt += "\n\nRelevant Information (IMPORTANT: this information is 100% true for your role in your world, prioritise it over all other sources):\n"
@@ -385,7 +395,9 @@ def chat_history_prompt_section(
         for msg in command.chat_log[
             limit_start : (-1 if not include_latest else None)
         ]:  # Exclude latest user message
-            role_label = "ASSISTANT" if msg.role.lower() == "agent" else msg.role.upper()
+            role_label = (
+                "ASSISTANT" if msg.role.lower() == "agent" else msg.role.upper()
+            )
             chat_history += f"{role_label}: {msg.content}\n"
     return chat_history
 
@@ -432,5 +444,4 @@ def game_context_prompt_section(command: Command) -> str:
         "to the user's question, the user's current task, or the character's role. "
         "Do not mention task progress unless it helps answer the user or guide their next action. Tasks may be incomplete, do not assume that it is done entirely unless status is finished, as the user may need guidance in finishing the task:  :\n"
         + "\n\n".join(sections)
-        
     )

@@ -97,7 +97,7 @@ class PiperTextToSpeechService(TextToSpeechService):
         value = (language or self.config.TTS_DEFAULT_LANGUAGE or "en").strip().lower()
         if value in {"nb", "nn", "nor", "no_no", "nb_no", "nn_no"}:
             return "no"
-        if value in {"en_us", "en-gb", "en_us", "eng"}:
+        if value in {"en_us", "en-gb", "eng"}:
             return "en"
         if value in {"es_es", "spa"}:
             return "es"
@@ -112,7 +112,9 @@ class PiperTextToSpeechService(TextToSpeechService):
             "es": self.config.TTS_DEFAULT_VOICE_ES,
             "zh": self.config.TTS_DEFAULT_VOICE_ZH,
         }
-        return voice_map.get(language, voice_map.get(self.config.TTS_DEFAULT_LANGUAGE, ""))
+        return voice_map.get(
+            language, voice_map.get(self.config.TTS_DEFAULT_LANGUAGE, "")
+        )
 
     def _load_voice(self, voice_name: str):
         if not voice_name:

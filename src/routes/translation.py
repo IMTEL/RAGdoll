@@ -46,7 +46,9 @@ def translate_batch(request: BatchTranslateRequest):
     """Translate multiple texts with one client request."""
     texts = [text.strip() for text in request.texts if text.strip()]
     if not texts:
-        return JSONResponse(content={"message": "At least one text is required."}, status_code=400)
+        return JSONResponse(
+            content={"message": "At least one text is required."}, status_code=400
+        )
 
     try:
         results = get_translation_service().translate_many(

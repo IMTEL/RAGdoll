@@ -177,9 +177,7 @@ class LibreTranslateService(TranslationService):
             "cached": result.cached,
         }
 
-    def _get_cached(
-        self, cache_key: tuple[str, str, str]
-    ) -> TranslationResult | None:
+    def _get_cached(self, cache_key: tuple[str, str, str]) -> TranslationResult | None:
         if self.cache_ttl_seconds <= 0 or self.cache_max_entries <= 0:
             return None
 

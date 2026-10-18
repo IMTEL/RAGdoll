@@ -7,7 +7,11 @@ from src.models.accesskey import AccessKey
 class AbstractAccessService:
     @abstractmethod
     def generate_accesskey(
-        self, name: str, expiry_date: datetime | None, agent_id: str, view_once: bool = True
+        self,
+        name: str,
+        expiry_date: datetime | None,
+        agent_id: str,
+        view_once: bool = True,
     ) -> AccessKey:
         """Generates an accesskey and adds it into the database, returns the generated key."""
 
