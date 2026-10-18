@@ -1,5 +1,8 @@
 """MongoDB implementation for agent storage."""
 
+import logging
+from datetime import datetime
+
 from bson import ObjectId
 from pymongo import MongoClient
 
@@ -10,6 +13,37 @@ from src.utils.crypto_utils import decrypt_value, encrypt_str
 
 
 config = Config()
+logger = logging.getLogger(__name__)
+
+_PROVIDER_KEY_FIELDS = ("llm_api_key", "embedding_api_key")
+# Set on load to flag undecryptable provider keys; never stored.
+_LOAD_ONLY_FIELDS = {f"{field}_invalid" for field in _PROVIDER_KEY_FIELDS}
+
+
+def _agent_from_doc(agent_doc: dict) -> Agent:
+    """Builds an Agent from a stored document, decrypting its provider keys.
+
+    A missing key loads as empty. A key that cannot be decrypted (FERNET_KEY
+    changed, or its key was rotated out) also loads as empty, with
+    ``<field>_invalid`` set so the user can be asked to enter it again; the
+    agent itself still loads.
+    """
+    for field in _PROVIDER_KEY_FIELDS:
+        token = agent_doc.get(field) or ""
+        agent_doc[field] = ""
+        if not token:
+            continue
+        try:
+            agent_doc[field] = decrypt_value(token)
+        except ValueError:
+            logger.warning(
+                "Agent %s: stored %s cannot be decrypted with the configured "
+                "FERNET_KEY and must be entered again",
+                agent_doc.get("id"),
+                field,
+            )
+            agent_doc[f"{field}_invalid"] = True
+    return Agent(**agent_doc)
 
 
 class MongoDBAgentDAO(AgentDAO):
@@ -33,11 +67,15 @@ class MongoDBAgentDAO(AgentDAO):
         Returns:
             Agent: The stored agent object (unchanged as Agent doesn't have id)
         """
-        agent_dict = agent.model_dump()
-        if agent.llm_api_key:
-            agent_dict["llm_api_key"] = encrypt_str(agent.llm_api_key)
-        if agent.embedding_api_key:
-            agent_dict["embedding_api_key"] = encrypt_str(agent.embedding_api_key)
+        agent_dict = agent.model_dump(exclude=_LOAD_ONLY_FIELDS)
+        for field in _PROVIDER_KEY_FIELDS:
+            if agent_dict[field]:
+                agent_dict[field] = encrypt_str(agent_dict[field])
+            elif agent.id and not agent_dict.get(f"{field}_id"):
+                # An empty key on update keeps the stored one, including one
+                # that the current FERNET_KEY cannot decrypt. With a stored-key
+                # reference set, the literal key is cleared instead.
+                agent_dict.pop(field)
 
         if not agent.id:
             # Create new agent
@@ -80,15 +118,8 @@ class MongoDBAgentDAO(AgentDAO):
         agents = list(self.collection.find())
         result = []
         for agent_doc in agents:
-            agent_doc["id"] = str(agent_doc["_id"])
-            agent_doc.pop("_id", None)
-            if agent_doc["llm_api_key"]:
-                agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
-            if agent_doc["embedding_api_key"]:
-                agent_doc["embedding_api_key"] = decrypt_value(
-                    agent_doc["embedding_api_key"]
-                )
-            result.append(Agent(**agent_doc))
+            agent_doc["id"] = str(agent_doc.pop("_id"))
+            result.append(_agent_from_doc(agent_doc))
         return result
 
     def delete_agent_by_id(self, agent_id: str) -> bool:
@@ -118,17 +149,18 @@ class MongoDBAgentDAO(AgentDAO):
         try:
             agent_doc = self.collection.find_one({"_id": ObjectId(agent_id)})
             if agent_doc:
-                agent_doc.pop("_id", None)
-                if agent_doc["llm_api_key"]:
-                    agent_doc["llm_api_key"] = decrypt_value(agent_doc["llm_api_key"])
-                if agent_doc["embedding_api_key"]:
-                    agent_doc["embedding_api_key"] = decrypt_value(
-                        agent_doc["embedding_api_key"]
-                    )
-                return Agent(**agent_doc)
+                agent_doc["id"] = str(agent_doc.pop("_id"))
+                return _agent_from_doc(agent_doc)
             return None
         except Exception:
             return None
+
+    def touch_access_key(self, agent_id: str, key_id: str, when: datetime) -> None:
+        """Set ``last_use`` of one access key without rewriting the agent."""
+        self.collection.update_one(
+            {"_id": ObjectId(agent_id), "access_key.id": key_id},
+            {"$set": {"access_key.$.last_use": when}},
+        )
 
     def is_reachable(self) -> bool:
         """Verify MongoDB connection health.

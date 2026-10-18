@@ -7,6 +7,7 @@ import uuid
 from pymongo.errors import PyMongoError
 
 from src.config import Config
+from src.globals import user_dao
 from src.llm import create_llm
 from src.log_redaction import redact
 from src.models import Agent
@@ -15,6 +16,7 @@ from src.models.errors import EmbeddingAPIError, EmbeddingError, RetrievalFailed
 from src.rag_service.dao import get_context_dao
 from src.rag_service.dao.context.faiss_vector_store import FAISSIndexError
 from src.rag_service.embeddings import create_embeddings_model
+from src.utils.provider_keys import resolve_provider_keys
 
 
 logger = logging.getLogger(__name__)
@@ -244,6 +246,8 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
     Returns:
         Dictionary with response, function calls, and metadata
     """
+    # Decrypt provider keys that reference the owner's stored API keys.
+    agent = resolve_provider_keys(agent, user_dao)
     # Use agent's prompt as base, with variable substitution
     full_chat_history = chat_history_prompt_section(command, include_latest=True)
     full_chat_history = chat_history_prompt_section(command)

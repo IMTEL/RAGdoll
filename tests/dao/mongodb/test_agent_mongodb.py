@@ -4,10 +4,15 @@ These tests verify the MongoDB implementation of the AgentDAO
 interface. They require a running MongoDB instance (can be mock or real).
 """
 
+import logging
+from datetime import UTC, datetime
+
 import pytest
 from bson import ObjectId
+from cryptography.fernet import Fernet
 
 from src.config import Config
+from src.models.accesskey import AccessKey
 from src.models.agent import Agent, Role
 from src.rag_service.dao import MongoDBAgentDAO
 from src.utils.crypto_utils import decrypt_value
@@ -425,3 +430,106 @@ def test_update_agent_re_encrypts_api_key(mongodb_repo, sample_agent):
     # Verify decryption works
     decrypted_key = decrypt_value(agent_doc["llm_api_key"])
     assert decrypted_key == new_key, "Decrypted key should match new key"
+
+
+def _foreign_token(value: str) -> str:
+    """A Fernet token encrypted with a key the app does not have."""
+    return Fernet(Fernet.generate_key()).encrypt(value.encode()).decode()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("load", ["by_id", "all"])
+def test_undecryptable_provider_key_loads_agent_flagged(
+    mongodb_repo, sample_agent, caplog, load
+):
+    saved = mongodb_repo.add_agent(sample_agent)
+    token = _foreign_token("sk-lost-key")
+    mongodb_repo.collection.update_one(
+        {"_id": ObjectId(saved.id)}, {"$set": {"llm_api_key": token}}
+    )
+
+    with caplog.at_level(logging.WARNING):
+        if load == "by_id":
+            agent = mongodb_repo.get_agent_by_id(saved.id)
+        else:
+            [agent] = mongodb_repo.get_agents()
+
+    assert agent is not None
+    assert agent.id == saved.id
+    assert agent.llm_api_key == ""
+    assert agent.llm_api_key_invalid is True
+    assert agent.embedding_api_key == sample_agent.embedding_api_key
+    assert agent.embedding_api_key_invalid is False
+    assert saved.id in caplog.text
+    assert token not in caplog.text
+
+
+@pytest.mark.integration
+def test_missing_provider_key_fields_load_as_empty(mongodb_repo, sample_agent):
+    saved = mongodb_repo.add_agent(sample_agent)
+    mongodb_repo.collection.update_one(
+        {"_id": ObjectId(saved.id)},
+        {"$unset": {"llm_api_key": "", "embedding_api_key": ""}},
+    )
+
+    agent = mongodb_repo.get_agent_by_id(saved.id)
+    assert agent is not None
+    assert agent.llm_api_key == ""
+    assert agent.embedding_api_key == ""
+    assert agent.llm_api_key_invalid is False
+    [listed] = mongodb_repo.get_agents()
+    assert listed.id == saved.id
+
+
+@pytest.mark.integration
+def test_saving_flagged_agent_keeps_the_stored_ciphertext(mongodb_repo, sample_agent):
+    saved = mongodb_repo.add_agent(sample_agent)
+    token = _foreign_token("sk-lost-key")
+    mongodb_repo.collection.update_one(
+        {"_id": ObjectId(saved.id)}, {"$set": {"llm_api_key": token}}
+    )
+
+    agent = mongodb_repo.get_agent_by_id(saved.id)
+    agent.name = "Renamed"
+    mongodb_repo.add_agent(agent)
+
+    doc = mongodb_repo.collection.find_one({"_id": ObjectId(saved.id)})
+    assert doc["name"] == "Renamed"
+    assert doc["llm_api_key"] == token
+    assert "llm_api_key_invalid" not in doc
+    assert "embedding_api_key_invalid" not in doc
+
+
+@pytest.mark.integration
+def test_touch_access_key_sets_last_use_only(mongodb_repo, sample_agent):
+    sample_agent.access_key = [
+        AccessKey(id="key00001", name="a", key_hash="0" * 64),
+        AccessKey(id="key00002", name="b", key_hash="1" * 64),
+    ]
+    saved = mongodb_repo.add_agent(sample_agent)
+    when = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
+
+    mongodb_repo.touch_access_key(saved.id, "key00002", when)
+
+    first, second = mongodb_repo.get_agent_by_id(saved.id).access_key
+    assert first.last_use is None
+    assert second.last_use == when
+
+
+@pytest.mark.integration
+def test_stored_key_reference_clears_the_literal_key(mongodb_repo, sample_agent):
+    saved = mongodb_repo.add_agent(sample_agent)
+
+    agent = mongodb_repo.get_agent_by_id(saved.id)
+    agent.llm_api_key = ""
+    agent.llm_api_key_id = "user-key-1"
+    agent.embedding_api_key = ""
+    mongodb_repo.add_agent(agent)
+
+    doc = mongodb_repo.collection.find_one({"_id": ObjectId(saved.id)})
+    assert doc["llm_api_key"] == ""
+    assert doc["llm_api_key_id"] == "user-key-1"
+    # The embedding key had no reference and an empty value keeps it.
+    loaded = mongodb_repo.get_agent_by_id(saved.id)
+    assert loaded.embedding_api_key == sample_agent.embedding_api_key
+    assert loaded.llm_api_key_id == "user-key-1"

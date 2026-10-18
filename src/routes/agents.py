@@ -5,12 +5,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from src.access_service.access_service import parse_access_key
 from src.globals import access_service, agent_dao, user_dao
-from src.models.accesskey import AccessKey
-from src.models.agent import Agent, Role
+from src.models.accesskey import AccessKeyCreated, AccessKeyPublic, as_utc
+from src.models.agent import Agent, AgentPublic, Role
 from src.models.users.user import User
-
-# Bad practice, but makes every dependency accessible without 6 different imports
 from src.utils.path_dependencies import (
     agent_with_id,
     get_auth,
@@ -21,9 +20,18 @@ from src.utils.path_dependencies import (
     require_user_has_agent_ownership,
 )
 
+# Bad practice, but makes every dependency accessible without 6 different imports
+from src.utils.provider_keys import (
+    ALLOWED_USAGES,
+    PROVIDER_KEY_FIELDS,
+    resolve_provider_keys,
+)
+
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
 logger = logging.getLogger(__name__)
+
+CHAT_ACCESS_KEY_LIFETIME = datetime.timedelta(hours=24)
 
 
 def _public_user(user: User, role: str | None = None) -> dict:
@@ -36,18 +44,76 @@ def _public_user(user: User, role: str | None = None) -> dict:
     }
 
 
-def _scrub_agent_api_keys(agent: Agent) -> Agent:
-    agent_copy = agent.model_copy()
-    agent_copy.llm_api_key = ""
-    agent_copy.embedding_api_key = ""
-    return agent_copy
-
-
-def _agent_for_access_key_holder(agent: Agent) -> Agent:
+def _agent_for_access_key_holder(agent: Agent) -> AgentPublic:
     """Agent view for access-key callers: no provider keys and no access keys."""
-    agent_copy = _scrub_agent_api_keys(agent)
-    agent_copy.access_key = []
-    return agent_copy
+    return AgentPublic.from_agent(agent, include_access_keys=False)
+
+
+def _public(agent: Agent) -> AgentPublic:
+    """Agent view for users, without secrets.
+
+    Stored-key references are resolved only to set the ``*_invalid`` flags.
+    """
+    return AgentPublic.from_agent(resolve_provider_keys(agent, user_dao))
+
+
+def _apply_provider_key_choice(
+    new: Agent, existing: Agent | None, user: User, is_owner: bool
+) -> None:
+    """Applies the provider-key rules of a create or update to ``new``, in place.
+
+    Per key (LLM and embedding):
+
+    - A non-empty literal key wins and clears the stored-key reference.
+    - Otherwise a reference (``*_api_key_id``) to a stored key replaces the
+      literal key. Stored keys belong to users, and references always resolve
+      against the agent owner's keys, so only the owner may set or change a
+      reference, and only to one of their own keys of a matching usage.
+      Re-sending the agent's current reference is allowed for collaborators.
+    - Neither: keep what is stored (the API never returns keys to send back).
+
+    Raises:
+        HTTPException: 403 if a collaborator changes the reference, 404 if the
+            key is not one of the owner's stored keys, 400 if its usage does
+            not fit (an embedding-only key as the LLM key, or vice versa)
+    """
+    for field in PROVIDER_KEY_FIELDS:
+        id_field = f"{field}_id"
+        key_id = getattr(new, id_field)
+        if getattr(new, field):
+            setattr(new, id_field, None)
+            continue
+        current_id = getattr(existing, id_field) if existing else None
+        if not key_id:
+            if existing is not None:
+                setattr(new, field, getattr(existing, field))
+                setattr(new, id_field, current_id)
+            continue
+        if key_id != current_id:
+            if not is_owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only the agent owner can select a stored API key",
+                )
+            stored = next((k for k in user.api_keys if k.id == key_id), None)
+            if stored is None:
+                raise HTTPException(status_code=404, detail="API key not found")
+            if stored.usage not in ALLOWED_USAGES[field]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"API key '{stored.label}' cannot be used as {field}",
+                )
+        setattr(new, field, "")
+
+
+def _may_hold_access_key(agent: Agent, access_key: str) -> bool:
+    """Cheap pre-filter before ``authenticate`` when scanning every agent.
+
+    New-format keys name their key id, so only agents with that id can match.
+    Legacy keys carry no id and must be checked against every agent.
+    """
+    key_id = parse_access_key(access_key)
+    return key_id is None or any(ak.id == key_id for ak in agent.access_key)
 
 
 class UserSearchResult(BaseModel):
@@ -80,8 +146,10 @@ class ExternalAgentInfo(BaseModel):
     roles: list[Role]
 
 
-@router.post("")
-def create_agent(agent: Agent, user: Annotated[User, Depends(require_user)]) -> Agent:
+@router.post("", response_model=AgentPublic)
+def create_agent(
+    agent: Agent, user: Annotated[User, Depends(require_user)]
+) -> AgentPublic:
     """Creates a new agent.
 
     Args:
@@ -89,45 +157,55 @@ def create_agent(agent: Agent, user: Annotated[User, Depends(require_user)]) -> 
         user (Annotated[User, Depends): The user fetched by the authorization token
 
     Raises:
-        HTTPException: If
+        HTTPException: 400/404 for an unusable ``*_api_key_id`` (see
+            ``_apply_provider_key_choice``)
 
     Returns:
-        Agent: _description_
+        AgentPublic: the created agent, without secrets
     """
     agent.id = None
+    # Access keys are only created through the access-key endpoints.
+    agent.access_key = []
+    _apply_provider_key_choice(agent, None, user, is_owner=True)
     agent = agent_dao.add_agent(agent)
     # Add new agent id to owned agents
     user.owned_agents.append(agent.id)
     user_dao.set_user(user)
-    return agent
+    return _public(agent)
 
 
 @router.patch(
     "/{agent_id}",
+    response_model=AgentPublic,
     dependencies=[Depends(require_user_has_agent_access)],
 )
 @router.post(
     "/{agent_id}",
+    response_model=AgentPublic,
     dependencies=[Depends(require_user_has_agent_access)],
 )
 def update_agent(
     updated_agent: Agent,
     existing_agent: Annotated[Agent, Depends(agent_with_id)],
     user: Annotated[User, Depends(require_user)],
-) -> Agent:
+) -> AgentPublic:
     """Update existing agent.
+
+    An empty ``llm_api_key`` or ``embedding_api_key`` keeps the stored key,
+    since the API never returns provider keys to send back. See
+    ``_apply_provider_key_choice`` for stored-key references.
 
     Args:
         updated_agent (Agent): The updated agent
         existing_agent (Agent): The existing agent within the repository
-        user (Annotated[User, Depends): The current user
+        user (User): The current user
 
     Raises:
         HTTPException: 404 if the AgentID is invalid
-        HTTPException: _description_
+        HTTPException: 400/403/404 for an unusable ``*_api_key_id``
 
     Returns:
-        _type_: _description_
+        AgentPublic: the updated agent, without secrets
     """
     updated_agent.id = existing_agent.id
     if not updated_agent.llm_provider:
@@ -135,42 +213,40 @@ def update_agent(
     if not updated_agent.llm_model or existing_agent.llm_model == "none":
         updated_agent.llm_provider = existing_agent.llm_provider
         updated_agent.llm_model = existing_agent.llm_model
-    if not updated_agent.llm_api_key:
-        updated_agent.llm_api_key = existing_agent.llm_api_key
-    if not updated_agent.embedding_api_key:
-        updated_agent.embedding_api_key = existing_agent.embedding_api_key
+    _apply_provider_key_choice(
+        updated_agent,
+        existing_agent,
+        user,
+        is_owner=existing_agent.id in user.owned_agents,
+    )
     updated_agent.access_key = existing_agent.access_key
 
     updated_agent = agent_dao.add_agent(updated_agent)
-    if updated_agent.id not in user.owned_agents:
-        return _scrub_agent_api_keys(updated_agent)
-    return updated_agent
+    return _public(updated_agent)
 
 
 # Get all agents
-@router.get("", response_model=list[Agent])
+@router.get("", response_model=list[AgentPublic] | list[ExternalAgentInfo])
 def get_agents(access: Annotated[User | str, Depends(get_optional_user)]):
-    """Retrieve all agent configurations.
+    """Retrieve the agents the caller can see.
 
     Returns:
-        list[Agent]: All stored agents
+        list[AgentPublic]: the user's owned and shared agents, without secrets
+        list[ExternalAgentInfo]: for an access key, the agent it unlocks
     """
     agents: list = []
     if isinstance(access, User):
         agents += [
-            agent
-            for agent_id in access.owned_agents
-            if (agent := agent_dao.get_agent_by_id(agent_id)) is not None
-        ]
-        agents += [
-            _scrub_agent_api_keys(agent)
-            for agent_id in access.collaborating_agents
+            _public(agent)
+            for agent_id in [*access.owned_agents, *access.collaborating_agents]
             if (agent := agent_dao.get_agent_by_id(agent_id)) is not None
         ]
     elif isinstance(access, str):
         all_agents = agent_dao.get_agents()
         for agent in all_agents:
-            if access_service.authenticate(agent.id, access):
+            if _may_hold_access_key(agent, access) and access_service.authenticate(
+                agent.id, access
+            ):
                 return [
                     ExternalAgentInfo(
                         agent_id=agent.id or "", name=agent.name, roles=agent.roles
@@ -337,7 +413,9 @@ def leave_agent(
 
 # Get a specific agent by ID using AccessKey for authentication
 @router.get(
-    "/agent-info", response_model=Agent, dependencies=[Depends(has_agent_call_access)]
+    "/agent-info",
+    response_model=AgentPublic,
+    dependencies=[Depends(has_agent_call_access)],
 )
 def agent_info(
     agent_id: str,
@@ -350,7 +428,7 @@ def agent_info(
         access_key (Annotated[str | None, Header()]): access key header
 
     Returns:
-        Agent: The requested agent, without provider API keys or access keys
+        AgentPublic: The requested agent, without provider API keys or access keys
 
     Raises:
         HTTPException: If agent not found
@@ -384,8 +462,7 @@ def agent_info_by_access_key(
     active_keys = 0
     expired_keys = 0
     has_header = bool(access_key and access_key.strip())
-    # Naive local time, matching how AccessService stores and checks expiry.
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(datetime.UTC)
     if not (access_key and access_key.strip()):
         raise HTTPException(
             status_code=400,
@@ -394,11 +471,16 @@ def agent_info_by_access_key(
     for agent in agents:
         total_keys += len(agent.access_key)
         for stored_key in agent.access_key:
-            if stored_key.expiry_date is None or now < stored_key.expiry_date:
+            expiry_date = as_utc(stored_key.expiry_date)
+            if expiry_date is None or now < expiry_date:
                 active_keys += 1
             else:
                 expired_keys += 1
-        if agent.id and access_service.authenticate(agent.id, access_key):
+        if (
+            agent.id
+            and _may_hold_access_key(agent, access_key)
+            and access_service.authenticate(agent.id, access_key)
+        ):
             return ExternalAgentInfo(
                 agent_id=agent.id or "",
                 name=agent.name,
@@ -425,10 +507,10 @@ def agent_info_by_access_key(
 # TODO : implement a better system of returning status codes on exceptions
 
 
-@router.get("/new-accesskey", response_model=AccessKey)
+@router.get("/new-accesskey", response_model=AccessKeyCreated)
 @router.post(
     "/{agent_id}/accesskeys/",
-    response_model=AccessKey,
+    response_model=AccessKeyCreated,
     dependencies=[Depends(require_user_has_agent_ownership)],
 )
 def new_access_key(
@@ -436,19 +518,19 @@ def new_access_key(
     agent_id: str,
     user: Annotated[User, Depends(require_user)],
     expiry_date: str | None = None,
-    view_once: bool = True,
-):
+) -> AccessKeyCreated:
+    """Creates an access key. The response is the only time the key is shown.
+
+    ``expiry_date`` is ISO 8601; without a timezone it is taken as UTC.
+    """
     require_user_has_agent_ownership(agent_id, user)
     try:
-        if expiry_date is None:
-            return access_service.generate_accesskey(name, None, agent_id, view_once)
-        else:
-            expiry_date_formatted = datetime.datetime.fromisoformat(
-                expiry_date
-            ).replace(tzinfo=None)
-            return access_service.generate_accesskey(
-                name, expiry_date_formatted, agent_id, view_once
-            )
+        expiry = (
+            None
+            if expiry_date is None
+            else datetime.datetime.fromisoformat(expiry_date)
+        )
+        return access_service.generate_accesskey(name, expiry, agent_id)
 
     except HTTPException:
         raise
@@ -458,7 +540,7 @@ def new_access_key(
 
 @router.delete(
     "/{agent_id}/accesskeys/{access_key_id}",
-    response_model=list[AccessKey],
+    response_model=bool,
     dependencies=[Depends(require_user_has_agent_access)],
 )
 def revoke_access_key(
@@ -476,7 +558,7 @@ def revoke_access_key(
 
 @router.get(
     "/{agent_id}/accesskeys",
-    response_model=list[AccessKey],
+    response_model=list[AccessKeyPublic],
     dependencies=[Depends(require_user_has_agent_access)],
 )
 def get_access_keys(
@@ -489,44 +571,44 @@ def get_access_keys(
         raise HTTPException(
             status_code=404, detail=f" agent of id not found {agent_id}"
         )
-    access_keys = [access_key.model_copy() for access_key in agent.access_key]
-    for access_key in access_keys:
-        if access_key.view_once:
-            access_key.key = None
-    return access_keys
+    return [AccessKeyPublic.model_validate(ak.model_dump()) for ak in agent.access_key]
 
 
-@router.get("/chat-accesskey", response_model=AccessKey)
-@router.get("/chat-access-key", response_model=AccessKey)
+@router.get("/chat-accesskey", response_model=AccessKeyCreated)
+@router.get("/chat-access-key", response_model=AccessKeyCreated)
 @router.post(
     "/{agent_id}/accesskeys",
+    response_model=AccessKeyCreated,
     dependencies=[Depends(require_user_has_agent_access)],
 )
 def chat_access_key(
     agent: Annotated[Agent, Depends(agent_with_id)],
     user: Annotated[User, Depends(require_user)],
-) -> AccessKey:
+) -> AccessKeyCreated:
+    """Mints a new 24-hour access key for the user to chat with the agent.
+
+    Stored keys cannot be shown again, so every call creates a new key. The
+    user's expired chat keys are removed first so they do not pile up.
+    """
     require_user_has_agent_access(
         agent.id, user
     )  # Still in place because of the get routes
 
     user_key_suffix = user.id if user and user.id else "demo"
     key_name = f"Chat Access Key - {user_key_suffix}"
-    # Naive local time, matching how AccessService stores and checks expiry.
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(datetime.UTC)
 
-    for access_key in agent.access_key:
+    for access_key in list(agent.access_key):
+        expiry_date = as_utc(access_key.expiry_date)
         if (
             access_key.name == key_name
-            and access_key.key
-            and (access_key.expiry_date is None or access_key.expiry_date > now)
+            and expiry_date is not None
+            and expiry_date <= now
         ):
-            return access_key
+            access_service.revoke_key(agent.id, access_key.id)
 
     return access_service.generate_accesskey(
-        key_name,
-        now + datetime.timedelta(days=2),
-        agent.id,
+        key_name, now + CHAT_ACCESS_KEY_LIFETIME, agent.id
     )
 
 
@@ -535,7 +617,7 @@ def chat_access_key(
 # paths above (e.g. "/agent-info-by-accesskey", "/chat-accesskey").
 @router.get(
     "/{agent_id}",
-    response_model=Agent,
+    response_model=AgentPublic,
     dependencies=[Depends(has_agent_call_access)],
 )
 def get_agent(
@@ -549,10 +631,9 @@ def get_agent(
         caller (Annotated[User | str, Depends()]): The user or access key from the token
 
     Returns:
-        Agent: The requested agent, with secrets removed unless the caller owns it
+        AgentPublic: The requested agent, without secrets. Access-key callers
+            do not see the agent's access keys at all.
     """
     if not isinstance(caller, User):
         return _agent_for_access_key_holder(agent)
-    if agent.id not in caller.owned_agents:
-        return _scrub_agent_api_keys(agent)
-    return agent
+    return _public(agent)

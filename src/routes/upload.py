@@ -17,12 +17,13 @@ from fastapi import (
 
 from src.config import Config
 from src.context_upload import process_file_and_store
-from src.globals import agent_dao, auth_service
+from src.globals import agent_dao, auth_service, user_dao
 from src.models.agent import Agent
 from src.models.users.user import User
 from src.rag_service.dao.factory import get_document_dao
 from src.utils.global_logs import progress_log
 from src.utils.path_dependencies import get_auth, require_user_or_access_key
+from src.utils.provider_keys import resolve_provider_keys
 
 
 logger = logging.getLogger(__name__)
@@ -248,7 +249,7 @@ def upload_document_for_agent(
             file_location=file_location,
             agent_id=agent_id,
             embedding_model=agent.embedding_model,
-            embedding_api_key=agent.embedding_api_key,
+            embedding_api_key=resolve_provider_keys(agent, user_dao).embedding_api_key,
             file_size_bytes=file_size_bytes,
             filename=original_name,
             task_id=task_id,

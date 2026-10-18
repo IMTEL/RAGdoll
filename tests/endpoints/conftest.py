@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import pytest
 from fastapi.testclient import TestClient
 
+from src import pipeline
 from src.access_service.access_service import AccessService
 from src.auth.auth_service.auth_service import AuthService
 from src.main import app
@@ -20,6 +21,7 @@ from src.models.agent import Agent
 from src.models.users.user import User
 from src.routes import agents as agents_routes
 from src.routes import chat as chat_routes
+from src.routes import upload as upload_routes
 from src.utils import path_dependencies
 from tests.mocks.mock_agent_dao import MockAgentDAO
 from tests.mocks.mock_auth_provider import MockAuthProvider
@@ -98,7 +100,9 @@ def auth_env(monkeypatch) -> AuthEnv:
         monkeypatch.setattr(module, "access_service", access_service)
         monkeypatch.setattr(module, "agent_dao", agent_dao)
     monkeypatch.setattr(path_dependencies, "auth_service", auth_service)
-    monkeypatch.setattr(agents_routes, "user_dao", user_dao)
+    # Stored provider-key references resolve against the same users.
+    for module in (agents_routes, pipeline, upload_routes):
+        monkeypatch.setattr(module, "user_dao", user_dao)
     # Never call an LLM from these tests.
     monkeypatch.setattr(
         chat_routes,

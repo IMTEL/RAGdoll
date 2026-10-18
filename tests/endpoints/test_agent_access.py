@@ -4,11 +4,13 @@ Uses the real AccessService and AuthService (see ``auth_env`` in conftest) so
 the access-key and user checks are exercised end to end through FastAPI.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from src.models.accesskey import AccessKey
+from src.models.users.api_key import UserAPIKey
+from src.utils.crypto_utils import encrypt_str
 from tests.endpoints.conftest import INVALID_JWT, AuthEnv, sample_agent
 
 
@@ -70,8 +72,8 @@ class TestAskWithAccessKey:
                 id="expired",
                 key="expired-key-value",
                 name="expired",
-                expiry_date=datetime.now() - timedelta(days=1),
-                created=datetime.now() - timedelta(days=2),
+                expiry_date=datetime.now(UTC) - timedelta(days=1),
+                created=datetime.now(UTC) - timedelta(days=2),
                 last_use=None,
             )
         )
@@ -157,15 +159,28 @@ class TestGetAgentById:
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == agent_id
-        assert data["llm_api_key"] == ""
-        assert data["embedding_api_key"] == ""
+        assert "llm_api_key" not in data
+        assert "embedding_api_key" not in data
         assert data["access_key"] == []
 
-    def test_owner_gets_full_agent(self, auth_env, agent_id):
-        _, token = auth_env.add_user("owner", owned_agents=[agent_id])
+    @pytest.mark.parametrize("relation", ["owned_agents", "collaborating_agents"])
+    def test_user_gets_agent_without_secrets(
+        self, auth_env, agent_id, valid_key, relation
+    ):
+        _, token = auth_env.add_user("member", **{relation: [agent_id]})
         response = auth_env.client.get(f"/agents/{agent_id}", headers=_bearer(token))
         assert response.status_code == 200
-        assert response.json()["llm_api_key"] == "sk-secret-llm-key"
+        _assert_no_secrets(response.text, valid_key)
+        data = response.json()
+        assert "llm_api_key" not in data
+        assert "embedding_api_key" not in data
+        assert data["has_llm_api_key"] is True
+        assert data["has_embedding_api_key"] is True
+        assert data["llm_api_key_invalid"] is False
+        [key] = data["access_key"]
+        assert key["prefix"] == valid_key[:12]
+        assert "key" not in key
+        assert "key_hash" not in key
 
 
 class TestStaticAgentRoutesAreReachable:
@@ -203,8 +218,9 @@ class TestStaticAgentRoutesAreReachable:
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == agent_id
-        assert data["llm_api_key"] == ""
+        assert "llm_api_key" not in data
         assert data["access_key"] == []
+        _assert_no_secrets(response.text, valid_key)
 
     def test_new_accesskey(self, auth_env, agent_id):
         _, token = auth_env.add_user("owner", owned_agents=[agent_id])
@@ -227,7 +243,7 @@ class TestStaticAgentRoutesAreReachable:
         assert response.status_code == 200
         assert response.json()["name"] == f"Chat Access Key - {user.id}"
 
-    def test_chat_accesskey_reuses_unexpired_key(self, auth_env, agent_id):
+    def test_chat_accesskey_mints_a_new_short_lived_key(self, auth_env, agent_id):
         _, token = auth_env.add_user("collab", collaborating_agents=[agent_id])
         first, second = (
             auth_env.client.get(
@@ -238,7 +254,210 @@ class TestStaticAgentRoutesAreReachable:
             for _ in range(2)
         )
         assert first.status_code == second.status_code == 200
-        assert first.json()["id"] == second.json()["id"]
+        assert first.json()["id"] != second.json()["id"]
+        for response in (first, second):
+            data = response.json()
+            assert auth_env.access_service.authenticate(agent_id, data["key"])
+            expiry = datetime.fromisoformat(data["expiry_date"])
+            assert expiry.tzinfo is not None
+            remaining = expiry - datetime.now(UTC)
+            assert timedelta(hours=23) < remaining <= timedelta(hours=24)
+
+    def test_chat_accesskey_prunes_expired_chat_keys(self, auth_env, agent_id):
+        user, token = auth_env.add_user("collab", collaborating_agents=[agent_id])
+        agent = auth_env.agent_dao.get_agent_by_id(agent_id)
+        agent.access_key.append(
+            AccessKey(
+                id="oldchat1",
+                name=f"Chat Access Key - {user.id}",
+                key_hash="0" * 64,
+                expiry_date=datetime.now(UTC) - timedelta(hours=1),
+            )
+        )
+        auth_env.agent_dao.add_agent(agent)
+
+        response = auth_env.client.get(
+            "/agents/chat-accesskey",
+            params={"agent_id": agent_id},
+            headers=_bearer(token),
+        )
+        assert response.status_code == 200
+        ids = [k.id for k in auth_env.agent_dao.get_agent_by_id(agent_id).access_key]
+        assert ids == [response.json()["id"]]
+
+
+def _assert_no_secrets(text: str, *access_keys: str) -> None:
+    """The response body must not contain any secret of the sample agent."""
+    for secret in ("sk-secret-llm-key", "secret-embedding-key", *access_keys):
+        assert secret not in text
+    assert "key_hash" not in text
+
+
+class TestAccessKeySecrets:
+    def _owner(self, auth_env, agent_id):
+        _, token = auth_env.add_user("owner", owned_agents=[agent_id])
+        return _bearer(token)
+
+    def test_created_key_is_returned_once_and_stored_hashed(self, auth_env, agent_id):
+        headers = self._owner(auth_env, agent_id)
+        response = auth_env.client.post(
+            f"/agents/{agent_id}/accesskeys/",
+            params={"name": "xr headset"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        created = response.json()
+        plaintext = created["key"]
+        assert plaintext.startswith(f"rgd_{created['id']}_")
+        assert created["prefix"] == plaintext[:12]
+        assert "key_hash" not in created
+
+        [stored] = auth_env.agent_dao.get_agent_by_id(agent_id).access_key
+        assert stored.key is None
+        assert plaintext not in stored.model_dump_json()
+
+        for path in (
+            "/agents",
+            f"/agents/{agent_id}",
+            f"/agents/{agent_id}/accesskeys",
+        ):
+            listed = auth_env.client.get(path, headers=headers)
+            assert listed.status_code == 200, path
+            _assert_no_secrets(listed.text, plaintext)
+
+        assert auth_env.access_service.authenticate(agent_id, plaintext)
+
+    def test_expiry_date_is_stored_as_utc(self, auth_env, agent_id):
+        headers = self._owner(auth_env, agent_id)
+        response = auth_env.client.post(
+            f"/agents/{agent_id}/accesskeys/",
+            params={"name": "tz", "expiry_date": "2999-01-01T12:00:00+02:00"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        [stored] = auth_env.agent_dao.get_agent_by_id(agent_id).access_key
+        assert stored.expiry_date == datetime(2999, 1, 1, 10, 0, tzinfo=UTC)
+
+    def test_access_key_list_has_metadata_only(self, auth_env, agent_id, valid_key):
+        _, token = auth_env.add_user("collab", collaborating_agents=[agent_id])
+        response = auth_env.client.get(
+            f"/agents/{agent_id}/accesskeys", headers=_bearer(token)
+        )
+        assert response.status_code == 200
+        _assert_no_secrets(response.text, valid_key)
+        [key] = response.json()
+        assert key["name"] == "valid"
+        assert key["prefix"] == valid_key[:12]
+        assert "key" not in key
+
+    def test_legacy_plaintext_key_is_not_listed(self, auth_env, agent_id):
+        agent = auth_env.agent_dao.get_agent_by_id(agent_id)
+        agent.access_key.append(
+            AccessKey(id="legacy01", key="legacy-plaintext-value", name="legacy")
+        )
+        auth_env.agent_dao.add_agent(agent)
+        headers = self._owner(auth_env, agent_id)
+
+        for path in (
+            "/agents",
+            f"/agents/{agent_id}",
+            f"/agents/{agent_id}/accesskeys",
+        ):
+            response = auth_env.client.get(path, headers=headers)
+            assert response.status_code == 200, path
+            assert "legacy-plaintext-value" not in response.text
+
+    def test_revoke_access_key(self, auth_env, agent_id, valid_key):
+        key_id = auth_env.agent_dao.get_agent_by_id(agent_id).access_key[0].id
+        response = auth_env.client.delete(
+            f"/agents/{agent_id}/accesskeys/{key_id}",
+            headers=self._owner(auth_env, agent_id),
+        )
+        assert response.status_code == 200
+        assert response.json() is True
+        assert not auth_env.access_service.authenticate(agent_id, valid_key)
+
+    def test_access_key_lists_external_info(self, auth_env, agent_id, valid_key):
+        response = auth_env.client.get("/agents", headers=_bearer(valid_key))
+        assert response.status_code == 200
+        assert response.json() == [
+            {"agent_id": agent_id, "name": "Test Agent", "roles": []}
+        ]
+
+
+class TestAgentWriteResponses:
+    def _agent_body(self, **overrides) -> dict:
+        body = {
+            "name": "Written",
+            "description": "d",
+            "prompt": "p",
+            "llm_model": "gpt-4",
+            "llm_api_key": "sk-secret-llm-key",
+            "embedding_model": "text-embedding-ada-002",
+            "embedding_api_key": "secret-embedding-key",
+            "last_updated": "2026-10-18T00:00:00Z",
+        }
+        body.update(overrides)
+        return body
+
+    def test_create_agent_returns_no_provider_keys(self, auth_env):
+        _, token = auth_env.add_user("creator")
+        response = auth_env.client.post(
+            "/agents", json=self._agent_body(), headers=_bearer(token)
+        )
+        assert response.status_code == 200
+        _assert_no_secrets(response.text)
+        stored = auth_env.agent_dao.get_agent_by_id(response.json()["id"])
+        assert stored.llm_api_key == "sk-secret-llm-key"
+
+    def test_create_agent_ignores_access_keys_in_body(self, auth_env):
+        _, token = auth_env.add_user("creator")
+        body = self._agent_body(
+            access_key=[{"id": "planted1", "name": "x", "key": "planted"}]
+        )
+        response = auth_env.client.post("/agents", json=body, headers=_bearer(token))
+        assert response.status_code == 200
+        stored = auth_env.agent_dao.get_agent_by_id(response.json()["id"])
+        assert stored.access_key == []
+
+    @pytest.mark.parametrize("relation", ["owned_agents", "collaborating_agents"])
+    def test_update_with_empty_provider_keys_keeps_stored_keys(
+        self, auth_env, agent_id, valid_key, relation
+    ):
+        _, token = auth_env.add_user("member", **{relation: [agent_id]})
+        response = auth_env.client.patch(
+            f"/agents/{agent_id}",
+            json=self._agent_body(llm_api_key="", embedding_api_key=""),
+            headers=_bearer(token),
+        )
+        assert response.status_code == 200
+        _assert_no_secrets(response.text, valid_key)
+        stored = auth_env.agent_dao.get_agent_by_id(agent_id)
+        assert stored.name == "Written"
+        assert stored.llm_api_key == "sk-secret-llm-key"
+        assert stored.embedding_api_key == "secret-embedding-key"
+        assert len(stored.access_key) == 1
+
+
+class TestProviderApiKeyDetail:
+    def test_detail_returns_metadata_without_the_key(self, auth_env):
+        api_key = UserAPIKey(
+            label="openai",
+            provider="openai",
+            usage="llm",
+            key_encrypted=encrypt_str("sk-provider-secret-value"),
+            redacted_key="sk-p****alue",
+        )
+        _, token = auth_env.add_user("keyholder", api_keys=[api_key])
+        response = auth_env.client.get(
+            f"/api-keys/{api_key.id}", headers=_bearer(token)
+        )
+        assert response.status_code == 200
+        assert "sk-provider-secret-value" not in response.text
+        data = response.json()
+        assert "raw_key" not in data
+        assert data["redacted_key"] == "sk-p****alue"
+        assert data["id"] == api_key.id
 
 
 class TestUserSearch:

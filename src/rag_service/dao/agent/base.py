@@ -4,6 +4,7 @@ This module defines the interfaces for document context and agent DAOs.
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from src.models.agent import Agent
 
@@ -43,6 +44,21 @@ class AgentDAO(ABC):
         Returns:
             Agent | None: The agent if found, None otherwise
         """
+
+    def touch_access_key(self, agent_id: str, key_id: str, when: datetime) -> None:
+        """Record ``when`` as the last use of one of the agent's access keys.
+
+        The default loads and saves the whole agent; backends should override
+        it with a targeted update.
+        """
+        agent = self.get_agent_by_id(agent_id)
+        if agent is None:
+            return
+        for access_key in agent.access_key:
+            if access_key.id == key_id:
+                access_key.last_use = when
+                self.add_agent(agent)
+                return
 
     @abstractmethod
     def is_reachable(self) -> bool:
