@@ -5,6 +5,17 @@
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
+  "smtpServer": {
+    "host": "${SMTP_HOST:mailpit}",
+    "port": "${SMTP_PORT:1025}",
+    "from": "${SMTP_FROM:no-reply@ragdoll.local}",
+    "fromDisplayName": "${SMTP_FROM_NAME:RAGdoll}",
+    "auth": "${SMTP_AUTH:false}",
+    "user": "${SMTP_USER:}",
+    "password": "${SMTP_PASSWORD:}",
+    "starttls": "${SMTP_STARTTLS:false}",
+    "ssl": "${SMTP_SSL:false}"
+  },
   "clients": [
     {
       "clientId": "ragdoll-config",
@@ -28,14 +39,16 @@
         "https://iplvr.it.ntnu.no"
       ],
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
       },
       "defaultClientScopes": [
         "web-origins",
         "acr",
         "profile",
         "roles",
-        "email"
+        "email",
+        "basic"
       ],
       "optionalClientScopes": [
         "address",
@@ -53,6 +66,18 @@
           "config": {
             "introspection.token.claim": "true",
             "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "ragdoll-config-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "ragdoll-config",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
           }
         }
       ]

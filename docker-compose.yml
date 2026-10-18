@@ -66,6 +66,16 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in RAGdoll/.env}
       KC_HTTP_PORT: 8080
       KC_HOSTNAME_STRICT: "false"
+      # Outgoing mail (password reset). Defaults to the Mailpit catcher until a real provider is set in .env.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@ragdoll.local}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-RAGdoll}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      SMTP_SSL: ${SMTP_SSL:-false}
     volumes:
       - keycloak_data:/opt/keycloak/data
     expose:
@@ -76,6 +86,17 @@ services:
       timeout: 5s
       retries: 12
       start_period: 40s
+
+  # Catches outgoing mail while no real SMTP provider is configured.
+  # Inbox UI is bound to the host's loopback only: reach it with an SSH tunnel to port 8025.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: ragdoll-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    expose:
+      - "1025"
 
   backend-service:
     build:
