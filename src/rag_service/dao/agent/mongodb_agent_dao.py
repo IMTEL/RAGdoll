@@ -8,7 +8,7 @@ from pymongo import MongoClient
 
 from src.config import Config
 from src.models.accesskey import AccessKey
-from src.models.agent import Agent
+from src.models.agent import PUBLISH_FIELDS, Agent
 from src.rag_service.dao.agent.base import AgentDAO
 from src.utils.crypto_utils import decrypt_value, encrypt_str
 
@@ -95,8 +95,11 @@ class MongoDBAgentDAO(AgentDAO):
         else:
             agent_id = agent_dict.pop("id")
             # Keys change only through the targeted $push/$pull/$set methods,
-            # so a whole-agent update from a stale read cannot drop one.
+            # so a whole-agent update from a stale read cannot drop one. The
+            # publish fields likewise change only through set_publication.
             agent_dict.pop("access_key", None)
+            for field in PUBLISH_FIELDS:
+                agent_dict.pop(field, None)
 
             try:
                 object_id = ObjectId(agent_id)
@@ -125,6 +128,25 @@ class MongoDBAgentDAO(AgentDAO):
             agent_doc["id"] = str(agent_doc.pop("_id"))
             result.append(_agent_from_doc(agent_doc))
         return result
+
+    def get_published_agents(self) -> list[Agent]:
+        """Retrieve the agents that are published to The Candidate.
+
+        Returns:
+            list[Agent]: Agents with is_published set
+        """
+        result = []
+        for agent_doc in self.collection.find({"is_published": True}):
+            agent_doc["id"] = str(agent_doc.pop("_id"))
+            result.append(_agent_from_doc(agent_doc))
+        return result
+
+    def set_publication(self, agent_id: str, fields: dict) -> bool:
+        """Set the publish fields with ``$set`` (no read-modify-write)."""
+        result = self.collection.update_one(
+            {"_id": ObjectId(agent_id)}, {"$set": fields}
+        )
+        return result.matched_count > 0
 
     def delete_agent_by_id(self, agent_id: str) -> bool:
         """Delete a specific agent by ID.

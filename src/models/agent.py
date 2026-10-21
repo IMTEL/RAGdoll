@@ -58,6 +58,11 @@ class AgentFunction(BaseModel):
     )
 
 
+# The fields that publish an agent to The Candidate. They change only through
+# AgentDAO.set_publication, never through add_agent.
+PUBLISH_FIELDS = ("is_published", "public_name", "public_description", "published_at")
+
+
 class AgentBase(BaseModel):
     """Agent fields without secrets, shared by ``Agent`` and ``AgentPublic``."""
 
@@ -127,6 +132,14 @@ class AgentBase(BaseModel):
     # stored key no longer exists, so it must be entered again.
     llm_api_key_invalid: bool = False
     embedding_api_key_invalid: bool = False
+
+    # Publishing to The Candidate (see PUBLISH_FIELDS). Not secret. Only
+    # changed through the publish and unpublish endpoints, never by creating
+    # or updating an agent.
+    is_published: bool = False
+    public_name: str = ""
+    public_description: str = ""
+    published_at: str | None = None
 
 
 class Agent(AgentBase):

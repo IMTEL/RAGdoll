@@ -41,6 +41,25 @@ class AgentDAO(ABC):
         """
 
     @abstractmethod
+    def get_published_agents(self) -> list[Agent]:
+        """Retrieve the agents that are published to The Candidate.
+
+        Returns:
+            list[Agent]: Agents with is_published set
+        """
+
+    @abstractmethod
+    def set_publication(self, agent_id: str, fields: dict) -> bool:
+        """Atomically set the agent's publish fields. Nothing else changes.
+
+        The fields are is_published, public_name, public_description and
+        published_at.
+
+        Returns:
+            bool: False if the agent does not exist
+        """
+
+    @abstractmethod
     def get_agent_by_id(self, agent_id: str) -> Agent | None:
         """Retrieve a specific agent by ID.
 

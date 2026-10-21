@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import PyMongoError
 
+from src.access_service.candidate_client import is_candidate_client_key
 from src.config import Config
 from src.models.chat.command import (
     Command,
@@ -38,6 +39,7 @@ from src.routes.progress import get_recent_progress_for_session
 from src.transcribe import transcribe_audio
 from src.tts import get_tts_service, synthesize_sentences
 from src.utils.path_dependencies import (
+    agent_with_id,
     get_bearer_token,
     get_optional_user,
     has_agent_call_access,
@@ -177,6 +179,15 @@ def _authorize_command(command: Command, request: Request) -> "Agent":
     credentials = (
         get_bearer_token(request) if command.access_key is None else command.access_key
     )
+    # The Candidate's shared client key may chat with published agents only.
+    # It never learns the role names (they are the owner's own labels), so the
+    # agent's first role is used for it.
+    if is_candidate_client_key(credentials):
+        agent = agent_with_id(command.agent_id)
+        if not agent.is_published:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        command.active_role_id = agent.roles[0].name if agent.roles else None
+        return agent
     return has_agent_call_access(command.agent_id, get_optional_user(credentials))
 
 

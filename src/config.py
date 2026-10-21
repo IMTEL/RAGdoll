@@ -173,6 +173,10 @@ class Config:
             "GOOGLE_CLIENT_SECRET", "set your secret here"
         )
 
+        # Shared key The Candidate uses to list and chat with published agents.
+        # Empty disables it.
+        self.CANDIDATE_CLIENT_KEY = os.getenv("CANDIDATE_CLIENT_KEY", "").strip()
+
         self.FERNET_KEY = os.getenv("FERNET_KEY", "").strip()
 
         if not self.FERNET_KEY:
