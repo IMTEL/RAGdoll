@@ -11,7 +11,7 @@ from src.access_service.access_service import (
     AccessKeyUndecryptableError,
     parse_access_key,
 )
-from src.globals import access_service, agent_dao, user_dao
+from src.globals import access_service, agent_dao, feedback_dao, user_dao
 from src.models.accesskey import AccessKeyCreated, AccessKeyPublic, as_utc
 from src.models.agent import Agent, AgentPublic, Role
 from src.models.users.user import User
@@ -275,6 +275,7 @@ def delete_agent(
         HTTPException: If agent not found
     """
     agent_dao.delete_agent_by_id(agent_id)
+    feedback_dao.delete_by_agent(agent_id)
     if agent_id in user.owned_agents:
         user.owned_agents.remove(agent_id)
     user_dao.set_user(user)

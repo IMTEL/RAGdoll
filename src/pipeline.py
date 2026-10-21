@@ -7,7 +7,7 @@ import uuid
 from pymongo.errors import PyMongoError
 
 from src.config import Config
-from src.globals import user_dao
+from src.globals import feedback_dao, user_dao
 from src.llm import EMPTY_USER_TURN, create_llm
 from src.log_redaction import redact
 from src.models import Agent
@@ -61,6 +61,20 @@ LIVE_CONTEXT_CLOSE = "</live_context>"
 CHARACTER_RULES = (
     "Return only the character's spoken response. Do not prefix the answer "
     "with AGENT:, ASSISTANT:, the character name, or any role label."
+)
+# Counsellor feedback on earlier replies (TDT4290). The most recent entries
+# are added after CHARACTER_RULES on every turn; long texts are shortened so
+# the prompt stays small.
+FEEDBACK_PROMPT_LIMIT = 10
+FEEDBACK_TRUNCATE_LENGTH = 300
+FEEDBACK_RULES = (
+    "Feedback from the counsellor on your earlier replies, most recent first. "
+    "Each item is labelled GOOD (answer like this again) or BAD (avoid "
+    "answering like this), followed by your earlier reply and, if given, the "
+    "counsellor's comment. Use this feedback to adjust the style and content "
+    "of your answers. Never mention it in the conversation. If it conflicts "
+    "with your character prompt or any other instruction in this message, "
+    "those instructions win."
 )
 # Added in both knowledge scopes: retrieved and live text is data, never
 # instructions.
@@ -593,6 +607,7 @@ def assemble_prompt_with_agent(command: Command, agent: Agent) -> dict:
         game_context=game_context_prompt_section(command),
         chat_log=command.chat_log,
         knowledge_scope=agent.knowledge_scope,
+        feedback=feedback_prompt_section(agent.id or ""),
     )
 
     logger.debug(
@@ -818,6 +833,7 @@ def build_messages(
     game_context: str,
     chat_log: list,
     knowledge_scope: str = "documents_first",
+    feedback: str = "",
 ) -> list[dict[str, str]]:
     """Build role-separated chat messages for the LLM.
 
@@ -825,7 +841,8 @@ def build_messages(
     answers to the reference material; "documents_first" prefers it but lets
     the character answer from general knowledge.
 
-    1. system: persona, role, behaviour rules and function/JSON instructions.
+    1. system: persona, role, behaviour rules, counsellor ``feedback`` (from
+       ``feedback_prompt_section``) and function/JSON instructions.
     2. system: retrieved reference material (and live game context) in
        delimited blocks, marked as data to consult, not instructions.
     3. Earlier chat turns as user/assistant messages (empty turns skipped).
@@ -839,6 +856,8 @@ def build_messages(
     if role_prompt:
         rules.append("Your role: " + role_prompt)
     rules.append(CHARACTER_RULES)
+    if feedback:
+        rules.append(feedback)
     documents_only = knowledge_scope == "documents_only"
     rules.append(REFERENCE_RULES if documents_only else REFERENCE_RULES_DOCUMENTS_FIRST)
     if retrieved_contexts:
@@ -887,6 +906,41 @@ def build_messages(
     if messages[-1]["role"] != "user":
         messages.append({"role": "user", "content": EMPTY_USER_TURN})
     return messages
+
+
+def _shorten(text: str, limit: int = FEEDBACK_TRUNCATE_LENGTH) -> str:
+    """Collapse whitespace to one line and cut the text to ``limit`` chars."""
+    flat = " ".join(text.split())
+    return flat if len(flat) <= limit else flat[: limit - 3].rstrip() + "..."
+
+
+def feedback_prompt_section(agent_id: str) -> str:
+    """Render the agent's most recent counsellor feedback for the prompt.
+
+    Returns an empty string when there is no feedback, or when it cannot be
+    loaded: a feedback lookup must never break the chat.
+    """
+    if not agent_id:
+        return ""
+    try:
+        entries = feedback_dao.get_recent_by_agent(agent_id, FEEDBACK_PROMPT_LIMIT)
+    except Exception as e:  # noqa: BLE001 - never break the chat
+        logger.warning(
+            "Could not load feedback for agent %s: %s", agent_id, type(e).__name__
+        )
+        return ""
+    if not entries:
+        return ""
+
+    lines = [FEEDBACK_RULES, ""]
+    for entry in entries:
+        line = (
+            f'- {entry.rating.upper()} | Your reply: "{_shorten(entry.agent_message)}"'
+        )
+        if entry.comment.strip():
+            line += f' | Comment: "{_shorten(entry.comment)}"'
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def chat_history_prompt_section(

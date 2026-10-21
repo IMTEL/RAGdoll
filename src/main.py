@@ -15,6 +15,7 @@ from src.routes import (
     api_keys,
     chat,
     debug,
+    feedback,
     profiles,
     progress,
     providers,
@@ -111,6 +112,9 @@ app.include_router(transliteration.router)
 
 # Job seeker profiles router (TDT4290)
 app.include_router(profiles.router)
+
+# Message feedback router (TDT4290)
+app.include_router(feedback.router)
 
 
 @app.get("/")
