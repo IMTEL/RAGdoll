@@ -9,14 +9,13 @@ from functools import lru_cache
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from src.models.profiles import AgeRange, ExperienceLevel, JobSeekerProfile
 from src.models.users.user import User
 from src.rag_service.dao.factory import get_profile_dao
 from src.rag_service.dao.profile.base import ProfileDAO
-from src.routes.agents import _get_user_or_demo, optional_auth
+from src.utils.path_dependencies import require_user
 
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -54,11 +53,9 @@ def get_dao() -> ProfileDAO:
     return get_profile_dao()
 
 
-def get_current_user(
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
-) -> User:
-    """Return the authenticated user, or the demo user if auth is disabled."""
-    return _get_user_or_demo(authorize)
+def get_current_user(user: Annotated[User, Depends(require_user)]) -> User:
+    """Return the authenticated user."""
+    return user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]

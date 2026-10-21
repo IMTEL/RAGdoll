@@ -10,12 +10,11 @@ from functools import lru_cache
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
-from fastapi_jwt_auth import AuthJWT
 
 from src.models.users.user import User
 from src.rag_service.dao.factory import get_user_dao
 from src.rag_service.dao.user.base import UserDao
-from src.routes.agents import _get_user_or_demo, optional_auth
+from src.utils.path_dependencies import require_user
 
 
 router = APIRouter(prefix="/user-settings", tags=["user-settings"])
@@ -31,11 +30,9 @@ def get_dao() -> UserDao:
     return get_user_dao()
 
 
-def get_current_user(
-    authorize: Annotated[AuthJWT | None, Depends(optional_auth)] = None,
-) -> User:
-    """Return the authenticated user, or the demo user if auth is disabled."""
-    return _get_user_or_demo(authorize)
+def get_current_user(user: Annotated[User, Depends(require_user)]) -> User:
+    """Return the authenticated user."""
+    return user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
