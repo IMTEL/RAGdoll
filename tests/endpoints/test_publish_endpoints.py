@@ -3,7 +3,11 @@
 import pytest
 
 from src.config import Config
-from src.models.agent import Role
+from src.models.agent import (
+    PUBLIC_DESCRIPTION_MAX_LENGTH,
+    PUBLIC_NAME_MAX_LENGTH,
+    Role,
+)
 from src.routes import chat as chat_routes
 from tests.endpoints.conftest import AuthEnv, sample_agent
 
@@ -83,7 +87,12 @@ class TestPublish:
 
     @pytest.mark.parametrize(
         "body",
-        [{"public_name": "   "}, {"public_description": "x" * 301}, {"extra": 1}],
+        [
+            {"public_name": "   "},
+            {"public_name": "x" * (PUBLIC_NAME_MAX_LENGTH + 1)},
+            {"public_description": "x" * (PUBLIC_DESCRIPTION_MAX_LENGTH + 1)},
+            {"extra": 1},
+        ],
     )
     def test_rejects_invalid_body(self, env, body):
         agent, token = owned_agent(env)

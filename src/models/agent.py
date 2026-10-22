@@ -62,6 +62,11 @@ class AgentFunction(BaseModel):
 # AgentDAO.set_publication, never through add_agent.
 PUBLISH_FIELDS = ("is_published", "public_name", "public_description", "published_at")
 
+# The longest public name and short description The Candidate shows. The
+# configurator (team-tdt4290-fall-2026) has the same limits.
+PUBLIC_NAME_MAX_LENGTH = 80
+PUBLIC_DESCRIPTION_MAX_LENGTH = 300
+
 
 class AgentBase(BaseModel):
     """Agent fields without secrets, shared by ``Agent`` and ``AgentPublic``."""

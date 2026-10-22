@@ -14,7 +14,14 @@ from src.access_service.access_service import (
 from src.access_service.candidate_client import is_candidate_client_key
 from src.globals import access_service, agent_dao, user_dao
 from src.models.accesskey import AccessKeyCreated, AccessKeyPublic, as_utc
-from src.models.agent import PUBLISH_FIELDS, Agent, AgentPublic, Role
+from src.models.agent import (
+    PUBLIC_DESCRIPTION_MAX_LENGTH,
+    PUBLIC_NAME_MAX_LENGTH,
+    PUBLISH_FIELDS,
+    Agent,
+    AgentPublic,
+    Role,
+)
 from src.models.users.user import User
 from src.utils.path_dependencies import (
     agent_with_id,
@@ -156,10 +163,16 @@ class PublishRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     public_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+        str,
+        StringConstraints(
+            strip_whitespace=True, min_length=1, max_length=PUBLIC_NAME_MAX_LENGTH
+        ),
     ]
     public_description: Annotated[
-        str, StringConstraints(strip_whitespace=True, max_length=300)
+        str,
+        StringConstraints(
+            strip_whitespace=True, max_length=PUBLIC_DESCRIPTION_MAX_LENGTH
+        ),
     ] = ""
 
 
