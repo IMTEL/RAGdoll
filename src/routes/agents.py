@@ -3,7 +3,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from src.access_service.access_service import (
     AccessKeyNotFoundError,
@@ -11,9 +11,17 @@ from src.access_service.access_service import (
     AccessKeyUndecryptableError,
     parse_access_key,
 )
+from src.access_service.candidate_client import is_candidate_client_key
 from src.globals import access_service, agent_dao, feedback_dao, user_dao
 from src.models.accesskey import AccessKeyCreated, AccessKeyPublic, as_utc
-from src.models.agent import Agent, AgentPublic, Role
+from src.models.agent import (
+    PUBLIC_DESCRIPTION_MAX_LENGTH,
+    PUBLIC_NAME_MAX_LENGTH,
+    PUBLISH_FIELDS,
+    Agent,
+    AgentPublic,
+    Role,
+)
 from src.models.users.user import User
 from src.utils.path_dependencies import (
     agent_with_id,
@@ -151,6 +159,66 @@ class ExternalAgentInfo(BaseModel):
     roles: list[Role]
 
 
+class PublishRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    public_name: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True, min_length=1, max_length=PUBLIC_NAME_MAX_LENGTH
+        ),
+    ]
+    public_description: Annotated[
+        str,
+        StringConstraints(
+            strip_whitespace=True, max_length=PUBLIC_DESCRIPTION_MAX_LENGTH
+        ),
+    ] = ""
+
+
+class PublicationStatus(BaseModel):
+    is_published: bool
+    public_name: str
+    public_description: str
+    published_at: str | None
+
+
+class PublishedAgentInfo(BaseModel):
+    """What The Candidate sees of a published agent.
+
+    Only what the owner wrote for it when publishing. Leaves out the prompt, the description (the configurator stores the
+    job-seeker profile there), the agent and role names (the owner's own
+    labels, which may hold details about the job seeker) and every key.
+    """
+
+    agent_id: str
+    name: str
+    description: str
+
+
+def _keep_publication(agent: Agent, stored: Agent | None) -> None:
+    """Sets ``agent``'s publish fields to the stored ones, or unpublished if new.
+
+    Publishing only changes through /publish and /unpublish, so creating or
+    updating an agent never publishes or hides it.
+    """
+    for field in PUBLISH_FIELDS:
+        value = getattr(stored, field) if stored else Agent.model_fields[field].default
+        setattr(agent, field, value)
+
+
+def _set_publication(agent_id: str, fields: dict) -> PublicationStatus:
+    if not agent_dao.set_publication(agent_id, fields):
+        raise HTTPException(status_code=404, detail="Agent not found.")
+    agent = agent_with_id(agent_id)
+    return PublicationStatus(
+        is_published=agent.is_published,
+        public_name=agent.public_name,
+        public_description=agent.public_description,
+        published_at=agent.published_at,
+    )
+
+
 @router.post("", response_model=AgentPublic)
 def create_agent(
     agent: Agent, user: Annotated[User, Depends(require_user)]
@@ -171,6 +239,7 @@ def create_agent(
     agent.id = None
     # Access keys are only created through the access-key endpoints.
     agent.access_key = []
+    _keep_publication(agent, None)
     _apply_provider_key_choice(agent, None, user, is_owner=True)
     agent = agent_dao.add_agent(agent)
     # Add new agent id to owned agents
@@ -225,6 +294,7 @@ def update_agent(
         is_owner=existing_agent.id in user.owned_agents,
     )
     updated_agent.access_key = existing_agent.access_key
+    _keep_publication(updated_agent, existing_agent)
 
     updated_agent = agent_dao.add_agent(updated_agent)
     return _public(updated_agent)
@@ -661,6 +731,57 @@ def chat_access_key(
     return access_service.generate_accesskey(
         key_name, now + CHAT_ACCESS_KEY_LIFETIME, agent.id
     )
+
+
+@router.post(
+    "/{agent_id}/publish",
+    response_model=PublicationStatus,
+    dependencies=[Depends(require_user_has_agent_ownership)],
+)
+def publish_agent(agent_id: str, payload: PublishRequest) -> PublicationStatus:
+    """Publishes the agent to The Candidate. Owner only."""
+    return _set_publication(
+        agent_id,
+        {
+            "is_published": True,
+            "public_name": payload.public_name,
+            "public_description": payload.public_description,
+            "published_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        },
+    )
+
+
+@router.post(
+    "/{agent_id}/unpublish",
+    response_model=PublicationStatus,
+    dependencies=[Depends(require_user_has_agent_ownership)],
+)
+def unpublish_agent(agent_id: str) -> PublicationStatus:
+    """Hides the agent from The Candidate. Owner only.
+
+    The public name and description are kept so a later publish can reuse them.
+    """
+    return _set_publication(agent_id, {"is_published": False, "published_at": None})
+
+
+@router.get("/published", response_model=list[PublishedAgentInfo])
+def published_agents(
+    client_key: Annotated[str, Depends(get_auth)],
+) -> list[PublishedAgentInfo]:
+    """Lists the agents published to The Candidate.
+
+    Authenticated with the shared Candidate client key as the bearer token.
+    """
+    if not is_candidate_client_key(client_key):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    return [
+        PublishedAgentInfo(
+            agent_id=agent.id or "",
+            name=agent.public_name,
+            description=agent.public_description,
+        )
+        for agent in agent_dao.get_published_agents()
+    ]
 
 
 # Get a specific agent by ID.

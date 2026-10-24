@@ -58,6 +58,16 @@ class AgentFunction(BaseModel):
     )
 
 
+# The fields that publish an agent to The Candidate. They change only through
+# AgentDAO.set_publication, never through add_agent.
+PUBLISH_FIELDS = ("is_published", "public_name", "public_description", "published_at")
+
+# The longest public name and short description The Candidate shows. The
+# configurator (team-tdt4290-fall-2026) has the same limits.
+PUBLIC_NAME_MAX_LENGTH = 80
+PUBLIC_DESCRIPTION_MAX_LENGTH = 300
+
+
 class AgentBase(BaseModel):
     """Agent fields without secrets, shared by ``Agent`` and ``AgentPublic``."""
 
@@ -127,6 +137,14 @@ class AgentBase(BaseModel):
     # stored key no longer exists, so it must be entered again.
     llm_api_key_invalid: bool = False
     embedding_api_key_invalid: bool = False
+
+    # Publishing to The Candidate (see PUBLISH_FIELDS). Not secret. Only
+    # changed through the publish and unpublish endpoints, never by creating
+    # or updating an agent.
+    is_published: bool = False
+    public_name: str = ""
+    public_description: str = ""
+    published_at: str | None = None
 
 
 class Agent(AgentBase):

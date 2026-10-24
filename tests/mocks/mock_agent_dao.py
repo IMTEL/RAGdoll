@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from src.models.accesskey import AccessKey
-from src.models.agent import Agent
+from src.models.agent import PUBLISH_FIELDS, Agent
 from src.rag_service.dao import AgentDAO
 from src.utils import singleton
 
@@ -42,8 +42,11 @@ class MockAgentDAO(AgentDAO):
             index = int(agent.id)
             if 0 <= index < len(self.agents):
                 # UPDATE EXISTING AGENT. Like MongoDB, keep the stored access
-                # keys: they change only through push/pull/touch.
+                # keys (they change only through push/pull/touch) and publish
+                # fields (they change only through set_publication).
                 agent.access_key = deepcopy(self.agents[index].access_key)
+                for field in PUBLISH_FIELDS:
+                    setattr(agent, field, getattr(self.agents[index], field))
                 self.agents[index] = agent
             else:
                 raise ValueError(f"Agent ID '{agent.id}' does not exist for update.")
@@ -61,6 +64,14 @@ class MockAgentDAO(AgentDAO):
             list[Agent]: Deep copies of all agents stored in memory
         """
         return [deepcopy(agent) for agent in self.agents]
+
+    def get_published_agents(self) -> list[Agent]:
+        """Retrieve the published agents.
+
+        Returns:
+            list[Agent]: Deep copies of the agents with is_published set
+        """
+        return [deepcopy(agent) for agent in self.agents if agent.is_published]
 
     # TODO : Update emulator and test to not be dependant on a id, based on index
     # Breaks tests if used in tests
@@ -108,6 +119,14 @@ class MockAgentDAO(AgentDAO):
         if agent is None:
             return False
         agent.access_key.append(deepcopy(access_key))
+        return True
+
+    def set_publication(self, agent_id: str, fields: dict) -> bool:
+        agent = self._stored(agent_id)
+        if agent is None:
+            return False
+        for name, value in fields.items():
+            setattr(agent, name, value)
         return True
 
     def pull_access_keys(self, agent_id: str, key_ids: list[str]) -> bool:
