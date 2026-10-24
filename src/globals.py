@@ -7,7 +7,13 @@ from src.auth.auth_service.base import BaseAuthService
 from src.auth.auth_service.factory import auth_service_factory
 from src.config import Config
 from src.rag_service.dao.agent.base import AgentDAO
-from src.rag_service.dao.factory import get_agent_dao, get_progress_dao, get_user_dao
+from src.rag_service.dao.factory import (
+    get_agent_dao,
+    get_feedback_dao,
+    get_progress_dao,
+    get_user_dao,
+)
+from src.rag_service.dao.feedback.base import FeedbackDAO
 from src.rag_service.dao.progress.base import ProgressDAO
 from src.rag_service.dao.user.base import UserDao
 
@@ -15,6 +21,7 @@ from src.rag_service.dao.user.base import UserDao
 user_dao: UserDao = get_user_dao()
 agent_dao: AgentDAO = get_agent_dao()
 progress_dao: ProgressDAO = get_progress_dao()
+feedback_dao: FeedbackDAO = get_feedback_dao()
 config = Config()
 auth_service_name = (
     "noauth" if os.getenv("DISABLE_AUTH", "").lower() == "true" else config.AUTH_SERVICE
