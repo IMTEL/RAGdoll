@@ -143,6 +143,9 @@ class Config:
         self.MONGODB_PROFILES_COLLECTION = os.getenv(
             "MONGODB_PROFILES_COLLECTION", "job_seeker_profiles"
         )
+        self.MONGODB_FEEDBACK_COLLECTION = os.getenv(
+            "MONGODB_FEEDBACK_COLLECTION", "message_feedback"
+        )
         self.MONGODB_TEMPLATE_COLLECTION = os.getenv(
             "MONGODB_TEMPLATE_COLLECTION", "templates"
         )
@@ -204,6 +207,7 @@ class Config:
             self.MONGODB_CONTEXT_COLLECTION,
             self.MONGODB_AGENT_COLLECTION,
             self.MONGODB_PROFILES_COLLECTION,
+            self.MONGODB_FEEDBACK_COLLECTION,
             # TODO: add document collection
         ]
 
