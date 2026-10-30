@@ -180,6 +180,13 @@ class Config:
         # Empty disables it.
         self.CANDIDATE_CLIENT_KEY = os.getenv("CANDIDATE_CLIENT_KEY", "").strip()
 
+        # The observer agent (feedback after an interview) The Candidate may also
+        # chat with using its client key. It is not published, so it is never
+        # listed as an interviewer. Empty gives access to no observer.
+        self.CANDIDATE_OBSERVER_AGENT_ID = os.getenv(
+            "CANDIDATE_OBSERVER_AGENT_ID", ""
+        ).strip()
+
         self.FERNET_KEY = os.getenv("FERNET_KEY", "").strip()
 
         if not self.FERNET_KEY:
