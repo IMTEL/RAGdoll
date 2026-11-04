@@ -140,6 +140,7 @@ services:
       - IDUN_API_URL=${IDUN_API_URL:-https://llm.hpc.ntnu.no/v1/chat/completions}
       - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
       - CANDIDATE_CLIENT_KEY=${CANDIDATE_CLIENT_KEY:-}
+      - CANDIDATE_OBSERVER_AGENT_ID=${CANDIDATE_OBSERVER_AGENT_ID:-}
       - FERNET_KEY=${FERNET_KEY:?Set FERNET_KEY in RAGdoll/.env}
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in RAGdoll/.env}
       - SESSION_TOKEN_TTL=${SESSION_TOKEN_TTL:-15}

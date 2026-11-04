@@ -271,3 +271,29 @@ class TestCandidateChat:
 
         assert ask(env, agent.id, CLIENT_KEY).status_code == 200
         assert used_roles == ["Intern rolle"]
+
+
+class TestCandidateObserver:
+    """The observer gives feedback after an interview in The Candidate."""
+
+    def test_client_key_chats_with_unpublished_observer(self, env, monkeypatch):
+        observer = make_agent(env, "Observatør")
+        monkeypatch.setattr(Config(), "CANDIDATE_OBSERVER_AGENT_ID", observer.id)
+
+        response = ask(env, observer.id, CLIENT_KEY)
+
+        assert response.status_code == 200
+        assert response.json()["response"]["response"] == f"answer from {observer.id}"
+
+    def test_no_observer_when_not_configured(self, env, monkeypatch):
+        observer = make_agent(env, "Observatør")
+        monkeypatch.setattr(Config(), "CANDIDATE_OBSERVER_AGENT_ID", "")
+
+        assert ask(env, observer.id, CLIENT_KEY).status_code == 403
+
+    def test_other_unpublished_agents_stay_closed(self, env, monkeypatch):
+        observer = make_agent(env, "Observatør")
+        other = make_agent(env, "Privat")
+        monkeypatch.setattr(Config(), "CANDIDATE_OBSERVER_AGENT_ID", observer.id)
+
+        assert ask(env, other.id, CLIENT_KEY).status_code == 403
