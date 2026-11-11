@@ -1,28 +1,6 @@
 name: ragdoll
 
 services:
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: ragdoll-nginx
-    depends_on:
-      - backend-service
-      - frontend-service
-      - chat-service
-      - keycloak
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ${SSL_CERT_PATH:-/root/iplvr.it.ntnu.no.crt}:/etc/ssl/certs/server.crt:ro
-      - ${SSL_KEY_PATH:-/root/iplvr.it.ntnu.no.key}:/etc/ssl/private/server.key:ro
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   mongodb:
     image: mongo:7
     container_name: ragdoll-mongodb
@@ -47,56 +25,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-
-  keycloak:
-    build:
-      context: .
-      dockerfile: keycloak.Dockerfile
-    image: ragdoll-keycloak:local
-    container_name: ragdoll-keycloak
-    restart: unless-stopped
-    command:
-      - start
-      - --import-realm
-      - --http-enabled=true
-      - --proxy-headers=xforwarded
-      - --hostname=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in RAGdoll/.env}
-      KC_HTTP_PORT: 8080
-      KC_HOSTNAME_STRICT: "false"
-      # Outgoing mail (password reset). Defaults to the Mailpit catcher until a real provider is set in .env.
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_FROM: ${SMTP_FROM:-no-reply@ragdoll.local}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-RAGdoll}
-      SMTP_AUTH: ${SMTP_AUTH:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
-      SMTP_SSL: ${SMTP_SSL:-false}
-    volumes:
-      - keycloak_data:/opt/keycloak/data
-    expose:
-      - "8080"
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/8080'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 40s
-
-  # Catches outgoing mail while no real SMTP provider is configured.
-  # Inbox UI is bound to the host's loopback only: reach it with an SSH tunnel to port 8025.
-  mailpit:
-    image: axllent/mailpit:v1.21
-    container_name: ragdoll-mailpit
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8025:8025"
-    expose:
-      - "1025"
 
   backend-service:
     build:
@@ -140,7 +68,6 @@ services:
       - IDUN_API_URL=${IDUN_API_URL:-https://llm.hpc.ntnu.no/v1/chat/completions}
       - ACCESS_SERVICE=${ACCESS_SERVICE:-service}
       - FERNET_KEY=${FERNET_KEY:?Set FERNET_KEY in RAGdoll/.env}
-      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in RAGdoll/.env}
       - SESSION_TOKEN_TTL=${SESSION_TOKEN_TTL:-15}
       - REFRESH_TOKEN_TTL=${REFRESH_TOKEN_TTL:-14}
       - WHISPER_MODEL=${WHISPER_MODEL:-base}
@@ -179,57 +106,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  frontend-service:
-    build:
-      context: ../RAGdollConfig
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_BACKEND_API_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-        NEXT_PUBLIC_CHAT_WEBSITE_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/chat
-        NEXT_PUBLIC_RAGDOLL_BASE_URL: ${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-    container_name: ragdoll-frontend
-    environment:
-      - NODE_ENV=production
-      - BACKEND_API_URL=http://backend-service:8000
-      # better-auth reads BETTER_AUTH_*; fall back to the old NEXTAUTH_SECRET so
-      # existing server .env files keep working.
-      - BETTER_AUTH_URL=${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-${NEXTAUTH_SECRET:?Set BETTER_AUTH_SECRET (or NEXTAUTH_SECRET) in RAGdoll/.env}}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-ragdoll-config}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in RAGdoll/.env}
-      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-${PUBLIC_BASE_URL:-https://iplvr.it.ntnu.no}/realms/${KEYCLOAK_REALM:-ragdoll}}
-      - DISABLE_AUTH=${DISABLE_AUTH:-false}
-    expose:
-      - "3000"
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  chat-service:
-    build:
-      context: ../RAGdollChat
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_BACKEND_API_URL: /backend
-        NEXT_PUBLIC_BASE_PATH: /chat
-    container_name: ragdoll-chat
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - NEXT_PUBLIC_BACKEND_API_URL=/backend
-      - NEXT_PUBLIC_BASE_PATH=/chat
-    expose:
-      - "3001"
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   libretranslate:
     image: libretranslate/libretranslate:v1.9.6
     container_name: ragdoll-libretranslate
@@ -245,7 +121,11 @@ services:
     environment:
       - LT_LOAD_ONLY=${LT_LOAD_ONLY:-en,es,zh}
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/languages', timeout=5)\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:5000/languages'', timeout=5)"',
+        ]
       interval: 15s
       timeout: 10s
       retries: 20
@@ -259,19 +139,16 @@ services:
 volumes:
   mongodb_data:
     driver: local
-    name: ragdoll_mongodb_data
+    name: ragdoll_db
   mongodb_config:
     driver: local
-    name: ragdoll_mongodb_config
-  keycloak_data:
-    driver: local
-    name: ragdoll_keycloak_data
+    name: ragdoll_db_config
   faiss_indices:
     driver: local
-    name: ragdoll_faiss_indices
+    name: ragdoll_indices
   piper_voices:
     driver: local
-    name: ragdoll_piper_voices
+    name: ragdoll_piper
   libretranslate_data:
     driver: local
-    name: ragdoll_libretranslate_data
+    name: ragdoll_libretranslate
