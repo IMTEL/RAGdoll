@@ -2,10 +2,7 @@ name: Tests
 
 # Lint runs in lint.yml. deploy.yml waits for this workflow by its name.
 on:
-  push:
-    branches: [ "main", "dev" ]
-  pull_request:
-    branches: [ "main", "dev" ]
+  workflow_call:
 
 permissions:
   contents: read
@@ -34,48 +31,48 @@ jobs:
     name: Tests
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install system libraries
-      # libmagic and OpenCV/poppler libraries are imported by `unstructured`.
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          libmagic1 libgl1 libglib2.0-0 poppler-utils
+      - name: Install system libraries
+        # libmagic and OpenCV/poppler libraries are imported by `unstructured`.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libmagic1 libgl1 libglib2.0-0 poppler-utils
 
-    - name: Install uv
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-    - name: Install dependencies
-      run: uv sync --dev
+      - name: Install dependencies
+        run: uv sync --dev
 
-    - name: Create .env file for testing
-      # Tests use mongomock (tests/conftest.py, USE_MONGOMOCK defaults to
-      # true) and stub every LLM and embedding client, so no database or
-      # provider secrets are needed. The Fernet key is generated per run.
-      run: |
-        cat << EOF > .env
-        ENV=dev
-        RUNNING_TESTS=true
-        USE_MONGOMOCK=true
-        MOCK_MONGODB_DATABASE=test_database
-        RAG_DATABASE_SYSTEM=mongodb
-        ACCESS_SERVICE=mock
-        FERNET_KEY=$(uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-        EOF
+      - name: Create .env file for testing
+        # Tests use mongomock (tests/conftest.py, USE_MONGOMOCK defaults to
+        # true) and stub every LLM and embedding client, so no database or
+        # provider secrets are needed. The Fernet key is generated per run.
+        run: |
+          cat << EOF > .env
+          ENV=dev
+          RUNNING_TESTS=true
+          USE_MONGOMOCK=true
+          MOCK_MONGODB_DATABASE=test_database
+          RAG_DATABASE_SYSTEM=mongodb
+          ACCESS_SERVICE=mock
+          FERNET_KEY=$(uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+          EOF
 
-    - name: Run tests
-      env:
-        OPENBLAS_NUM_THREADS: "1"
-        OMP_NUM_THREADS: "1"
-      run: uv run pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing
+      - name: Run tests
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: uv run pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing
 
-    - name: Upload coverage to Codecov (optional)
-      if: always()
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: false
-      continue-on-error: true
+      - name: Upload coverage to Codecov (optional)
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true
