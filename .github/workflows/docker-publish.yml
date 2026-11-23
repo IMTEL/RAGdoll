@@ -10,7 +10,7 @@ on:
 
 env:
   # Use docker.io for Docker Hub if empty
-  REGISTRY: registry.iplvr.it.ntnu.no
+  REGISTRY: registry.iplvr.it.ntnu.no/ragdoll
   # github.repository as <account>/<repo>
   IMAGE_NAME: ragdoll
 
