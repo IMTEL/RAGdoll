@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@4
+      - uses: actions/setup-python@7
 
       - name: Read project version
         id: project
