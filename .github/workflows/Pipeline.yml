@@ -13,3 +13,4 @@ jobs:
   docker:
     needs: [test, lint]
     uses: ./.github/workflows/docker-publish.yml
+    secrets: inherit
