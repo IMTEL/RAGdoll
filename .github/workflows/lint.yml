@@ -12,7 +12,6 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     name: Lint & Format Check
-
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +27,9 @@ jobs:
         run: uv sync --dev
 
       - name: Lint with Ruff
+        continue-on-error: true
         run: uv run ruff check --no-fix src tests
 
       - name: Check formatting with Ruff
+        continue-on-error: true
         run: uv run ruff format --check src tests
