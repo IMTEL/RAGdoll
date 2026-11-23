@@ -39,6 +39,10 @@ __pycache__/
 coverage/
 htmlcov/
 
+#Docs
+docs/
+
+
 # Runtime scratch dirs (mounted as volumes by compose)
 temp_files/
 *context_files/
